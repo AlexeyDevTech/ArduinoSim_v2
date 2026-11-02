@@ -1,0 +1,16 @@
+<Project>
+  <!-- Shared settings for every project in the repository. Per-project strictness
+       (TreatWarningsAsErrors for Core, Build, Ipc) lives in the project files. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
+    <Product>ArduSim</Product>
+    <Version>0.0.1</Version>
+    <NeutralLanguage>ru</NeutralLanguage>
+    <SatelliteResourceLanguages>en;ru</SatelliteResourceLanguages>
+  </PropertyGroup>
+</Project>

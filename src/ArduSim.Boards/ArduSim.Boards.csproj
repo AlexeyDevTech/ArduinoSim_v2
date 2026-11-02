@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Board profiles (pin maps, capabilities) and per-board timing tables. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ArduSim.Core\ArduSim.Core.csproj" />
+  </ItemGroup>
+
+</Project>

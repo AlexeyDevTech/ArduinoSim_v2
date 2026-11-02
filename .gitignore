@@ -1,0 +1,22 @@
+# .NET build output
+bin/
+obj/
+artifacts/
+TestResults/
+*.user
+*.suo
+.vs/
+.idea/
+
+# Native build output from tools and the shim test harness
+*.o
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+/tools/**/build/
+
+# Per-run state that never belongs in the repo
+eeprom.bin
+*.log

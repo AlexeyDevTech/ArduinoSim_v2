@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ArduSim.Core\ArduSim.Core.csproj" />
+    <!-- Referenced only so ProjectBoundaryTests can inspect them. -->
+    <ProjectReference Include="..\..\src\ArduSim.Boards\ArduSim.Boards.csproj" />
+    <ProjectReference Include="..\..\src\ArduSim.Build\ArduSim.Build.csproj" />
+    <ProjectReference Include="..\..\src\ArduSim.Ipc\ArduSim.Ipc.csproj" />
+  </ItemGroup>
+
+</Project>
