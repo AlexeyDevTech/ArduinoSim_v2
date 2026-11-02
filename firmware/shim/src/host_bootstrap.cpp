@@ -96,6 +96,45 @@ uint64_t find_firmware_return(const CONTEXT* context)
     return 0;
 }
 
+void append_hex(char*& out, uint64_t value)
+{
+    *out++ = '0';
+    *out++ = 'x';
+    bool started = false;
+    for (int shift = 60; shift >= 0; shift -= 4) {
+        unsigned digit = static_cast<unsigned>((value >> shift) & 0xF);
+        if (digit != 0 || started || shift == 0) {
+            started = true;
+            *out++ = static_cast<char>(digit < 10 ? '0' + digit : 'A' + digit - 10);
+        }
+    }
+}
+
+void append_text(char*& out, const char* text)
+{
+    while (*text != '\0') {
+        *out++ = *text++;
+    }
+}
+
+// The record is in shared memory; end the process now rather than wait for the .NET runtime and
+// Windows Error Reporting to finish with the fault (seconds). One line on stderr for headless runs.
+[[noreturn]] void report_and_terminate(DWORD code, uintptr_t address)
+{
+    char line[160];
+    char* out = line;
+    append_text(out, "ArduSim firmware crashed: exception ");
+    append_hex(out, code);
+    append_text(out, " at firmware.dll+");
+    append_hex(out, address - g_firmware_begin);
+    append_text(out, "\n");
+    DWORD written = 0;
+    WriteFile(GetStdHandle(STD_ERROR_HANDLE), line, static_cast<DWORD>(out - line), &written, nullptr);
+    TerminateProcess(GetCurrentProcess(), code);
+    for (;;) {
+    }
+}
+
 LONG CALLBACK on_exception(EXCEPTION_POINTERS* info)
 {
     const EXCEPTION_RECORD* record = info->ExceptionRecord;
@@ -118,7 +157,8 @@ LONG CALLBACK on_exception(EXCEPTION_POINTERS* info)
     g_crash->return_address = overflow ? 0 : find_firmware_return(info->ContextRecord);
     MemoryBarrier();
     g_crash->magic = CrashMagic;
-    return EXCEPTION_CONTINUE_SEARCH;  // let the process die; ArduSim.App reads the record
+    report_and_terminate(record->ExceptionCode, address);
+    return EXCEPTION_CONTINUE_SEARCH;
 }
 
 }  // namespace

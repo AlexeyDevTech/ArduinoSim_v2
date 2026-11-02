@@ -10,4 +10,9 @@ public static class Strings
 
     /// <summary>Returns the localized string, or <c>!key!</c> so a missing key is visible on screen.</summary>
     public static string Get(string key) => Manager.GetString(key, CultureInfo.CurrentUICulture) ?? $"!{key}!";
+
+    /// <summary>Formats a localized pattern with the current culture.</summary>
+#pragma warning disable CA1863 // patterns come from resources, one call site per message
+    public static string Format(string key, params object?[] args) => string.Format(CultureInfo.CurrentCulture, Get(key), args);
+#pragma warning restore CA1863
 }

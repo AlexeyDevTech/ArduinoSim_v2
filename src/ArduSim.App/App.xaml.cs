@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using ArduSim.App.Services;
 using ArduSim.App.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -27,6 +28,8 @@ public partial class App : Application
                 formatProvider: CultureInfo.InvariantCulture,
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 14));
+        builder.Services.AddSingleton(new AppEnvironment(inProcess: e.Args.Contains("--inproc")));
+        builder.Services.AddSingleton<FirmwareBuildService>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
 

@@ -26,9 +26,9 @@ A crash in the sketch kills only the Runner; Stop on a busy loop kills the proce
 
 ### Messages
 
-- UI → Runner commands: `Load`, `Start`, `Pause`, `Resume`, `Stop`, `Step(kind: Loop | Micros(n))`, `SetSpeed(factor | Max)`.
-- UI → Runner input events: `ButtonDown/Up`, `PotValue`, `SerialInput`, `PinOverride`. Applied at the next scheduling point and stamped with that virtual time.
-- Runner → UI: `Snapshot` at ≤ 60 Hz as deltas (pin levels and PWM duty, changed display framebuffers, component states, virtual time, pacing ratio) and events (`SerialOutput`, `Log`, `Warning` with component id, `CrashReport`, `BuildStats`, `FirmwareBusy`).
+- UI → Runner commands: `PauseRun`, `ResumeRun`, `StopRun`, `StepRun(kind: Loop | Time, ns)`, `SetSpeed(factor | +∞)`. The Runner is started with the project and firmware on its command line (`--ipc --pipe --crash-block --project --firmware --speed --seed`), so there is no Load/Start message.
+- UI → Runner input events: `ComponentInput(part, name, value)` (button `pressed`, switch `position`, pot `value`) and `SerialInput(port, bytes)`. Applied at the next scheduling point and stamped with that virtual time. `PinOverride` is not implemented yet.
+- Runner → UI: `Snapshot` at ≤ 60 Hz as deltas (pin drives, part states, Serial bytes and log entries since the last one, virtual and wall time, run state; display framebuffers from M4) and `FirmwareBusy`. Crashes are reported through the crash block, not the pipe; builds happen in the App.
 
 ### Serializer: MessagePack-CSharp
 
@@ -54,7 +54,7 @@ The UI talks to the simulation only through `ISimulationSession` (in `ArduSim.Ip
 ### Crash diagnostics
 
 - The App creates a small named shared-memory block per run and passes its name to the Runner. It holds `SimCrashInfo` (ADR-001) and a ring of the last 20 host calls (call id, arguments, virtual time) that the Runner writes on every call — a few stores, no allocation.
-- The shim installs a vectored exception handler in `sim_fw_init` that, for fatal exceptions (access violation, divide by zero, stack overflow, illegal instruction), writes code, address and the DLL base into `SimCrashInfo`, then lets the process die.
+- The shim installs a vectored exception handler in `sim_fw_init` that, for fatal exceptions in firmware.dll or the C runtime it calls (access violation, divide by zero, stack overflow, illegal instruction), writes code, address, the DLL base, the faulting data address and the first return address into firmware.dll found on the stack into `SimCrashInfo`, prints one line to stderr and terminates the process at once (waiting for .NET and Windows Error Reporting took seconds).
 - After the Runner exits, the App reads the block and the Runner's stderr, symbolizes the address against `firmware.pdb` with `dbghelp`, and shows: exception type, `file:line` in the sketch, the last 20 host calls, and Rerun. A crash inside a static constructor surfaces as "DLL initialization failed" (Windows error 1114) from `LoadLibrary`; the handler's record still applies.
 
 ### Runaway detection

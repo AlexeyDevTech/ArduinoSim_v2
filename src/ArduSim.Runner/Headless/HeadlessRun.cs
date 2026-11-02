@@ -119,21 +119,13 @@ internal static class HeadlessRun
         var toolchains = new ToolchainManager(paths.Toolchains, http);
         Toolchain toolchain = toolchains.FindInstalled() ?? await InstallAsync(toolchains);
 
-        var libraryRoots = new List<string>(project.LibraryDirectories(projectDirectory));
-        string documents = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Arduino", "libraries");
-        if (Directory.Exists(documents))
-        {
-            libraryRoots.Add(documents);
-        }
-
-        libraryRoots.Add(Path.Combine(ArduSimPaths.BundledContentRoot, "libraries"));
         var builder = new FirmwareBuilder(toolchain, new ObjectCache(paths.ObjectCache, toolchain.Root), ShimLayout.Bundled);
         var request = new FirmwareBuildRequest(
             project.SketchDirectory(projectDirectory),
-            buildDirectory ?? Path.Combine(paths.Builds, BuildFolderName(projectDirectory)),
+            buildDirectory ?? paths.BuildDirectoryFor(projectDirectory),
             board.Variant,
             board.Defines,
-            libraryRoots);
+            ArduSimPaths.LibraryRoots(project.LibraryDirectories(projectDirectory)));
         return await builder.BuildAsync(request, CancellationToken.None);
     }
 
@@ -161,12 +153,6 @@ internal static class HeadlessRun
             _decile = percent / 10;
             Console.Error.WriteLine($"  {value.Stage.ToString().ToLowerInvariant()} {percent}%");
         }
-    }
-
-    private static string BuildFolderName(string projectDirectory)
-    {
-        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(projectDirectory.ToUpperInvariant()));
-        return Path.GetFileName(projectDirectory) + "-" + Convert.ToHexStringLower(hash)[..12];
     }
 
     private static void Attach(SimulationHost host, HeadlessOptions options, TextWriter output)

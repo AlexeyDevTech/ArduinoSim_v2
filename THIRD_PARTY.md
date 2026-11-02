@@ -9,6 +9,7 @@
 | Serilog | 4.4.0 | Apache-2.0 | App |
 | Serilog.Extensions.Hosting | 10.0.0 | Apache-2.0 | App |
 | Serilog.Sinks.File | 7.0.0 | Apache-2.0 | App |
+| MessagePack | 3.1.12 | MIT | Ipc |
 | xunit.v3 | 4.0.2 | Apache-2.0 | tests |
 
 ## Toolchain (downloaded at first run, not redistributed in the repo)

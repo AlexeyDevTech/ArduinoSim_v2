@@ -5,24 +5,389 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:l="clr-namespace:ArduSim.App.Localization"
         xmlns:vm="clr-namespace:ArduSim.App.ViewModels"
+        xmlns:v="clr-namespace:ArduSim.App.Views"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="{l:Loc App_Title}"
-        Width="1280" Height="800" MinWidth="960" MinHeight="600"
+        Width="1360" Height="860" MinWidth="1000" MinHeight="640"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource Brush.Background}"
         Foreground="{DynamicResource Brush.Text.Primary}"
         FontFamily="{DynamicResource Font.Ui}"
-        FontSize="{DynamicResource FontSize.Body}">
+        FontSize="{DynamicResource FontSize.Body}"
+        PreviewKeyDown="OnPreviewKeyDown" PreviewKeyUp="OnPreviewKeyUp">
+  <Window.InputBindings>
+    <KeyBinding Key="B" Modifiers="Control" Command="{Binding BuildCommand}" />
+    <KeyBinding Key="F5" Command="{Binding RunCommand}" />
+    <KeyBinding Key="F5" Modifiers="Shift" Command="{Binding StopCommand}" />
+  </Window.InputBindings>
+
+  <Window.Resources>
+    <v:EqualsToVisibilityConverter x:Key="IsVisibleWhen" />
+    <v:NotEqualsToVisibilityConverter x:Key="IsHiddenWhen" />
+    <v:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+    <v:NullToVisibilityConverter x:Key="NullToVisibility" />
+    <v:NullToVisibilityConverter x:Key="VisibleWhenNull" Invert="True" />
+    <v:BoolToVisibilityConverter x:Key="InvertBoolToVisibility" Invert="True" />
+    <v:SeverityToBrushConverter x:Key="SeverityToBrush" />
+    <v:FrequencyConverter x:Key="Frequency" />
+    <v:ColorToBrushConverter x:Key="ColorToBrush" />
+    <v:PartTemplateSelector x:Key="PartTemplates" />
+    <SolidColorBrush x:Key="Lead" Color="#FFB4BAC4" />
+
+    <!-- Parts, drawn in canvas units (0.01 inch). Templates live here so their handlers are view glue in MainWindow. -->
+    <DataTemplate x:Key="Part.board" DataType="{x:Type vm:PartViewModel}">
+      <Canvas Width="180" Height="70">
+        <Rectangle Width="180" Height="70" RadiusX="3" RadiusY="3" Fill="#FF1D5AA8" Stroke="#FF143F78" />
+        <Rectangle Canvas.Left="-12" Canvas.Top="24" Width="24" Height="22" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
+        <Rectangle Canvas.Left="72" Canvas.Top="24" Width="36" Height="22" Fill="#FF1E1F24" />
+        <TextBlock Canvas.Left="74.5" Canvas.Top="32" FontSize="4.4" Foreground="#FF8A93A6" Text="ATmega328P" />
+        <TextBlock Canvas.Left="120" Canvas.Top="30" FontSize="7" FontWeight="SemiBold" Foreground="#FFD8E2F4" Text="NANO" />
+        <Rectangle Canvas.Left="30" Canvas.Top="38" Width="7" Height="4" Fill="#FF4A3410" />
+        <Ellipse Canvas.Left="23.5" Canvas.Top="30" Width="20" Height="20" Opacity="{Binding OnboardLed}" IsHitTestVisible="False">
+          <Ellipse.Fill>
+            <RadialGradientBrush>
+              <GradientStop Color="#C0FFA020" Offset="0" />
+              <GradientStop Color="#00FFA020" Offset="1" />
+            </RadialGradientBrush>
+          </Ellipse.Fill>
+        </Ellipse>
+        <Rectangle Canvas.Left="30" Canvas.Top="38" Width="7" Height="4" Fill="#FFFFA020" Opacity="{Binding OnboardLed}" />
+        <TextBlock Canvas.Left="31.5" Canvas.Top="43" FontSize="4" Foreground="White" Text="L" />
+        <Rectangle Canvas.Left="44" Canvas.Top="38" Width="7" Height="4" Fill="#FF3AE06A" />
+        <TextBlock Canvas.Left="43.5" Canvas.Top="43" FontSize="4" Foreground="White" Text="ON" />
+        <ItemsControl ItemsSource="{Binding Pins}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <Canvas />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemContainerStyle>
+            <Style TargetType="ContentPresenter">
+              <Setter Property="Canvas.Left" Value="{Binding X}" />
+              <Setter Property="Canvas.Top" Value="{Binding Y}" />
+            </Style>
+          </ItemsControl.ItemContainerStyle>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:PinViewModel}">
+              <Canvas ToolTip="{Binding Name}">
+                <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
+                <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+              </Canvas>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Canvas>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Part.led" DataType="{x:Type vm:PartViewModel}">
+      <Canvas Width="40" Height="70">
+        <Line X1="10" Y1="40" X2="10" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Line X1="30" Y1="40" X2="30" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Ellipse Canvas.Left="-20" Canvas.Top="-24" Width="80" Height="80" Opacity="{Binding Brightness}" IsHitTestVisible="False">
+          <Ellipse.Fill>
+            <RadialGradientBrush>
+              <GradientStop Color="{Binding LedColor}" Offset="0" />
+              <GradientStop Color="Transparent" Offset="1" />
+            </RadialGradientBrush>
+          </Ellipse.Fill>
+        </Ellipse>
+        <Path Data="M 5,40 L 5,18 A 15,15 0 0 1 35,18 L 35,40 Z" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}" Opacity="0.35" />
+        <Path Data="M 5,40 L 5,18 A 15,15 0 0 1 35,18 L 35,40 Z" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}" Opacity="{Binding Brightness}" />
+        <Rectangle Canvas.Left="2" Canvas.Top="38" Width="36" Height="4" RadiusX="1" RadiusY="1" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}" Opacity="0.6" />
+      </Canvas>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Part.rgb-led" DataType="{x:Type vm:PartViewModel}">
+      <Canvas Width="50" Height="80">
+        <Line X1="10" Y1="48" X2="10" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Line X1="20" Y1="48" X2="20" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Line X1="30" Y1="48" X2="30" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Line X1="40" Y1="48" X2="40" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Ellipse Canvas.Left="-15" Canvas.Top="-20" Width="80" Height="80" Opacity="{Binding RgbIntensity}" IsHitTestVisible="False">
+          <Ellipse.Fill>
+            <RadialGradientBrush>
+              <GradientStop Color="{Binding RgbColor}" Offset="0" />
+              <GradientStop Color="Transparent" Offset="1" />
+            </RadialGradientBrush>
+          </Ellipse.Fill>
+        </Ellipse>
+        <Path Data="M 6,48 L 6,22 A 19,19 0 0 1 44,22 L 44,48 Z" Fill="#55D8DCE6" />
+        <Path Data="M 6,48 L 6,22 A 19,19 0 0 1 44,22 L 44,48 Z" Fill="{Binding RgbColor, Converter={StaticResource ColorToBrush}}" Opacity="{Binding RgbIntensity}" />
+      </Canvas>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Part.resistor" DataType="{x:Type vm:PartViewModel}">
+      <Canvas Width="60" Height="20">
+        <Line X1="0" Y1="10" X2="60" Y2="10" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Rectangle Canvas.Left="13" Canvas.Top="4" Width="34" Height="12" RadiusX="4" RadiusY="4" Fill="#FFD9C28E" />
+        <Rectangle Canvas.Left="19" Canvas.Top="4" Width="2.5" Height="12" Fill="#FFC23B32" />
+        <Rectangle Canvas.Left="25" Canvas.Top="4" Width="2.5" Height="12" Fill="#FFC23B32" />
+        <Rectangle Canvas.Left="31" Canvas.Top="4" Width="2.5" Height="12" Fill="#FF6E4B2A" />
+        <Rectangle Canvas.Left="40" Canvas.Top="4" Width="2.5" Height="12" Fill="#FFD4AF37" />
+        <TextBlock Canvas.Left="0" Canvas.Top="-10" Width="60" TextAlignment="Center" FontSize="6" Foreground="{DynamicResource Brush.Text.Secondary}" Text="{Binding ResistanceText}" />
+      </Canvas>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Part.pushbutton" DataType="{x:Type vm:PartViewModel}">
+      <Canvas Width="60" Height="60" Background="Transparent" Cursor="Hand"
+              MouseLeftButtonDown="OnPartPress" MouseLeftButtonUp="OnPartRelease" MouseLeave="OnPartRelease">
+        <Line X1="10" Y1="52" X2="10" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Line X1="50" Y1="52" X2="50" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Rectangle Canvas.Left="4" Canvas.Top="4" Width="52" Height="48" RadiusX="3" RadiusY="3" Fill="#FF2A2E36" Stroke="#FF454B58" />
+        <Ellipse x:Name="Cap" Canvas.Left="15" Canvas.Top="13" Width="30" Height="30" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}"
+                 Stroke="#40000000" StrokeThickness="2" RenderTransformOrigin="0.5,0.5">
+          <Ellipse.RenderTransform>
+            <ScaleTransform />
+          </Ellipse.RenderTransform>
+        </Ellipse>
+        <TextBlock Canvas.Left="6" Canvas.Top="-10" Width="48" TextAlignment="Center" FontSize="6" Foreground="{DynamicResource Brush.Text.Secondary}" Text="{Binding Key}" />
+      </Canvas>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Pressed}" Value="True">
+          <Setter TargetName="Cap" Property="RenderTransform">
+            <Setter.Value>
+              <ScaleTransform ScaleX="0.86" ScaleY="0.86" />
+            </Setter.Value>
+          </Setter>
+          <Setter TargetName="Cap" Property="Opacity" Value="0.75" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Part.slide-switch" DataType="{x:Type vm:PartViewModel}">
+      <Canvas Width="60" Height="40" Background="Transparent" Cursor="Hand" MouseLeftButtonUp="OnPartToggle">
+        <Line X1="10" Y1="28" X2="10" Y2="40" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Line X1="30" Y1="28" X2="30" Y2="40" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Line X1="50" Y1="28" X2="50" Y2="40" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Rectangle Canvas.Top="4" Width="60" Height="24" RadiusX="3" RadiusY="3" Fill="#FF2A2E36" Stroke="#FF454B58" />
+        <Rectangle Canvas.Left="10" Canvas.Top="11" Width="40" Height="10" RadiusX="2" RadiusY="2" Fill="#FF15171C" />
+        <Rectangle x:Name="Knob" Canvas.Left="10" Canvas.Top="9" Width="20" Height="14" RadiusX="2" RadiusY="2" Fill="#FFC9CED8" />
+      </Canvas>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding SwitchRight}" Value="True">
+          <Setter TargetName="Knob" Property="Canvas.Left" Value="30" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Part.potentiometer" DataType="{x:Type vm:PartViewModel}">
+      <Canvas Width="60" Height="60">
+        <Line X1="10" Y1="44" X2="10" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Line X1="30" Y1="44" X2="30" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Line X1="50" Y1="44" X2="50" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Rectangle Canvas.Left="4" Canvas.Top="4" Width="52" Height="42" RadiusX="3" RadiusY="3" Fill="#FF2F5E9E" />
+        <Canvas Canvas.Left="30" Canvas.Top="25" Background="Transparent" Cursor="SizeNS" MouseWheel="OnKnobWheel">
+          <Ellipse Canvas.Left="-16" Canvas.Top="-16" Width="32" Height="32" Fill="#FFD7DBE3" Stroke="#FF8A93A6" />
+          <Line X1="0" Y1="0" X2="0" Y2="-13" Stroke="#FF1E1F24" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round">
+            <Line.RenderTransform>
+              <RotateTransform Angle="{Binding KnobAngle}" />
+            </Line.RenderTransform>
+          </Line>
+        </Canvas>
+        <Slider Canvas.Left="0" Canvas.Top="-16" Width="60" Minimum="0" Maximum="1" SmallChange="0.01" LargeChange="0.1" Value="{Binding Value, Mode=TwoWay}" />
+      </Canvas>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Part.buzzer" DataType="{x:Type vm:PartViewModel}">
+      <Canvas Width="50" Height="50">
+        <Line X1="15" Y1="40" X2="15" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Line X1="35" Y1="40" X2="35" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+        <Ellipse Canvas.Left="3" Canvas.Top="0" Width="44" Height="44" Fill="#FF1E1F24" Stroke="#FF454B58" />
+        <Ellipse Canvas.Left="20" Canvas.Top="17" Width="10" Height="10" Fill="#FF0D0E11" />
+        <TextBlock Canvas.Left="-10" Canvas.Top="-12" Width="70" TextAlignment="Center" FontSize="7" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Brush.Accent}" Text="{Binding Frequency, Converter={StaticResource Frequency}}" />
+      </Canvas>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Part.unknown" DataType="{x:Type vm:PartViewModel}">
+      <Border Width="{Binding Width}" Height="{Binding Height}" BorderBrush="{DynamicResource Brush.Warning}" BorderThickness="1" CornerRadius="3">
+        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="6" Foreground="{DynamicResource Brush.Warning}" Text="{Binding Id, StringFormat='? {0}'}" />
+      </Border>
+    </DataTemplate>
+  </Window.Resources>
+
   <Grid>
-    <Border Background="{DynamicResource Brush.Surface}"
-            BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
-            CornerRadius="8" Padding="32,24"
-            HorizontalAlignment="Center" VerticalAlignment="Center">
-      <StackPanel>
-        <TextBlock Text="{l:Loc App_Title}" FontSize="{DynamicResource FontSize.Display}" FontWeight="SemiBold" />
-        <TextBlock Text="{Binding Status}" Margin="0,8,0,0" Foreground="{DynamicResource Brush.Text.Secondary}" />
-      </StackPanel>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="6" />
+      <RowDefinition Height="240" MinHeight="120" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Toolbar -->
+    <Border Grid.Row="0" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="12,8">
+      <DockPanel LastChildFill="False">
+        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+          <TextBlock Text="{l:Loc Toolbar_Project}" Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ListBox Style="{StaticResource ListBox.Segmented}" ItemsSource="{Binding Examples}" SelectedItem="{Binding SelectedExample}" DisplayMemberPath="Name" IsEnabled="{Binding CanEdit}" />
+          <Button Content="{l:Loc Toolbar_OpenFolder}" Command="{Binding OpenFolderCommand}" Margin="0,0,12,0" />
+          <Button Content="{l:Loc Toolbar_Build}" Command="{Binding BuildCommand}" ToolTip="Ctrl+B" />
+          <Button Content="{l:Loc Toolbar_Run}" Command="{Binding RunCommand}" Style="{StaticResource Button.Primary}" ToolTip="F5" />
+          <Button Command="{Binding PauseCommand}" MinWidth="92">
+            <Grid>
+              <TextBlock Text="{l:Loc Toolbar_Pause}" Visibility="{Binding IsPaused, Converter={StaticResource InvertBoolToVisibility}}" />
+              <TextBlock Text="{l:Loc Toolbar_Resume}" Visibility="{Binding IsPaused, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
+          </Button>
+          <Button Content="{l:Loc Toolbar_Stop}" Command="{Binding StopCommand}" ToolTip="Shift+F5" Margin="0,0,12,0" />
+          <TextBlock Text="{l:Loc Toolbar_Step}" Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <Button Content="{l:Loc Toolbar_StepLoop}" Command="{Binding StepLoopCommand}" Padding="7,5" Margin="0,0,4,0" />
+          <Button Content="{l:Loc Toolbar_Step1}" Command="{Binding StepTimeCommand}" CommandParameter="1" Padding="7,5" Margin="0,0,4,0" />
+          <Button Content="{l:Loc Toolbar_Step10}" Command="{Binding StepTimeCommand}" CommandParameter="10" Padding="7,5" Margin="0,0,4,0" />
+          <Button Content="{l:Loc Toolbar_Step100}" Command="{Binding StepTimeCommand}" CommandParameter="100" Padding="7,5" Margin="0,0,12,0" />
+          <TextBlock Text="{l:Loc Toolbar_Speed}" Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ListBox Style="{StaticResource ListBox.Segmented}" ItemsSource="{Binding Speeds}" SelectedItem="{Binding SelectedSpeed}" DisplayMemberPath="Label" />
+        </StackPanel>
+
+      </DockPanel>
+    </Border>
+
+    <!-- Canvas -->
+    <Border Grid.Row="1" Background="{DynamicResource Brush.Canvas}" ClipToBounds="True">
+      <Grid>
+      <Rectangle Fill="{DynamicResource Brush.CanvasGrid}" IsHitTestVisible="False" />
+      <Grid>
+        <TextBlock Text="{l:Loc Scene_Empty}" Foreground="{DynamicResource Brush.Text.Secondary}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Visibility="{Binding Scene, Converter={StaticResource VisibleWhenNull}}" />
+        <Viewbox Stretch="Uniform" Margin="24" StretchDirection="Both" Visibility="{Binding Scene, Converter={StaticResource NullToVisibility}}">
+          <Grid Width="{Binding Scene.Width}" Height="{Binding Scene.Height}">
+            <Canvas RenderTransform="{Binding Scene.Origin}">
+              <ItemsControl ItemsSource="{Binding Scene.Parts}" ItemTemplateSelector="{StaticResource PartTemplates}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <Canvas />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemContainerStyle>
+                  <Style TargetType="ContentPresenter">
+                    <Setter Property="Canvas.Left" Value="{Binding X}" />
+                    <Setter Property="Canvas.Top" Value="{Binding Y}" />
+                    <Setter Property="Width" Value="{Binding Width}" />
+                    <Setter Property="Height" Value="{Binding Height}" />
+                    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+                    <Setter Property="RenderTransform">
+                      <Setter.Value>
+                        <TransformGroup>
+                          <ScaleTransform ScaleX="{Binding FlipScale}" />
+                          <RotateTransform Angle="{Binding Rotation}" />
+                        </TransformGroup>
+                      </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding Highlighted}" Value="True">
+                        <Setter Property="Effect">
+                          <Setter.Value>
+                            <DropShadowEffect Color="#FFF0B44C" BlurRadius="12" ShadowDepth="0" Opacity="1" />
+                          </Setter.Value>
+                        </Setter>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </ItemsControl.ItemContainerStyle>
+              </ItemsControl>
+              <ItemsControl ItemsSource="{Binding Scene.Wires}" IsHitTestVisible="False">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <Canvas />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type vm:WireViewModel}">
+                    <Polyline Points="{Binding Points}" Stroke="{Binding Stroke}" StrokeThickness="2.2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.9" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Canvas>
+          </Grid>
+        </Viewbox>
+
+        <!-- Banner: crash, busy firmware, toolchain download, runner exit -->
+        <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,16,0,0" MaxWidth="720" Padding="16,12"
+                Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1" CornerRadius="8"
+                Visibility="{Binding Banner, Converter={StaticResource IsHiddenWhen}, ConverterParameter=None}">
+          <StackPanel>
+            <TextBlock Text="{Binding BannerTitle}" FontSize="{DynamicResource FontSize.Title}" FontWeight="SemiBold" Margin="0,0,0,6" />
+            <TextBlock Text="{Binding BannerBody}" TextWrapping="Wrap" Margin="0,0,0,8" />
+            <TextBox Text="{Binding BannerDetails, Mode=OneWay}" IsReadOnly="True" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
+                     MaxHeight="220" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10" TextWrapping="NoWrap"
+                     Visibility="{Binding BannerDetails, Converter={StaticResource NullToVisibility}}" />
+            <StackPanel Orientation="Horizontal">
+              <Button Content="{l:Loc Banner_Rerun}" Command="{Binding RunCommand}" Style="{StaticResource Button.Primary}"
+                      Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Crash}" />
+              <Button Content="{l:Loc Banner_Stop}" Command="{Binding StopCommand}" Style="{StaticResource Button.Primary}"
+                      Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Busy}" />
+              <Button Content="{l:Loc Banner_Download}" Command="{Binding DownloadToolchainCommand}" Style="{StaticResource Button.Primary}"
+                      Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Toolchain}" />
+              <Button Content="{l:Loc Banner_Close}" Command="{Binding CloseBannerCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Grid>
+      </Grid>
+    </Border>
+
+    <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" Background="{DynamicResource Brush.Border}" ResizeDirection="Rows" />
+
+    <!-- Bottom panel -->
+    <TabControl Grid.Row="3" SelectedIndex="{Binding SelectedTab}">
+      <TabItem Header="{l:Loc Tab_Serial}">
+        <DockPanel>
+          <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" LastChildFill="True">
+            <Button DockPanel.Dock="Right" Content="{l:Loc Serial_Send}" Command="{Binding SendSerialCommand}" Margin="8,0,0,0" IsDefault="False" />
+            <ListBox DockPanel.Dock="Right" Style="{StaticResource ListBox.Segmented}" ItemsSource="{Binding LineEndings}" SelectedItem="{Binding SelectedLineEnding}" DisplayMemberPath="Label" Margin="8,0,0,0" />
+            <TextBlock DockPanel.Dock="Right" Text="{l:Loc Serial_LineEnding}" Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" Margin="8,0,0,0" />
+            <TextBox Text="{Binding SerialInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource Font.Mono}" KeyDown="OnSerialInputKeyDown" />
+          </DockPanel>
+          <StackPanel DockPanel.Dock="Right" Margin="8,0,0,0" Width="150">
+            <TextBlock Text="{Binding BaudText}" Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,0,8" />
+            <CheckBox Content="{l:Loc Serial_AutoScroll}" IsChecked="{Binding AutoScroll}" Margin="0,0,0,8" />
+            <Button Content="{l:Loc Serial_Clear}" Command="{Binding ClearSerialCommand}" HorizontalAlignment="Left" />
+          </StackPanel>
+          <TextBox x:Name="SerialOutput" Text="{Binding SerialText, Mode=OneWay}" IsReadOnly="True" FontFamily="{DynamicResource Font.Mono}"
+                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextChanged="OnSerialTextChanged" />
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="{l:Loc Tab_Build}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <ListBox Grid.Column="0" ItemsSource="{Binding Diagnostics}" Background="{DynamicResource Brush.Canvas}" BorderBrush="{DynamicResource Brush.Border}"
+                   Foreground="{DynamicResource Brush.Text.Primary}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" />
+          <TextBox Grid.Column="2" Text="{Binding BuildOutput, Mode=OneWay}" IsReadOnly="True" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
+                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
+        </Grid>
+      </TabItem>
+      <TabItem Header="{l:Loc Tab_Log}">
+        <ListBox ItemsSource="{Binding Log}" Background="{DynamicResource Brush.Canvas}" BorderBrush="{DynamicResource Brush.Border}" HorizontalContentAlignment="Stretch">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:LogItem}">
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Content="{l:Loc Log_Show}" Padding="8,2" Margin="8,0,0,0"
+                        Command="{Binding DataContext.ShowPartCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding ComponentId}"
+                        Visibility="{Binding ComponentId, Converter={StaticResource NullToVisibility}}" />
+                <TextBlock DockPanel.Dock="Left" Text="{Binding Time}" FontFamily="{DynamicResource Font.Mono}" Foreground="{DynamicResource Brush.Text.Secondary}" Width="90" />
+                <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="{Binding Severity, Converter={StaticResource SeverityToBrush}}" />
+              </DockPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </TabItem>
+    </TabControl>
+
+    <!-- Status bar -->
+    <Border Grid.Row="4" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0" Padding="12,4">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Right" Text="{Binding ActualSpeed}" Foreground="{DynamicResource Brush.Text.Secondary}" FontFamily="{DynamicResource Font.Mono}" Margin="12,0,0,0" />
+        <TextBlock DockPanel.Dock="Right" Text="{Binding VirtualTime}" FontFamily="{DynamicResource Font.Mono}" Margin="12,0,0,0" />
+        <TextBlock DockPanel.Dock="Right" Text="{l:Loc Inproc_Badge}" Foreground="{DynamicResource Brush.Warning}" Visibility="{Binding InProcess, Converter={StaticResource BoolToVisibility}}" />
+        <TextBlock Text="{Binding ProjectName}" Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,16,0" />
+        <TextBlock Text="{Binding StatusText}" />
+      </DockPanel>
     </Border>
   </Grid>
 </Window>

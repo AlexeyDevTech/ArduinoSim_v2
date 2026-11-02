@@ -16,7 +16,13 @@
     <PackageReference Include="Serilog.Sinks.File" />
   </ItemGroup>
 
+  <!-- Bundled examples open as copies (ADR-008). -->
   <ItemGroup>
+    <None Include="..\..\examples\**\*" Exclude="..\..\examples\**\eeprom.bin" LinkBase="examples" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ArduSim.Core\ArduSim.Core.csproj" />
     <ProjectReference Include="..\ArduSim.Boards\ArduSim.Boards.csproj" />
     <ProjectReference Include="..\ArduSim.Build\ArduSim.Build.csproj" />
     <ProjectReference Include="..\ArduSim.Ipc\ArduSim.Ipc.csproj" />

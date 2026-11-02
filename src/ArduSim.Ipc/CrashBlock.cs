@@ -45,7 +45,7 @@ public sealed record HostCallRecord(HostCall Call, int A, int B, ulong TimeNs)
         string name = Call switch
         {
             HostCall.Micros => "micros/millis",
-            HostCall.DelayMicroseconds => "delay",
+            HostCall.DelayMicroseconds => "delayMicroseconds",
             HostCall.SetInterruptsEnabled => "interrupts",
             _ => char.ToLowerInvariant(Call.ToString()[0]) + Call.ToString()[1..],
         };

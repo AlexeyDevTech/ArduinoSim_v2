@@ -23,17 +23,18 @@ Done when `ArduSim.Runner --project examples/Blink --run-for 3000` prints D13 to
 - [x] Runner: firmware loader, ABI handshake, `SimHostApi` callbacks, headless CLI, watchdog, exit codes.
 - [x] `examples/Blink` and integration tests (Blink, Serial baud timing, static constructors/prototypes/EEPROM/warnings, build errors, runaway, shim harness).
 - Moved to M2: the firmware's vectored exception handler and the crash report — they need the App-side shared memory and symbolization to be useful.
-## M2 — Simulation core and first UI
+## M2 — Simulation core and first UI ✅
 
 Done when Blink blinks on screen, the Button example toggles an LED, and a floating input produces a warning.
 
-1. Core nets: graph from scene, incremental resolution, pulls, rails, floating/conflict warnings with component ids; tests.
-2. Nano board model on nets (pin modes, PWM state, ADC quantization, external interrupts 0/1 with modes, `noInterrupts`).
-3. Components: LED (color, PWM brightness), RGB LED, pushbutton (+ keyboard shortcut), slide switch, potentiometer, resistor, piezo buzzer (frequency display); definitions + behaviors + tests.
-4. IPC: MessagePack contracts, framing, `Hello` handshake, pipe transport, `PipeSimulationSession`, in-process session, snapshots ≤ 60 Hz as deltas; crash shared memory, vectored exception handler in the shim, last-20-host-calls ring, crash report with symbolized `file:line`; tests.
-5. App: shell with the fixed layout, hard-coded scene rendered on a canvas, toolbar (Build, Run, Pause, Stop, Step, speed, virtual time, status), Serial Monitor, Simulation log, crash/runaway dialogs.
-6. Examples: Button (INPUT_PULLUP toggles LED), a floating-input sketch; integration tests.
-
+- [x] Core circuit: nets from wires and closed switches, drivers, pulls, resistor coupling (Thevenin rules), rails, floating/undefined/short-circuit warnings pointing at parts; tests.
+- [x] Nano board model on nets: pin modes, INPUT_PULLUP (35 kΩ), PWM duty and tone as net state, ADC from net voltage and reference, external interrupts from net edges, `noInterrupts`.
+- [x] Parts: LED (color, PWM brightness), RGB LED, pushbutton (+ keyboard shortcut), slide switch, potentiometer, resistor, piezo buzzer (frequency), and the board (rails, on-board L LED); tests.
+- [x] IPC: MessagePack contracts, framing, `Hello`, named pipe, `PipeSimulationSession`, in-process session (`--inproc`), snapshots ≤ 60 Hz as deltas, pause/resume/step (loop, time), speed, part inputs, Serial input; tests.
+- [x] Crash reports: vectored exception handler in the shim, shared crash block with the last 20 host calls, dbghelp symbolization to `file:line`; runaway reports over IPC; tests.
+- [x] App: shell with the fixed layout, the project's scene rendered live, toolbar (examples, open folder, Build, Run, Pause/Resume, Stop, Step loop/1/10/100 ms, speed, virtual time), Serial Monitor, Build output, Simulation log with "show part", crash/busy/toolchain banners, first-run toolchain download.
+- [x] Examples Button and FloatingInput; Blink gains an external LED; headless `--input` for tests.
+- Not yet: simulation log messages come from Core in English (they carry codes; localization with the rest of the UI work), pin tooltips and net highlighting (M3), Serial Plotter (M5).
 ## M3 — Schematic editor
 
 Starts only after `docs/UI.md` is approved. Done when the Blink+button scene can be built from scratch, saved, reopened and run.

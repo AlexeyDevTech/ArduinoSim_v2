@@ -12,10 +12,68 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="App_Title" xml:space="preserve">
-    <value>ArduSim</value>
-  </data>
-  <data name="Status_Skeleton" xml:space="preserve">
-    <value>Каркас приложения (M0). Сборка и запуск скетчей появятся в M1, схема — в M2.</value>
-  </data>
+  <data name="App_Title" xml:space="preserve"><value>ArduSim</value></data>
+  <data name="Toolbar_Project" xml:space="preserve"><value>Пример</value></data>
+  <data name="Toolbar_OpenFolder" xml:space="preserve"><value>Открыть папку…</value></data>
+  <data name="Toolbar_Build" xml:space="preserve"><value>Собрать</value></data>
+  <data name="Toolbar_Run" xml:space="preserve"><value>Запуск</value></data>
+  <data name="Toolbar_Pause" xml:space="preserve"><value>Пауза</value></data>
+  <data name="Toolbar_Resume" xml:space="preserve"><value>Продолжить</value></data>
+  <data name="Toolbar_Stop" xml:space="preserve"><value>Стоп</value></data>
+  <data name="Toolbar_Step" xml:space="preserve"><value>Шаг:</value></data>
+  <data name="Toolbar_StepLoop" xml:space="preserve"><value>loop()</value></data>
+  <data name="Toolbar_Step1" xml:space="preserve"><value>1 мс</value></data>
+  <data name="Toolbar_Step10" xml:space="preserve"><value>10 мс</value></data>
+  <data name="Toolbar_Step100" xml:space="preserve"><value>100 мс</value></data>
+  <data name="Toolbar_Speed" xml:space="preserve"><value>Скорость:</value></data>
+  <data name="Speed_Max" xml:space="preserve"><value>макс</value></data>
+  <data name="Status_Idle" xml:space="preserve"><value>Готово</value></data>
+  <data name="Status_Building" xml:space="preserve"><value>Сборка…</value></data>
+  <data name="Status_BuildFailed" xml:space="preserve"><value>Ошибка сборки</value></data>
+  <data name="Status_Starting" xml:space="preserve"><value>Запуск…</value></data>
+  <data name="Status_Running" xml:space="preserve"><value>Работает</value></data>
+  <data name="Status_Paused" xml:space="preserve"><value>Пауза</value></data>
+  <data name="Status_Crashed" xml:space="preserve"><value>Прошивка упала</value></data>
+  <data name="Status_Busy" xml:space="preserve"><value>Прошивка не отвечает</value></data>
+  <data name="Status_Stopped" xml:space="preserve"><value>Остановлено</value></data>
+  <data name="Status_Toolchain" xml:space="preserve"><value>Компилятор: {0} {1}%</value></data>
+  <data name="Toolchain_Downloading" xml:space="preserve"><value>загрузка</value></data>
+  <data name="Toolchain_Verifying" xml:space="preserve"><value>проверка</value></data>
+  <data name="Toolchain_Extracting" xml:space="preserve"><value>распаковка</value></data>
+  <data name="Toolchain_Testing" xml:space="preserve"><value>проверка сборки</value></data>
+  <data name="Build_Summary" xml:space="preserve"><value>Собрано за {0:F2} с: единиц компиляции {1}, из кеша {2}.</value></data>
+  <data name="Tab_Serial" xml:space="preserve"><value>Монитор порта</value></data>
+  <data name="Tab_Build" xml:space="preserve"><value>Сборка</value></data>
+  <data name="Tab_Log" xml:space="preserve"><value>Журнал</value></data>
+  <data name="Serial_Send" xml:space="preserve"><value>Отправить</value></data>
+  <data name="Serial_Clear" xml:space="preserve"><value>Очистить</value></data>
+  <data name="Serial_AutoScroll" xml:space="preserve"><value>Автопрокрутка</value></data>
+  <data name="Serial_LineEnding" xml:space="preserve"><value>Конец строки:</value></data>
+  <data name="Serial_NoEnding" xml:space="preserve"><value>нет</value></data>
+  <data name="Serial_Baud" xml:space="preserve"><value>{0} бод</value></data>
+  <data name="Log_Show" xml:space="preserve"><value>Показать</value></data>
+  <data name="Banner_Close" xml:space="preserve"><value>Закрыть</value></data>
+  <data name="Banner_CrashTitle" xml:space="preserve"><value>Прошивка упала</value></data>
+  <data name="Banner_CrashBody" xml:space="preserve"><value>{0}: {1}.</value></data>
+  <data name="Banner_CrashCalledFrom" xml:space="preserve"><value>{0}, вызвано из {1}</value></data>
+  <data name="Banner_CrashUnknownPlace" xml:space="preserve"><value>место не определено</value></data>
+  <data name="Banner_LastCalls" xml:space="preserve"><value>Последние вызовы Arduino API:</value></data>
+  <data name="Banner_Rerun" xml:space="preserve"><value>Перезапустить</value></data>
+  <data name="Banner_BusyTitle" xml:space="preserve"><value>Прошивка не отвечает</value></data>
+  <data name="Banner_BusyBody" xml:space="preserve"><value>Уже 2 секунды скетч не вызывает Arduino API — похоже на бесконечный цикл без delay() и millis().</value></data>
+  <data name="Banner_Stop" xml:space="preserve"><value>Остановить</value></data>
+  <data name="Banner_ToolchainTitle" xml:space="preserve"><value>Нужен компилятор</value></data>
+  <data name="Banner_ToolchainBody" xml:space="preserve"><value>Чтобы собирать скетчи, ArduSim один раз скачает llvm-mingw ({0} МиБ) в {1} и проверит контрольную сумму.</value></data>
+  <data name="Banner_Download" xml:space="preserve"><value>Скачать</value></data>
+  <data name="Banner_ExitedTitle" xml:space="preserve"><value>Симуляция завершилась</value></data>
+  <data name="Banner_ToolchainFailed" xml:space="preserve"><value>Не удалось установить компилятор</value></data>
+  <data name="Crash_AccessViolation" xml:space="preserve"><value>Обращение к недопустимому адресу памяти</value></data>
+  <data name="Crash_DivideByZero" xml:space="preserve"><value>Целочисленное деление на ноль</value></data>
+  <data name="Crash_StackOverflow" xml:space="preserve"><value>Переполнение стека</value></data>
+  <data name="Crash_Other" xml:space="preserve"><value>Исключение процессора ({0})</value></data>
+  <data name="Crash_Location" xml:space="preserve"><value>{0}(), {1}:{2}</value></data>
+  <data name="Crash_NullWrite" xml:space="preserve"><value>запись по нулевому указателю</value></data>
+  <data name="Crash_NullRead" xml:space="preserve"><value>чтение по нулевому указателю</value></data>
+  <data name="Scene_Empty" xml:space="preserve"><value>Выберите пример или откройте папку проекта.</value></data>
+  <data name="Inproc_Badge" xml:space="preserve"><value>в процессе (отладка)</value></data>
 </root>

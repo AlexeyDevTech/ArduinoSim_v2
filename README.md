@@ -2,7 +2,7 @@
 
 A Windows desktop simulator for Arduino sketches. It compiles your `.ino` with a bundled portable C++ compiler — no Arduino IDE or arduino-cli — runs it against a virtual board, and shows the result on a schematic with real wires and live displays (HD44780 LCDs, SSD1306/SH1106 OLEDs).
 
-**Status: M1 — sketches build and run headless.** The schematic UI comes in M2/M3; see `docs/PLAN.md`.
+**Status: M2 — the app runs sketches on a live scene** (fixed layout; the schematic editor comes in M3). See `docs/PLAN.md`.
 
 ## Build and run
 
@@ -11,6 +11,12 @@ Requires Windows 10/11 and the .NET 10 SDK. The first sketch build downloads the
 ```
 dotnet build ArduSim.sln
 dotnet test
+dotnet run --project src/ArduSim.App
+```
+
+Pick an example (Blink, Button, FloatingInput) and press Run (F5). In Button, click the red button or press Space. Without the app:
+
+```
 src\ArduSim.Runner\bin\Debug\net10.0\ArduSim.Runner.exe --project examples\Blink --run-for 3000
 ```
 

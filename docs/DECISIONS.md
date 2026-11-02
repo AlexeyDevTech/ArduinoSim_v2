@@ -36,3 +36,16 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-02 — The project file model lives in `ArduSim.Core.Projects` (plain data, System.Text.Json).
 - 2026-11-02 — The toolchain is extracted with System.IO.Compression (no external tools); the first install takes about 2.5 minutes here, mostly extraction.
 - 2026-11-02 — Integration test fixture projects live in `tests/ArduSim.Integration.Tests/Projects`; `examples/` holds only user-facing examples.
+- 2026-11-02 — Net resolution: strong drivers must agree within 0.5 V (else a short); weak sources and sources behind resistors combine as a Thevenin equivalent over the shortest resistor path; a strongly driven net clamps the search. No currents.
+- 2026-11-02 — INPUT_PULLUP is a 35 kΩ weak source; inputs read HIGH from 0.6 Vcc and LOW up to 0.3 Vcc, undefined (warning, random) in between.
+- 2026-11-02 — An LED lights when forward-biased by sources of at most 10 kΩ; brightness is the PWM duty. The Nano's on-board L LED is buffered, so it follows the D13 voltage alone.
+- 2026-11-02 — Part state is a string → number map (`brightness`, `pressed`, `value`, `frequency`, `L`), the same in Core, IPC snapshots and the view.
+- 2026-11-02 — Part classes expose their definition as `public static ComponentDefinition Spec`; the board part is generic and built from the board profile.
+- 2026-11-02 — `SimCrashInfo.exception_code` is named `exception_status` (`exception_code` is a macro in `<excpt.h>`); `return_address` and `access_kind` were appended. Layout-compatible, nothing shipped, so the ABI stays 1.0.
+- 2026-11-02 — The shim's exception handler terminates the process right after recording a crash, so the app shows the report in milliseconds instead of waiting for .NET and Windows Error Reporting.
+- 2026-11-02 — The busy-firmware exit code is 4 (3 is what `abort()` returns).
+- 2026-11-02 — In-process sessions load a private copy of firmware.dll per run and park a stopped run's thread (native frames cannot be unwound).
+- 2026-11-02 — The App references Core directly for scene data and part definitions (read-only).
+- 2026-11-02 — M2 draws parts with XAML templates in MainWindow (handlers stay view glue); definition-driven vector art and the editor arrive with M3.
+- 2026-11-02 — The M2 canvas fits the scene with a Viewbox; pan and zoom arrive with the M3 editor.
+- 2026-11-02 — Headless `--input <ms>:<part>:<name>=<value>` schedules part inputs, so tests can press buttons.

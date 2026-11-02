@@ -38,7 +38,7 @@ Additions to the brief's list, each needed by a shim feature in the brief:
 | `spi_end` | `SPI.end()`. |
 | `set_interrupts_enabled(enabled)` | `noInterrupts()`/`interrupts()`: the host must not dispatch ISRs while masked and dispatches pending ones on re-enable. |
 | `fatal(message)` | Shim-detected unrecoverable errors (pure virtual call, `new` failure) end the run with a clear report. |
-| `crash_info` (pointer) | Memory shared with the App where the firmware's vectored exception handler records the exception code and address before the process dies (ADR-003). |
+| `crash_info` (pointer) | Memory shared with the App where the firmware's vectored exception handler records the exception status, address, faulting data address and a return address into the sketch before the process dies (ADR-003). Fields are only appended; the host provides at least 64 bytes. |
 
 `serial_write` takes a buffer (`port, data, length`) rather than one byte so `Print::write(buf, n)` costs one transition.
 

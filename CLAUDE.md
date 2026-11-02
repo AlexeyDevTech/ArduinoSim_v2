@@ -16,28 +16,28 @@ ArduSim: a Windows desktop simulator for Arduino sketches (C#/.NET 10, WPF). The
 ```
 dotnet build ArduSim.sln
 dotnet test                                   # Microsoft.Testing.Platform runner (see global.json)
-dotnet run --project src/ArduSim.App          # WPF app (placeholder window until M2)
+dotnet run --project src/ArduSim.App          # WPF app; add -- --inproc to run the simulation in-process (debugging)
 src/ArduSim.Runner/bin/Debug/net10.0/ArduSim.Runner.exe --project examples/Blink --run-for 3000
 powershell -ExecutionPolicy Bypass -File tools/toolchain-eval/Measure-Toolchains.ps1 -WorkDir <dir>   # ADR-002 numbers
 ```
 
 Requires the .NET 10 SDK. The first build of any sketch (or the first `dotnet test`) downloads the pinned llvm-mingw (182 MiB) into `%LOCALAPPDATA%\ArduSim\toolchain`; that takes a few minutes once. No Arduino IDE, no arduino-cli.
 
-Runner options: `--project <folder>` (required), `--run-for <ms>`, `--speed <x|max>` (default max), `--dump-serial <file>`, `--seed <n>`, `--quiet`, `--build-dir <folder>`. Output lines are `[   1000.008 ms] D13 LOW`, `[ ... ms] Serial: text`, `[ ... ms] warning: ...`. Exit codes are in `src/ArduSim.Runner/ProcessExit.cs`.
+Runner options: `--project <folder>` (required), `--run-for <ms>`, `--speed <x|max>` (default max), `--dump-serial <file>`, `--seed <n>`, `--input <ms>:<part>:<name>=<value>` (repeatable), `--quiet`, `--build-dir <folder>`. Output lines are `[   1000.008 ms] D13 LOW`, `[ ... ms] led1 brightness=1`, `[ ... ms] Serial: text`, `[ ... ms] warning: ...`. Exit codes are in `src/ArduSim.Runner/ProcessExit.cs`. `--ipc ...` is the mode the app uses (PipeSimulationSession passes the arguments).
 
 ## Repository map
 
 ```
 ArduSim.sln, Directory.Build.props, Directory.Packages.props, global.json, .editorconfig
-src/ArduSim.Core       engine: Timing (clock, pacer), Simulation (engine, Mcu, UART, EEPROM, interrupts), Diagnostics, Boards (profile types), Projects (project.simproj.json)
+src/ArduSim.Core       engine: Timing, Circuits (nets), Components (+ Parts), Simulation (engine, Mcu, BoardSimulation, UART, EEPROM, interrupts), Diagnostics, Boards (profile types), Projects
 src/ArduSim.Boards     board profiles and timing tables (Nano)
-src/ArduSim.Build      Toolchains (manager, manifest), Sketches (preprocessor), Libraries (resolver), Compilation (builder, object cache, diagnostics)
-src/ArduSim.Ipc        message contracts, named-pipe transport, ISimulationSession (from M2)
-src/ArduSim.Runner     Interop (SimHostApi mirror, callbacks, firmware loader), SimulationHost, Headless (CLI)
-src/ArduSim.App        WPF UI (refs Runner for the in-process session and to ship Runner.exe)
+src/ArduSim.Build      Toolchains, Sketches (preprocessor), Libraries (resolver), Compilation (builder, object cache, diagnostics, FirmwareSymbols)
+src/ArduSim.Ipc        Messages (MessagePack), IpcChannel, ISimulationSession, PipeSimulationSession, CrashBlock
+src/ArduSim.Runner     Interop (SimHostApi mirror, callbacks, loader), SimulationHost, Session (SessionServer, PipeServer, InProcessSimulationSession), Headless
+src/ArduSim.App        WPF UI: MainWindow (part templates), ViewModels (Main, Scene), Services (build, environment), Themes, Resources/Strings.resx
 firmware/shim          C++ Arduino shim: include/ (Arduino.h, sim_abi.h, avr/, sim/), src/, variants/nano, libraries/EEPROM, test/ (harness)
 libraries/             vendored Arduino libraries (from M4); libraries/compat/ per-library fixes
-examples/              user-facing example projects (Blink)
+examples/              user-facing example projects (Blink, Button, FloatingInput); copied next to the app
 tests/                 ArduSim.Core.Tests, ArduSim.Build.Tests, ArduSim.Integration.Tests (+ Projects/ fixture sketches)
 tools/                 dev-only: toolchain-eval (ADR-002), nano-timing-bench (ADR-005 calibration)
 docs/                  BRIEF (spec), ARCHITECTURE, PLAN, DECISIONS, CHANGELOG, adr/ (UI.md before M3)
@@ -57,12 +57,14 @@ docs/                  BRIEF (spec), ARCHITECTURE, PLAN, DECISIONS, CHANGELOG, a
 - Vendored libraries are never patched silently; fixes go to `libraries/compat/`.
 - Conventional commits on `main`.
 
-## Known limitations (current state: M1)
+## Known limitations (current state: M2)
 
-- No nets or components yet (M2): an input without `INPUT_PULLUP` floats (warning, random reads) and `analogRead` returns noise.
+- The scene is fixed (from project.simproj.json); no editor, palette, properties, pan/zoom, pin tooltips or net highlight yet (M3, after docs/UI.md is approved).
+- Simulation log messages come from Core in English; they carry codes for later localization.
 - I2C and SPI are not simulated and there is no `Wire`/`SPI` library yet (M4/M5): sketches that include them fail to compile.
-- No crash report yet (M2): a null dereference in the sketch kills the Runner with .NET's fatal-error output.
-- The UI is still the M0 placeholder window.
+- Headless runs print only the shim's one-line crash notice and exit with the NTSTATUS; the symbolized report is the app's.
+- In-process sessions (`--inproc`) cannot unwind a stopped run: its thread stays parked; a sketch crash takes the app down.
+- The App is checked by rendering it offscreen (RenderTargetBitmap); there are no UI automation tests.
 - Timer, ADC and USART registers are not simulated (warning on first write, read 0); direct port access costs 4 µs per bit.
 - The Nano timing table v1 is partly estimated; calibration against real hardware or avr8js is still open (ADR-005).
 - Toolchain measurements were taken on the dev machine with a scrubbed PATH, not on a clean VM.

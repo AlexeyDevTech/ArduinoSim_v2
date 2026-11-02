@@ -29,12 +29,12 @@ ArduSim compiles an Arduino sketch with a host C++ compiler against our own Ardu
 
 | Project | Contains | May reference |
 | --- | --- | --- |
-| `ArduSim.Core` | virtual clock, scheduler, nets, buses, component definitions and behaviors, display controllers | nothing of ours |
+| `ArduSim.Core` | virtual clock, scheduler, circuit (nets), parts (definitions and behaviors), MCU model, project file, display controllers (M4+) | nothing of ours |
 | `ArduSim.Boards` | board profiles, pin maps, timing tables, compiler macros | Core |
-| `ArduSim.Build` | toolchain manager, `.ino` preprocessor, library resolver, compiler driver, object cache, diagnostics parser | nothing of ours |
-| `ArduSim.Ipc` | message records, framing, named-pipe transport, `ISimulationSession`, pipe client | nothing of ours |
-| `ArduSim.Runner` | firmware loader, `SimHostApi` implementation, `SimulationHost`, IPC server, CLI, watchdog | Core, Boards, Build, Ipc |
-| `ArduSim.App` | WPF views, view models, rendering, editor, canvas | Boards, Build, Ipc, Runner (in-process session only) |
+| `ArduSim.Build` | toolchain manager, `.ino` preprocessor, library resolver, compiler driver, object cache, diagnostics parser, PDB symbolization | nothing of ours |
+| `ArduSim.Ipc` | message records, framing, `ISimulationSession`, `PipeSimulationSession`, crash block | nothing of ours |
+| `ArduSim.Runner` | firmware loader, `SimHostApi` callbacks, `SimulationHost` (pause/step, watchdog), `SessionServer`, pipe server, in-process session, headless CLI | Core, Boards, Build, Ipc |
+| `ArduSim.App` | WPF views, view models, rendering, editor, canvas | Core (scene data, part definitions), Boards, Build, Ipc, Runner (in-process session only) |
 
 No UI assembly is referenced below the App, and Core never sees IPC or native interop. `tests/ArduSim.Core.Tests/ProjectBoundaryTests.cs` enforces both.
 
@@ -76,7 +76,8 @@ firmware/shim/
 - `Timing.SimulationClock` (ns, with the event queue ordered by time + sequence) and `Timing.Pacer`.
 - `Simulation.SimulationEngine`: charges call costs, slices `delay()`, waits from event to event, and invokes the host's scheduling point.
 - `Simulation.Mcu`: the MCU as the firmware sees it — one method per host call, each charging its timing-table cost. Pins (mode, PORT bit, PWM, tone), ADC, `UartPort`s, `EepromMemory`, `InterruptController`. The Runner's callbacks are thin forwards to it, so all behaviour is testable without native code.
-- `NetGraph`: nets built from the scene's wires; incremental resolution and warnings (ADR-006).
+- `Circuits.Circuit`: pins joined into nets by wires and closed switches; `Driver`s on pins (strong: outputs, rails; weak: pull-ups, pot wipers), resistor coupling, Thevenin-style resolution of the resistor-coupled group around a change, pin watchers, short/floating/undefined warnings (ADR-006).
+- `Components`: `ComponentDefinition` (pins with positions, properties), `SimComponent` behaviors registered by `[SimComponent]`, `ComponentRegistry`, `ComponentGeometry` (rotation/flip), parts in `Components.Parts`; `Simulation.BoardSimulation` builds circuit + parts + MCU from a scene.
 - Buses: `I2cBus` (address routing over SDA/SCL nets), `SpiBus` (CS gating; byte path and edge path), parallel sampling helpers.
 - Components: definitions + behaviors (ADR-007); display controllers (HD44780, PCF8574, SSD1306, SH1106) as pure state machines over byte streams.
 - `BoardRuntime`: applies a board profile to the engine — maps Arduino pin numbers to board pins and nets, models pin modes, PWM state, ADC, UART ring buffers, EEPROM image.
