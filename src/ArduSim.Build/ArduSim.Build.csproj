@@ -6,4 +6,14 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="ArduSim.Build.Tests" />
+  </ItemGroup>
+
+  <!-- The shim and the bundled libraries travel with every executable that builds firmware. -->
+  <ItemGroup>
+    <None Include="..\..\firmware\**\*" Exclude="..\..\firmware\**\build\**" LinkBase="firmware" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="..\..\libraries\**\*" LinkBase="libraries" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
 </Project>

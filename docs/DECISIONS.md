@@ -20,3 +20,19 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-02 — Dev-only scripts live in `tools/` (toolchain evaluation, Nano timing bench); they are not part of the build or tests.
 - 2026-11-02 — Git: `main` branch, conventional commits.
 - 2026-11-02 — The brief is kept in the repo as `docs/BRIEF.md` so a clean clone carries its own specification.
+- 2026-11-02 — Shim `min`/`max` are templates in C++ (ArduinoCore-API style) so the C++ standard library stays usable; `round()` is the C library's (returns double; the AVR macro returns long).
+- 2026-11-02 — `word` is `uint16_t` as on AVR, even though `int` is 32-bit.
+- 2026-11-02 — `pgm_read_word`/`pgm_read_dword` through a pointer-typed address return the whole 64-bit pointer, so PROGMEM string tables work unchanged.
+- 2026-11-02 — `EEMEM` variables fail at compile time with a clear message (they need linker-placed EEPROM addresses).
+- 2026-11-02 — Direct port reads/writes cost one `digitalRead`/`digitalWrite` per changed bit (no ABI call for whole ports yet).
+- 2026-11-02 — Libraries the shim provides (EEPROM now, Wire/SPI later) resolve before every other library root, since they are tied to the simulated hardware.
+- 2026-11-02 — Library detection is textual (no preprocessor pass); an include inside an inactive `#if` still pulls its library in. Revisit if a bundled library trips on it.
+- 2026-11-02 — Each return from `loop()` costs 1 µs of virtual time (main()'s loop overhead), so an empty `loop()` still lets time pass.
+- 2026-11-02 — At most one ISR is dispatched per scheduling point, so a LOW-level interrupt cannot starve the host.
+- 2026-11-02 — A run ends with `TerminateProcess` after flushing output, so the sketch's static destructors never call into a shutting-down runtime.
+- 2026-11-02 — Headless runs default to `--speed max`; the watchdog ends a headless run that is busy without API calls for 2 s (exit code 3).
+- 2026-11-02 — Runner exit codes: 0 ok, 1 build failed, 2 firmware error, 3 firmware busy, 64 usage, 69 toolchain unavailable, 70 internal error.
+- 2026-11-02 — Build output goes to `%LOCALAPPDATA%\ArduSim\builds\<project>-<hash>` (override with `--build-dir`), keeping project folders clean.
+- 2026-11-02 — The project file model lives in `ArduSim.Core.Projects` (plain data, System.Text.Json).
+- 2026-11-02 — The toolchain is extracted with System.IO.Compression (no external tools); the first install takes about 2.5 minutes here, mostly extraction.
+- 2026-11-02 — Integration test fixture projects live in `tests/ArduSim.Integration.Tests/Projects`; `examples/` holds only user-facing examples.

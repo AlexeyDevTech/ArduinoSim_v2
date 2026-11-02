@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace ArduSim.Integration.Tests;
 
 public sealed class RunnerProcessTests
@@ -7,37 +5,32 @@ public sealed class RunnerProcessTests
     [Fact]
     public async Task Runner_reports_its_version()
     {
-        (int exitCode, string stdout, _) = await RunRunner("--version");
+        RunResult result = await RunnerProcess.RunAsync("--version");
 
-        Assert.Equal(0, exitCode);
-        Assert.StartsWith("ArduSim.Runner ", stdout, StringComparison.Ordinal);
+        Assert.Equal(0, result.ExitCode);
+        Assert.StartsWith("ArduSim.Runner ", result.Stdout, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--bogus")]
+    [InlineData("--run-for", "100")]
+    [InlineData("--project", "x", "--dump-display", "out.png")]
+    public async Task Runner_rejects_bad_command_lines_with_usage(params string[] args)
+    {
+        RunResult result = await RunnerProcess.RunAsync(args);
+
+        Assert.Equal(64, result.ExitCode);
+        Assert.Contains("Usage: ArduSim.Runner", result.Stderr, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task Runner_fails_loudly_on_unsupported_arguments()
+    public async Task Missing_project_file_is_reported()
     {
-        (int exitCode, _, string stderr) = await RunRunner("--project", "examples/Blink");
+        string empty = Directory.CreateTempSubdirectory("ardusim-it-").FullName;
 
-        Assert.NotEqual(0, exitCode);
-        Assert.Contains("not implemented", stderr, StringComparison.Ordinal);
-    }
+        RunResult result = await RunnerProcess.RunAsync("--project", empty);
 
-    private static async Task<(int ExitCode, string Stdout, string Stderr)> RunRunner(params string[] args)
-    {
-        var start = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "ArduSim.Runner.exe"))
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        foreach (string arg in args)
-        {
-            start.ArgumentList.Add(arg);
-        }
-
-        using var process = Process.Start(start)!;
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
-        Task<string> stderr = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-        await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-        return (process.ExitCode, await stdout, await stderr);
+        Assert.Equal(64, result.ExitCode);
+        Assert.Contains("project.simproj.json not found", result.Stderr, StringComparison.Ordinal);
     }
 }

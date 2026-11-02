@@ -9,20 +9,20 @@ Milestones from the brief (§6). A milestone is done when a clean clone builds, 
 - [x] Toolchain measurement and smoke build (`tools/toolchain-eval`), draft ABI `firmware/shim/include/sim_abi.h`
 - [x] Owner answers the open questions (2026-11-02: all eight proposals accepted)
 
-## M1 — Build and run headless
+## M1 — Build and run headless ✅
 
 Done when `ArduSim.Runner --project examples/Blink --run-for 3000` prints D13 toggles 1000 ms apart.
 
-1. `ArduSim.Build` toolchain manager: manifest (URL, SHA-256, size), resumable download with progress events, extraction filter, post-install smoke compile, "re-download" on failure.
-2. `.ino` preprocessor: concatenation order, `#include <Arduino.h>` insertion, prototype generation (a C++-aware scanner that skips comments, strings, preprocessor blocks, class/namespace bodies, and handles default arguments and templates the way arduino-cli does), `#line` mapping. Tests from arduino-cli's documented cases.
-3. Library resolver: include scan, search order, `library.properties` layouts, `utility/`; tests with fixture folders.
-4. Compiler driver: parallel per-TU compiles, object cache keyed by content hash, link to `firmware.dll` + PDB, diagnostics parser (clang format, `#line`-mapped), tests for parsing and cache invalidation.
-5. Shim core: `Arduino.h` core API, time, `String`, `Print`/`Stream`/`Printable`, `HardwareSerial` (64-byte TX ring through the host), `EEPROM`, `F()`/pgmspace, bit macros, `random` (avr-libc compatible sequence), compat headers, register proxies for ports, entry points, static-constructor bootstrap, vectored exception handler; standalone shim test harness.
-6. `ArduSim.Boards`: Nano profile, timing table v1, compiler macros.
-7. Core: `VirtualClock`, `Scheduler`, pacing (1×, 0.1×…10×, max), UART TX drain events, EEPROM image persisted to `eeprom.bin`.
-8. Runner: firmware loader, ABI handshake, `SimHostApi` callbacks, headless CLI (`--project`, `--run-for`, `--dump-serial`, pin-change trace on stdout), exit codes.
-9. `examples/Blink`, integration test: build + run 3000 ms, assert toggles at 1000 ms ± 1 tick; serial test sketch for baud timing.
-
+- [x] `ArduSim.Build` toolchain manager: manifest (URL, SHA-256, size), resumable download with progress, extraction filter, post-install smoke compile, typed failures for "re-download".
+- [x] `.ino` preprocessor: concatenation order, `#include <Arduino.h>`, prototype generation (C++-aware scanner; skips `#if` blocks, templates, members, operators, declared names; moves default arguments into the prototype), `#line` mapping.
+- [x] Library resolver: include scan, search order, `library.properties` layouts, `utility/`; shim libraries (EEPROM) first.
+- [x] Compiler driver: parallel per-TU compiles, object cache keyed by content + header hashes, link skipped when inputs are unchanged, `firmware.dll` + PDB, clang/lld diagnostics parser.
+- [x] Shim core: Arduino API, time, `String`, `Print`/`Stream`/`Printable`, `HardwareSerial`, `EEPROM` (+ `avr/eeprom.h`), `F()`/pgmspace, bit macros, avr-libc-compatible `random`, compat headers (`avr/io.h`, `interrupt.h`, `sleep.h`, `wdt.h`, `util/delay.h`, `util/atomic.h`), port and register proxies, entry points, static-constructor bootstrap; standalone harness (103 checks).
+- [x] `ArduSim.Boards`: Nano profile, timing table v1, compiler macros.
+- [x] Core: clock + event queue (ns), delay slicing, pacing, MCU model (pins, PWM, tone, ADC, UART with 64-byte TX ring and RX buffer, EEPROM with programming time, external interrupts), `eeprom.bin` persistence, project file loader.
+- [x] Runner: firmware loader, ABI handshake, `SimHostApi` callbacks, headless CLI, watchdog, exit codes.
+- [x] `examples/Blink` and integration tests (Blink, Serial baud timing, static constructors/prototypes/EEPROM/warnings, build errors, runaway, shim harness).
+- Moved to M2: the firmware's vectored exception handler and the crash report — they need the App-side shared memory and symbolization to be useful.
 ## M2 — Simulation core and first UI
 
 Done when Blink blinks on screen, the Button example toggles an LED, and a floating input produces a warning.
@@ -30,7 +30,7 @@ Done when Blink blinks on screen, the Button example toggles an LED, and a float
 1. Core nets: graph from scene, incremental resolution, pulls, rails, floating/conflict warnings with component ids; tests.
 2. Nano board model on nets (pin modes, PWM state, ADC quantization, external interrupts 0/1 with modes, `noInterrupts`).
 3. Components: LED (color, PWM brightness), RGB LED, pushbutton (+ keyboard shortcut), slide switch, potentiometer, resistor, piezo buzzer (frequency display); definitions + behaviors + tests.
-4. IPC: MessagePack contracts, framing, `Hello` handshake, pipe transport, `PipeSimulationSession`, in-process session, snapshots ≤ 60 Hz as deltas; crash shared memory, watchdog, crash report with symbolized `file:line`; tests.
+4. IPC: MessagePack contracts, framing, `Hello` handshake, pipe transport, `PipeSimulationSession`, in-process session, snapshots ≤ 60 Hz as deltas; crash shared memory, vectored exception handler in the shim, last-20-host-calls ring, crash report with symbolized `file:line`; tests.
 5. App: shell with the fixed layout, hard-coded scene rendered on a canvas, toolbar (Build, Run, Pause, Stop, Step, speed, virtual time, status), Serial Monitor, Simulation log, crash/runaway dialogs.
 6. Examples: Button (INPUT_PULLUP toggles LED), a floating-input sketch; integration tests.
 

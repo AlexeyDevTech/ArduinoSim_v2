@@ -54,12 +54,13 @@ firmware/shim/
   include/sim_abi.h        the C ABI (ADR-001)
   include/Arduino.h ...    Arduino API headers, String, Print/Stream, HardwareSerial, Wire, SPI, EEPROM
   include/avr/*.h, util/*  compatibility headers (pgmspace, io proxies, interrupt, delay, sleep, wdt)
-  src/<module>.cpp         one .cpp per module (core, serial, wire, spi, eeprom, string, print, ports, entry)
-  src/entry.cpp            sim_fw_* exports, host bootstrap, vectored exception handler
+  src/<module>.cpp         one .cpp per module: wiring (pins, time, analog, interrupts, random), WString, Print, Stream, HardwareSerial, registers, stdlib_ext
+  src/entry.cpp            sim_fw_* exports (the vectored exception handler joins it in M2)
+  src/host_bootstrap.cpp   finds the host table for static constructors (ARDUSIM_HOST_API)
   test/                    standalone harness: compiles the shim against a fake host and checks behavior
 ```
 
-- Sketch-visible headers never include `<windows.h>`; Win32 calls live in `entry.cpp` only.
+- Sketch-visible headers never include `<windows.h>`; Win32 calls live in `host_bootstrap.cpp` only.
 - Each host call is a single indirect call through the `SimHostApi` table (~5 ns measured).
 - Register proxies (`PORTB`, `DDRD`, `TCCR1A`, …) are C++ objects with overloaded assignment and bit operators, so `PORTB |= _BV(5)` works and unsimulated registers warn once.
 
@@ -72,7 +73,9 @@ firmware/shim/
 
 ## Core engine (`ArduSim.Core`)
 
-- `VirtualClock` (ns) and `Scheduler` (priority queue on time + sequence).
+- `Timing.SimulationClock` (ns, with the event queue ordered by time + sequence) and `Timing.Pacer`.
+- `Simulation.SimulationEngine`: charges call costs, slices `delay()`, waits from event to event, and invokes the host's scheduling point.
+- `Simulation.Mcu`: the MCU as the firmware sees it — one method per host call, each charging its timing-table cost. Pins (mode, PORT bit, PWM, tone), ADC, `UartPort`s, `EepromMemory`, `InterruptController`. The Runner's callbacks are thin forwards to it, so all behaviour is testable without native code.
 - `NetGraph`: nets built from the scene's wires; incremental resolution and warnings (ADR-006).
 - Buses: `I2cBus` (address routing over SDA/SCL nets), `SpiBus` (CS gating; byte path and edge path), parallel sampling helpers.
 - Components: definitions + behaviors (ADR-007); display controllers (HD44780, PCF8574, SSD1306, SH1106) as pure state machines over byte streams.
