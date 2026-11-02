@@ -27,11 +27,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Stop the Runner before the window goes away; then close for real.
+        // Stop the Runner before the window goes away; then close for real, outside this handler
+        // (Close() is not allowed while a close is in progress, even when DisposeAsync finished synchronously).
         e.Cancel = true;
         _closing = true;
         await _viewModel.DisposeAsync();
-        Close();
+        _ = Dispatcher.BeginInvoke(Close);
     }
 
     private static PartViewModel? Part(object sender) => (sender as FrameworkElement)?.DataContext as PartViewModel;
