@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 0, "y": 0 },
+      { "id": "lcd1", "type": "lcd", "x": 280, "y": 0, "properties": { "size": "20x4" } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "board", "pin": "GND" }, "to": { "component": "lcd1", "pin": "GND" } },
+      { "id": "w2", "from": { "component": "board", "pin": "5V" }, "to": { "component": "lcd1", "pin": "VCC" } },
+      { "id": "w3", "from": { "component": "board", "pin": "A4" }, "to": { "component": "lcd1", "pin": "SDA" } },
+      { "id": "w4", "from": { "component": "board", "pin": "A5" }, "to": { "component": "lcd1", "pin": "SCL" } }
+    ]
+  }
+}

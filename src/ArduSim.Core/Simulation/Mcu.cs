@@ -1,5 +1,6 @@
 using System.Globalization;
 using ArduSim.Core.Boards;
+using ArduSim.Core.Buses;
 using ArduSim.Core.Circuits;
 using ArduSim.Core.Diagnostics;
 using ArduSim.Core.Timing;
@@ -52,6 +53,7 @@ public sealed class Mcu
     private const int AnalogReferenceExternal = 0;
     private const double InternalPullUp = 35_000;
     private const double InternalReference = 1.1;
+    private const uint DefaultI2cClock = 100_000;
 
     private readonly SimulationEngine _engine;
     private readonly TimingTable _timing;
@@ -60,9 +62,12 @@ public sealed class Mcu
     private readonly PinState?[] _pins;
     private readonly Random _noise;
     private ulong _eepromReadyAt;
+    private ulong _i2cBitTime = VirtualTime.Second / DefaultI2cClock;
+    private bool _i2cEnabled;
 
     /// <summary>Registers the MCU's pin drivers; build <paramref name="circuit"/> afterwards.</summary>
-    public Mcu(BoardProfile board, SimulationEngine engine, EepromMemory eeprom, int seed, Circuit circuit, string boardId)
+    /// <param name="i2c">The board's I2C bus (null when the board has none); devices registered on it answer the Wire calls.</param>
+    public Mcu(BoardProfile board, SimulationEngine engine, EepromMemory eeprom, int seed, Circuit circuit, string boardId, I2cBus? i2c = null)
     {
         ArgumentNullException.ThrowIfNull(board);
         ArgumentNullException.ThrowIfNull(engine);
@@ -73,6 +78,7 @@ public sealed class Mcu
         _circuit = circuit;
         _boardId = boardId;
         Eeprom = eeprom;
+        I2c = i2c;
 #pragma warning disable CA5394 // a simulation needs a reproducible generator, not a secure one
         _noise = new Random(seed);
 #pragma warning restore CA5394
@@ -98,6 +104,11 @@ public sealed class Mcu
     public IReadOnlyList<UartPort> Uarts { get; }
 
     public InterruptController Interrupts { get; }
+
+    public I2cBus? I2c { get; }
+
+    /// <summary>The Wire clock; a byte costs 9 bit times, START and STOP one each (ADR-005).</summary>
+    public uint I2cClock => (uint)(VirtualTime.Second / _i2cBitTime);
 
     public int AnalogReference { get; private set; } = AnalogReferenceDefault;
 
@@ -312,6 +323,70 @@ public sealed class Mcu
         _engine.Finish(_timing.ShortCall);
     }
 
+    /// <summary>Wire.begin(): the TWI takes SDA and SCL and, as the AVR core does, turns on their internal pull-ups.</summary>
+    public void I2cBegin()
+    {
+        if (I2cPins() is var (sda, scl))
+        {
+            foreach (PinState state in new[] { sda, scl })
+            {
+                state.Mode = Simulation.PinMode.InputPullup;
+                state.PortBit = true;
+                state.PwmDuty = 0;
+                Update(state);
+            }
+
+            _i2cEnabled = true;
+        }
+
+        _engine.Finish(_timing.ShortCall);
+    }
+
+    public void I2cEnd()
+    {
+        _i2cEnabled = false;
+        I2c?.Stop();
+        _engine.Finish(_timing.ShortCall);
+    }
+
+    public void I2cSetClock(uint hz)
+    {
+        if (hz > 0)
+        {
+            _i2cBitTime = Math.Max(1, VirtualTime.Second / hz);
+        }
+
+        _engine.Finish(_timing.ShortCall);
+    }
+
+    /// <summary>START (repeated when no STOP came since the last one) and the address byte; true on ACK.</summary>
+    public bool I2cStart(int address, bool read)
+    {
+        bool ack = RequireI2c() is { } bus && bus.Start(address, read);
+        _engine.Finish(10 * _i2cBitTime);
+        return ack;
+    }
+
+    public bool I2cWrite(byte value)
+    {
+        bool ack = RequireI2c() is { } bus && bus.Write(value);
+        _engine.Finish(9 * _i2cBitTime);
+        return ack;
+    }
+
+    public byte I2cRead(bool ack)
+    {
+        byte value = RequireI2c() is { } bus ? bus.Read(ack) : (byte)0xFF;
+        _engine.Finish(9 * _i2cBitTime);
+        return value;
+    }
+
+    public void I2cStop()
+    {
+        I2c?.Stop();
+        _engine.Finish(_i2cBitTime);
+    }
+
     public void BusNotSimulated(string bus)
     {
         Log.ReportOnce("bus-" + bus, SimSeverity.Warning, "not-simulated", $"{bus} is not simulated yet; transfers see no device.");
@@ -361,6 +436,25 @@ public sealed class Mcu
     }
 
     private PinState? Find(int pin) => pin >= 0 && pin < _pins.Length ? _pins[pin] : null;
+
+    private (PinState Sda, PinState Scl)? I2cPins() =>
+        Board.I2cSda is { } sda && Board.I2cScl is { } scl && Find(sda) is { } sdaState && Find(scl) is { } sclState ? (sdaState, sclState) : null;
+
+    private I2cBus? RequireI2c()
+    {
+        if (I2c is null)
+        {
+            Log.ReportOnce("i2c-none", SimSeverity.Warning, "i2c-unavailable", $"{Board.DisplayName} has no hardware I2C; Wire transfers see no device.");
+            return null;
+        }
+
+        if (!_i2cEnabled)
+        {
+            Log.ReportOnce("i2c-begin", SimSeverity.Warning, "i2c-not-begun", $"Wire is used before Wire.begin(); a real board would hang here, the simulation carries on.");
+        }
+
+        return I2c;
+    }
 
     private PinState? Digital(int pin, string operation)
     {

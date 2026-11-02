@@ -86,6 +86,11 @@
   <data name="Part_Potentiometer" xml:space="preserve"><value>Потенциометр</value></data>
   <data name="Part_Resistor" xml:space="preserve"><value>Резистор</value></data>
   <data name="Part_Buzzer" xml:space="preserve"><value>Пищалка</value></data>
+  <data name="Part_Lcd" xml:space="preserve"><value>LCD (HD44780)</value></data>
+  <data name="Preset_Lcd1602I2c" xml:space="preserve"><value>LCD 1602 I2C</value></data>
+  <data name="Preset_Lcd2004I2c" xml:space="preserve"><value>LCD 2004 I2C</value></data>
+  <data name="Preset_Lcd1602Parallel" xml:space="preserve"><value>LCD 1602 (параллельный)</value></data>
+  <data name="Preset_Lcd2004Parallel" xml:space="preserve"><value>LCD 2004 (параллельный)</value></data>
   <data name="Category_board" xml:space="preserve"><value>Платы</value></data>
   <data name="Category_output" xml:space="preserve"><value>Вывод</value></data>
   <data name="Category_input" xml:space="preserve"><value>Ввод</value></data>
@@ -117,6 +122,20 @@
   <data name="Property_resistance" xml:space="preserve"><value>Сопротивление</value></data>
   <data name="Property_value" xml:space="preserve"><value>Положение движка (0…1)</value></data>
   <data name="Property_common" xml:space="preserve"><value>Общий вывод</value></data>
+  <data name="Property_size" xml:space="preserve"><value>Размер</value></data>
+  <data name="Property_interface" xml:space="preserve"><value>Подключение</value></data>
+  <data name="Property_address" xml:space="preserve"><value>Адрес I2C</value></data>
+  <data name="Property_backpack" xml:space="preserve"><value>Плата I2C (разводка PCF8574)</value></data>
+  <data name="Property_backlight" xml:space="preserve"><value>Подсветка</value></data>
+  <data name="Property_contrast" xml:space="preserve"><value>Контраст (0…1, если V0 не подключён)</value></data>
+  <data name="Option_interface_i2c" xml:space="preserve"><value>I2C</value></data>
+  <data name="Option_interface_parallel-4" xml:space="preserve"><value>4 бита</value></data>
+  <data name="Option_interface_parallel-8" xml:space="preserve"><value>8 бит</value></data>
+  <data name="Option_backpack_standard" xml:space="preserve"><value>Стандартная</value></data>
+  <data name="Option_backpack_mjkdz" xml:space="preserve"><value>mjkdz</value></data>
+  <data name="Option_backlight_blue" xml:space="preserve"><value>Синяя</value></data>
+  <data name="Option_backlight_green" xml:space="preserve"><value>Зелёная</value></data>
+  <data name="Option_backlight_none" xml:space="preserve"><value>Нет</value></data>
   <data name="Property_baud" xml:space="preserve"><value>Скорость порта по умолчанию, бод</value></data>
   <data name="Property_libraryPaths" xml:space="preserve"><value>Папки библиотек (через ;)</value></data>
   <data name="Option_position_0" xml:space="preserve"><value>Слева</value></data>
@@ -233,6 +252,18 @@
   <data name="Log_floating-input.aref" xml:space="preserve"><value>Задан analogReference(EXTERNAL), но AREF не подключён: используется Vcc.</value></data>
   <data name="Log_invalid-serial" xml:space="preserve"><value>У {0} нет последовательного порта {1}.</value></data>
   <data name="Log_eeprom-address" xml:space="preserve"><value>Адрес EEPROM {0} вне диапазона 0..{1}: как и на ATmega328P, он сворачивается в {2}.</value></data>
+  <data name="Log_i2c-conflict" xml:space="preserve"><value>По адресу I2C {0} отвечают несколько устройств ({1}); используется только {2}.</value></data>
+  <data name="Log_i2c-nack" xml:space="preserve"><value>По адресу I2C {0} никто не отвечает; на шине: {1}.</value></data>
+  <data name="Log_i2c-nack.empty" xml:space="preserve"><value>По адресу I2C {0} никто не отвечает: к шине ничего не подключено.</value></data>
+  <data name="Log_i2c-nack.swapped" xml:space="preserve"><value>По адресу I2C {0} никто не отвечает: у {1} этот адрес, но SDA и SCL перепутаны.</value></data>
+  <data name="Log_i2c-nack.unwired" xml:space="preserve"><value>По адресу I2C {0} никто не отвечает: у {1} этот адрес, но его SDA и SCL не подключены к SDA ({2}) и SCL ({3}) платы.</value></data>
+  <data name="Log_i2c-pullups" xml:space="preserve"><value>На шине I2C нет внешних подтягивающих резисторов на SDA ({0}) и SCL ({1}). Симуляция работает, но реальной схеме обычно нужны около 4,7 кОм к 5V.</value></data>
+  <data name="Log_i2c-unavailable" xml:space="preserve"><value>У {0} нет аппаратного I2C: передачи Wire не видят устройств.</value></data>
+  <data name="Log_i2c-unavailable.display" xml:space="preserve"><value>{0} — дисплей с I2C, но у платы нет аппаратного I2C.</value></data>
+  <data name="Log_i2c-not-begun" xml:space="preserve"><value>Wire используется до Wire.begin(): настоящая плата здесь зависла бы, симуляция продолжает работу.</value></data>
+  <data name="Log_lcd-busy" xml:space="preserve"><value>{0} получил команду, пока HD44780 ещё выполнял предыдущую; настоящий дисплей может её пропустить (скетч ждёт между командами слишком мало).</value></data>
+  <data name="Log_lcd-rw" xml:space="preserve"><value>{0}: вывод RW не подключён, подтяжка HD44780 держит его в режиме чтения, и запись не работает. Подключите RW к GND.</value></data>
+  <data name="Log_lcd-power" xml:space="preserve"><value>У {0} нет питания: подключите {1} к 5V и {2} к GND.</value></data>
   <data name="Log_scene.duplicate-id" xml:space="preserve"><value>Две детали с одним именем «{0}»: вторая исключена.</value></data>
   <data name="Log_scene.unknown-type" xml:space="preserve"><value>Неизвестный тип детали «{0}» ({1}) исключён из симуляции.</value></data>
   <data name="Log_scene.wrong-board" xml:space="preserve"><value>Плата {0} — не плата проекта ({1}), она исключена.</value></data>

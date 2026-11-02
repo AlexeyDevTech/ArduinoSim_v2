@@ -196,7 +196,10 @@ public sealed partial class PropertiesViewModel : ObservableObject
             Subtitle = part.DisplayName;
             foreach (PropertyDefinition definition in part.Definition?.Properties ?? [])
             {
-                Fields.Add(Field(part, definition));
+                if (definition.ShownWhen is not { } condition || part.Text(condition.Property, "") == condition.Value)
+                {
+                    Fields.Add(Field(part, definition));
+                }
             }
 
             foreach (PinDefinition pin in part.Definition?.Pins ?? [])
@@ -241,7 +244,7 @@ public sealed partial class PropertiesViewModel : ObservableObject
         string current = part.Text(definition.Name, definition.Default);
         IReadOnlyList<OptionItem> options = definition.Options?.Select(o => new OptionItem(
             o,
-            Strings.Get(definition.Name == "color" ? "Color_" + o : $"Option_{definition.Name}_{o}"),
+            Strings.TryGet(definition.Name == "color" ? "Color_" + o : $"Option_{definition.Name}_{o}") ?? o,
             definition.Name == "color" ? WirePalette.PartColor(o) : null)).ToList() ?? [];
         return new PropertyField(definition.Name, Strings.Get("Property_" + definition.Name), definition.Kind, current, definition.Unit, options, (field, text) =>
         {

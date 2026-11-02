@@ -21,7 +21,9 @@ public sealed class ShimHarnessTests(ToolchainFixture toolchain)
             "-std=gnu++17", "-fno-exceptions", "-fno-rtti", "-Wall", "-Wextra", "-Werror", "-O1", "-g", "-fno-color-diagnostics",
             "-DARDUINO=10819", "-DARDUINO_ARCH_SIM", "-DSIM_BOARD_NANO", "-DF_CPU=16000000L",
             "-I" + Path.Combine(shim, "include"), "-I" + Path.Combine(shim, "variants", "nano"), "-I" + Path.Combine(shim, "libraries", "EEPROM", "src"),
+            "-I" + Path.Combine(shim, "libraries", "Wire", "src"),
             .. Directory.EnumerateFiles(Path.Combine(shim, "src"), "*.cpp"),
+            Path.Combine(shim, "libraries", "Wire", "src", "Wire.cpp"),
             Path.Combine(shim, "test", "shim_tests.cpp"),
             "-static", "-o", exe,
         ];

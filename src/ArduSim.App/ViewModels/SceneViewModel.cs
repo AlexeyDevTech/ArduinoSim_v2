@@ -8,6 +8,7 @@ using ArduSim.Core.Boards;
 using ArduSim.Core.Components;
 using ArduSim.Core.Editing;
 using ArduSim.Core.Projects;
+using ArduSim.Ipc;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace ArduSim.App.ViewModels;
@@ -69,6 +70,23 @@ public sealed partial class SceneViewModel : ObservableObject
     public bool VerticalFirst { get; set; }
 
     public PartViewModel? Find(string id) => _parts.GetValueOrDefault(id);
+
+    /// <summary>Device pixels per canvas unit at the current zoom (set by the canvas); displays draw at this resolution.</summary>
+    public double PixelsPerUnit { get; private set; } = 2;
+
+    public void SetPixelsPerUnit(double value)
+    {
+        if (value <= 0 || Math.Abs(value - PixelsPerUnit) < 1e-9)
+        {
+            return;
+        }
+
+        PixelsPerUnit = value;
+        foreach (PartViewModel part in Parts)
+        {
+            part.RenderScreen();
+        }
+    }
 
     public PartViewModel? SinglePart => _selected.Count == 1 ? Find(_selected.First()) : null;
 
@@ -227,17 +245,30 @@ public sealed partial class SceneViewModel : ObservableObject
         }
     }
 
-    public PartViewModel? Place(string type, Point at)
+    /// <summary>Places a part from a palette request (<c>type</c> or <c>type#preset</c>) centered on <paramref name="at"/>.</summary>
+    public PartViewModel? Place(string request, Point at)
     {
-        ComponentDefinition? definition = Editor.Registry.Find(type);
-        if (definition is null)
+        if (Resolve(request) is not { } resolved)
         {
             return null;
         }
 
-        PartModel part = Editor.AddPart(type, at.X - (definition.Width / 2), at.Y - (definition.Height / 2));
+        PartModel part = Editor.AddPart(resolved.Type, at.X - (resolved.Definition.Width / 2), at.Y - (resolved.Definition.Height / 2), resolved.Values);
         Select(part.Id, additive: false);
         return Find(part.Id);
+    }
+
+    /// <summary>The type, preset values and resulting layout of a palette request.</summary>
+    public (string Type, Dictionary<string, JsonElement>? Values, ComponentDefinition Definition)? Resolve(string request)
+    {
+        (string type, string? presetId) = PaletteItem.Parse(request);
+        if (Editor.Registry.Find(type) is not { } definition)
+        {
+            return null;
+        }
+
+        Dictionary<string, JsonElement>? values = definition.Presets.FirstOrDefault(p => p.Id == presetId) is { } preset ? definition.PresetValues(preset) : null;
+        return (type, values, definition.Resolve(values));
     }
 
     // ---- wiring ------------------------------------------------------------------------------
@@ -485,7 +516,17 @@ public sealed partial class SceneViewModel : ObservableObject
 
     // ---- live state --------------------------------------------------------------------------
 
-    public void ApplyComponent(string id, IReadOnlyDictionary<string, double> state) => Find(id)?.Apply(state);
+    public void ApplyComponent(string id, IReadOnlyDictionary<string, double> state, DisplayData? display = null)
+    {
+        if (Find(id) is { } part)
+        {
+            part.Apply(state);
+            if (display is not null)
+            {
+                part.ApplyDisplay(display);
+            }
+        }
+    }
 
     public void ApplyPins(IEnumerable<(int Pin, int Kind, int Value)> pins)
     {
@@ -502,6 +543,7 @@ public sealed partial class SceneViewModel : ObservableObject
         foreach (PartViewModel part in Parts)
         {
             part.Apply(new Dictionary<string, double>(), reset: true);
+            part.ClearDisplay();
             if (clearWarnings)
             {
                 part.HasWarning = false;
@@ -519,7 +561,7 @@ public sealed partial class SceneViewModel : ObservableObject
         foreach (PartModel model in Editor.Scene.Parts)
         {
             alive.Add(model.Id);
-            if (_parts.TryGetValue(model.Id, out PartViewModel? existing) && existing.Model.Type == model.Type)
+            if (_parts.TryGetValue(model.Id, out PartViewModel? existing) && existing.Model.Type == model.Type && ReferenceEquals(existing.Definition, Editor.Definition(model)))
             {
                 existing.Rebind(model);
             }
@@ -661,6 +703,8 @@ public sealed partial class PartViewModel : ObservableObject
 {
     private readonly SceneViewModel _scene;
     private bool _applying;
+    private DisplayData? _display;
+    private Views.LcdScreen? _screen;
 
     public PartViewModel(PartModel model, ComponentDefinition? definition, SceneViewModel scene)
     {
@@ -671,6 +715,7 @@ public sealed partial class PartViewModel : ObservableObject
         Value = Number("value", 0.5);
         SwitchRight = Number("position", 0) != 0;
         _applying = false;
+        ClearDisplay();
     }
 
     public PartModel Model { get; private set; }
@@ -773,6 +818,80 @@ public sealed partial class PartViewModel : ObservableObject
 
     public double KnobAngle => -135 + (270 * Value);
 
+    // ---- LCD -----------------------------------------------------------------------------------
+
+    public bool IsI2c => Text("interface", "i2c") == "i2c";
+
+    public int LcdColumns => Text("size", "16x2") == "20x4" ? 20 : 16;
+
+    public int LcdRows => Text("size", "16x2") == "20x4" ? 4 : 2;
+
+    /// <summary>The black frame around the glass, in part units (below the header, inside the PCB).</summary>
+    public Rect Bezel => LcdRows == 4 ? new Rect(16, 30, Width - 32, Height - 64) : new Rect(16, 22, Width - 32, Height - 44);
+
+    public double BezelLeft => Bezel.Left;
+
+    public double BezelTop => Bezel.Top;
+
+    public double BezelWidth => Bezel.Width;
+
+    public double BezelHeight => Bezel.Height;
+
+    public double HoleRight => Width - 14;
+
+    public double HoleBottom => Height - 14;
+
+    /// <summary>The backpack board behind the module, around its four pins at the left edge.</summary>
+    public double BackpackTop => (Definition?.FindPin("GND")?.Y ?? 50) - 10;
+
+    [ObservableProperty]
+    public partial ImageSource? Screen { get; private set; }
+
+    /// <summary>Size of the drawn glass in part units (it follows the zoom by whole pixels).</summary>
+    [ObservableProperty]
+    public partial double ScreenWidth { get; private set; }
+
+    [ObservableProperty]
+    public partial double ScreenHeight { get; private set; }
+
+    /// <summary>A display frame from the run; identical frames (the sketch rewrote the same text) are not redrawn.</summary>
+    public void ApplyDisplay(DisplayData display)
+    {
+        if (_display is { } old && old.Status == display.Status && old.Contrast.Equals(display.Contrast) &&
+            old.Columns == display.Columns && old.Rows == display.Rows && old.Dots.AsSpan().SequenceEqual(display.Dots))
+        {
+            return;
+        }
+
+        _display = display;
+        RenderScreen();
+    }
+
+    /// <summary>Back to the look of a module without power (before and after a run).</summary>
+    public void ClearDisplay()
+    {
+        _display = null;
+        RenderScreen();
+    }
+
+    /// <summary>Redraws the glass for the current frame, style and zoom.</summary>
+    public void RenderScreen()
+    {
+        if (Type != "lcd")
+        {
+            return;
+        }
+
+        _screen ??= new Views.LcdScreen();
+        if (_screen.Render(_display, LcdColumns, LcdRows, Text("backlight", "blue"), _scene.PixelsPerUnit))
+        {
+            Screen = _screen.Source;
+        }
+
+        ScreenWidth = _screen.Width;
+        ScreenHeight = _screen.Height;
+    }
+
     public Point PinPosition(PinDefinition pin)
     {
         (double x, double y) = ComponentGeometry.PinPosition(Definition!, pin, Model.X, Model.Y, Model.Rotation, Model.Flip);
@@ -792,6 +911,7 @@ public sealed partial class PartViewModel : ObservableObject
     {
         Model = model;
         OnPropertyChanged(string.Empty);
+        RenderScreen();
     }
 
     public void Apply(IReadOnlyDictionary<string, double> state, bool reset = false)

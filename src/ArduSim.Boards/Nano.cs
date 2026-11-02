@@ -52,7 +52,9 @@ public static class Nano
         BuiltinLed: 13,
         Width: 180,
         Height: 70,
-        Timing: Timing);
+        Timing: Timing,
+        I2cSda: 18,
+        I2cScl: 19);
 
     private static (double X, double Y) Position(string name)
     {

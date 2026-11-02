@@ -93,6 +93,11 @@ internal sealed class SessionServer
         }
     }
 
+    private static DisplayData? Display(SimComponent component) =>
+        component.Display is { } frame
+            ? new DisplayData((byte)frame.Kind, frame.Columns, frame.Rows, (byte)frame.Status, (float)frame.Contrast, frame.Dots.ToArray())
+            : null;
+
     private void Publish(bool force)
     {
         long now = Stopwatch.GetTimestamp();
@@ -116,7 +121,7 @@ internal sealed class SessionServer
             _host.WallTime.TotalSeconds,
             _host.IsPaused ? RunState.Paused : RunState.Running,
             pins.ToList(),
-            components.Select(c => new ComponentUpdate(c.Id, new Dictionary<string, double>(c.State))).ToList(),
+            components.Select(c => new ComponentUpdate(c.Id, new Dictionary<string, double>(c.State), Display(c))).ToList(),
             [.. _serial],
             [.. _logs]);
         _pins.Clear();

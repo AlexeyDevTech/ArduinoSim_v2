@@ -5,7 +5,19 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace ArduSim.App.ViewModels;
 
-public sealed record PaletteItem(string Type, string Name, string Category);
+/// <param name="Preset">Preset id when the row places a part with preset properties (e.g. "LCD 1602 I2C").</param>
+public sealed record PaletteItem(string Type, string? Preset, string Name, string Category)
+{
+    /// <summary>What a drag from the palette carries: <c>type</c> or <c>type#preset</c>.</summary>
+    public string Request => Preset is null ? Type : Type + "#" + Preset;
+
+    public static (string Type, string? Preset) Parse(string request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        int hash = request.IndexOf('#', StringComparison.Ordinal);
+        return hash < 0 ? (request, null) : (request[..hash], request[(hash + 1)..]);
+    }
+}
 
 public sealed partial class PaletteGroup(string name, IEnumerable<PaletteItem> items) : ObservableObject
 {
@@ -17,10 +29,10 @@ public sealed partial class PaletteGroup(string name, IEnumerable<PaletteItem> i
     public partial bool IsExpanded { get; set; } = true;
 }
 
-/// <summary>Parts by category with live search (docs/UI.md §2.3). Boards are chosen in the toolbar, not placed.</summary>
+/// <summary>Parts by category with live search (docs/UI.md §2.3). Boards are chosen in the toolbar, not placed; presets are rows of their own.</summary>
 public sealed partial class PaletteViewModel : ObservableObject
 {
-    private static readonly string[] CategoryOrder = ["output", "input", "passive", "display"];
+    private static readonly string[] CategoryOrder = ["output", "input", "display", "passive"];
     private readonly List<PaletteItem> _all;
 
     public PaletteViewModel(ComponentRegistry registry)
@@ -28,7 +40,9 @@ public sealed partial class PaletteViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(registry);
         _all = registry.Definitions
             .Where(d => d.Category != "board")
-            .Select(d => new PaletteItem(d.Type, Strings.Get(d.NameKey), d.Category))
+            .SelectMany(d => d.Presets.Count == 0
+                ? [new PaletteItem(d.Type, null, Strings.Get(d.NameKey), d.Category)]
+                : d.Presets.Select(p => new PaletteItem(d.Type, p.Id, Strings.Get(p.NameKey), d.Category)))
             .OrderBy(i => Array.IndexOf(CategoryOrder, i.Category) is var index && index < 0 ? 99 : index)
             .ThenBy(i => i.Name, StringComparer.CurrentCulture)
             .ToList();

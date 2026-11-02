@@ -36,8 +36,25 @@ public enum RunState : byte
 [MessagePackObject]
 public sealed record PinUpdate([property: Key(0)] int Pin, [property: Key(1)] byte Kind, [property: Key(2)] int Value);
 
+/// <param name="Display">A new picture of the part's display, when it has one and it changed.</param>
 [MessagePackObject]
-public sealed record ComponentUpdate([property: Key(0)] string Id, [property: Key(1)] IReadOnlyDictionary<string, double> State);
+public sealed record ComponentUpdate(
+    [property: Key(0)] string Id,
+    [property: Key(1)] IReadOnlyDictionary<string, double> State,
+    [property: Key(2)] DisplayData? Display = null);
+
+/// <summary>A display's picture (ADR-006). Character LCD: <paramref name="Dots"/> is rows x 8 dot rows of columns 5-bit cells.</summary>
+/// <param name="Kind">1 = character LCD.</param>
+/// <param name="Status">Bit 0 powered, bit 1 display on, bit 2 backlight.</param>
+/// <param name="Contrast">0 (nothing visible) to 1 (darkest).</param>
+[MessagePackObject]
+public sealed record DisplayData(
+    [property: Key(0)] byte Kind,
+    [property: Key(1)] int Columns,
+    [property: Key(2)] int Rows,
+    [property: Key(3)] byte Status,
+    [property: Key(4)] float Contrast,
+    [property: Key(5)] byte[] Dots);
 
 /// <param name="Severity">0 info, 1 warning, 2 error.</param>
 /// <param name="Message">English text; the UI shows its own translation of <paramref name="Key"/> with <paramref name="Args"/> when it has one.</param>

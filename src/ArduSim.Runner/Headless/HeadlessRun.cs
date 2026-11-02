@@ -155,6 +155,10 @@ internal static class HeadlessRun
         }
     }
 
+    /// <summary>A display's rows as <c>"row 0" "row 1"</c>, escaped as in <see cref="Hd44780.RowText"/>.</summary>
+    private static string Rows(SimComponent component) =>
+        string.Join(" ", (component.Display?.Text ?? []).Select(row => "\"" + row + "\""));
+
     private static void Attach(SimulationHost host, HeadlessOptions options, TextWriter output)
     {
         BoardProfile board = host.Mcu.Board;
@@ -185,6 +189,35 @@ internal static class HeadlessRun
             }
         }
 
+        // Displays print their visible text when it changed, 20 ms of virtual time after the first
+        // change, so a line written character by character (about 1 ms each over I2C) shows up once.
+        var displays = new List<Action>();
+        foreach (SimComponent component in host.Simulation.Components.Where(c => c.Display is not null))
+        {
+            string shown = Rows(component);
+            bool pending = false;
+            void Flush()
+            {
+                pending = false;
+                string text = Rows(component);
+                if (text != shown)
+                {
+                    shown = text;
+                    output.WriteLine($"{Stamp()} {component.Id}: {text}");
+                }
+            }
+
+            component.StateChanged += _ =>
+            {
+                if (!pending)
+                {
+                    pending = true;
+                    host.Engine.Clock.Schedule(20 * VirtualTime.Millisecond, Flush);
+                }
+            };
+            displays.Add(Flush);
+        }
+
         FileStream? dump = options.DumpSerial is null ? null : new FileStream(options.DumpSerial, FileMode.Create, FileAccess.Write, FileShare.Read);
         var line = new StringBuilder();
         foreach (UartPort uart in host.Mcu.Uarts)
@@ -212,6 +245,11 @@ internal static class HeadlessRun
             if (line.Length > 0)
             {
                 output.WriteLine($"{Stamp()} Serial: {line}");
+            }
+
+            foreach (Action flush in displays)
+            {
+                flush();
             }
 
             double wall = host.WallTime.TotalSeconds;

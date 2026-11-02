@@ -192,40 +192,56 @@ internal static unsafe class HostCallbacks
         catch (Exception e) { _host.InternalError(e); }
     }
 
-    // I2C and SPI arrive with the display milestones (M4, M5): until then they warn and see no device.
     [UnmanagedCallersOnly]
-    private static void I2cBegin() => NotSimulated("I2C (Wire)");
+    private static void I2cBegin()
+    {
+        try { _host.Enter(HostCall.I2c).I2cBegin(); }
+        catch (Exception e) { _host.InternalError(e); }
+    }
 
     [UnmanagedCallersOnly]
-    private static void I2cEnd() => NotSimulated("I2C (Wire)");
+    private static void I2cEnd()
+    {
+        try { _host.Enter(HostCall.I2c).I2cEnd(); }
+        catch (Exception e) { _host.InternalError(e); }
+    }
 
     [UnmanagedCallersOnly]
-    private static void I2cSetClock(uint hz) => NotSimulated("I2C (Wire)");
+    private static void I2cSetClock(uint hz)
+    {
+        try { _host.Enter(HostCall.I2c, (int)Math.Min(hz, int.MaxValue)).I2cSetClock(hz); }
+        catch (Exception e) { _host.InternalError(e); }
+    }
 
     [UnmanagedCallersOnly]
     private static int I2cStart(byte address, int read)
     {
-        NotSimulated("I2C (Wire)");
-        return 0;
+        try { return _host.Enter(HostCall.I2c, address, read).I2cStart(address, read != 0) ? 1 : 0; }
+        catch (Exception e) { _host.InternalError(e); return 0; }
     }
 
     [UnmanagedCallersOnly]
     private static int I2cWrite(byte value)
     {
-        NotSimulated("I2C (Wire)");
-        return 0;
+        try { return _host.Enter(HostCall.I2c, value).I2cWrite(value) ? 1 : 0; }
+        catch (Exception e) { _host.InternalError(e); return 0; }
     }
 
     [UnmanagedCallersOnly]
     private static byte I2cRead(int ack)
     {
-        NotSimulated("I2C (Wire)");
-        return 0xFF;
+        try { return _host.Enter(HostCall.I2c).I2cRead(ack != 0); }
+        catch (Exception e) { _host.InternalError(e); return 0xFF; }
     }
 
     [UnmanagedCallersOnly]
-    private static void I2cStop() => NotSimulated("I2C (Wire)");
+    private static void I2cStop()
+    {
+        try { _host.Enter(HostCall.I2c).I2cStop(); }
+        catch (Exception e) { _host.InternalError(e); }
+    }
 
+    // SPI arrives with the OLED milestone (M5): until then it warns and sees no device.
     [UnmanagedCallersOnly]
     private static void SpiBegin() => NotSimulated("SPI");
 
@@ -293,7 +309,7 @@ internal static unsafe class HostCallbacks
 
     private static void NotSimulated(string bus)
     {
-        try { _host.Enter(bus == "SPI" ? HostCall.Spi : HostCall.I2c).BusNotSimulated(bus); }
+        try { _host.Enter(HostCall.Spi).BusNotSimulated(bus); }
         catch (Exception e) { _host.InternalError(e); }
     }
 }

@@ -965,8 +965,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         Scene?.ResetRuntime(clearWarnings: true);
         Status = SimStatus.Starting;
         ISimulationSession session = _environment.CreateSession();
-        session.MessageReceived += m => _dispatcher.InvokeAsync(() => OnMessage(session, m));
-        session.Ended += e => _dispatcher.InvokeAsync(() => OnEnded(session, e));
+        session.MessageReceived += m => Observe(_dispatcher.InvokeAsync(() => OnMessage(session, m)));
+        session.Ended += e => Observe(_dispatcher.InvokeAsync(() => OnEnded(session, e)));
         _session = session;
         string firmware = _firmwarePath;
         await session.StartAsync(new SessionStartInfo(_projectDirectory, firmware, SelectedSpeed.Value, 1), CancellationToken.None);
@@ -1030,6 +1030,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         part.Highlighted = false;
     }
 
+    /// <summary>Exceptions in dispatcher callbacks would vanish in their task; log them instead.</summary>
+    private void Observe(DispatcherOperation operation) =>
+        operation.Task.ContinueWith(t => LogUiFailure(_logger, t.Exception!.GetBaseException()), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+
     private void ClearRunOutput()
     {
         Log.Clear();
@@ -1089,7 +1093,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         Scene?.ApplyPins(snapshot.Pins.Select(p => (p.Pin, (int)p.Kind, p.Value)));
         foreach (ComponentUpdate update in snapshot.Components)
         {
-            Scene?.ApplyComponent(update.Id, update.State);
+            Scene?.ApplyComponent(update.Id, update.State, update.Display);
         }
 
         if (snapshot.Serial.Length > 0)
@@ -1202,6 +1206,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     private void HideBanner() => Banner = BannerKind.None;
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Handling a message from the simulation failed")]
+    private static partial void LogUiFailure(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Run ended: {Kind} {Message}")]
     private static partial void LogRunEnded(ILogger logger, SessionEndKind kind, string message);

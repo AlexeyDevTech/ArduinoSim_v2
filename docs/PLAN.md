@@ -50,14 +50,15 @@ Starts only after `docs/UI.md` is approved. Done when the Blink+button scene can
 - [x] Simulation log messages translated by key (Core keeps English text plus arguments).
 - Not yet: Settings dialog and the "О точности симуляции" sheet (M5 polish), live levels in the properties pin list (the canvas tooltip has them), common properties for a multi-selection, board switching (one board exists), the light theme.
 
-## M4 — LCD
+## M4 — LCD ✅
 
 Done when HelloWorld shows on a 1602 over I2C and on a 2004 in 4-bit mode, and `createChar` and `scrollDisplayLeft` work.
 
-1. I2C bus routing in Core; Wire shim (32-byte buffer, repeated start, `endTransmission` codes); tests.
-2. Parallel bus sampling; HD44780 model (full instruction set, DDRAM mapping, CGRAM, busy flag/AC read, A00 ROM); PCF8574 model with bit maps; recorded-stream tests.
-3. LCD component (size, interface, backlight variants, contrast) and renderer with dot grid.
-4. Vendor LiquidCrystal and LiquidCrystal_I2C with pinned versions; examples LCD Hello (4-bit), LCD I2C; integration tests (row 0 "hello, world!", counter on row 1).
+- [x] I2C bus routing in Core (address match on the SDA/SCL nets, NACK warnings that name the address and point at miswiring, pull-up note); Wire shim (32-byte buffer, repeated start, `endTransmission` codes 0/2/3, `requestFrom`); harness and Core tests.
+- [x] Parallel bus sampling on the falling edge of E (with the controller's pull-ups on RS, RW, D0–D7); HD44780 model (full instruction set, 1-/2-line DDRAM maps, CGRAM, 4/8-bit with nibble sequencing, busy flag and address counter reads, A00 ROM); PCF8574 model with the standard and mjkdz bit maps; recorded-stream tests.
+- [x] LCD component (16x2/20x4, I2C/4-bit/8-bit with the pins changing, address, backpack, backlight blue/green/none, contrast from V0 or the property, power check) and a dot-grid renderer; palette presets.
+- [x] LiquidCrystal 1.0.7 and LiquidCrystal_I2C 1.1.2 vendored; examples LcdHello (2004, 4-bit), LcdI2c (1602), LcdCustomChars (createChar, scrollDisplayLeft); integration tests, including the libraries' own HelloWorld, Scroll and CustomCharacter examples unmodified.
+- Not yet: HD44780 5x10 font mode (rendered as 5x8), the A02 ROM (later list), bit-banged (software) I2C, I2C slave mode in Wire.
 
 ## M5 — OLED and polish (MVP)
 

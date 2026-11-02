@@ -1,4 +1,5 @@
 using ArduSim.Core.Boards;
+using ArduSim.Core.Buses;
 using ArduSim.Core.Circuits;
 using ArduSim.Core.Components;
 using ArduSim.Core.Components.Parts;
@@ -42,7 +43,6 @@ public sealed class BoardSimulation
         ArgumentNullException.ThrowIfNull(engine);
         SimulationLog log = engine.Log;
         var circuit = new Circuit(log);
-        var context = new ComponentContext(circuit, engine);
         var components = new List<SimComponent>();
         BoardComponent? boardComponent = null;
 
@@ -81,6 +81,10 @@ public sealed class BoardSimulation
             components.Insert(0, boardComponent);
         }
 
+        I2cBus? i2c = board.I2cSda is { } sda && board.I2cScl is { } scl
+            ? new I2cBus(circuit, log, boardComponent.Pin(board.PinName(sda)), boardComponent.Pin(board.PinName(scl)))
+            : null;
+        var context = new ComponentContext(circuit, engine, i2c);
         foreach (SimComponent component in components)
         {
             component.Attach(context);
@@ -95,7 +99,7 @@ public sealed class BoardSimulation
             }
         }
 
-        var mcu = new Mcu(board, engine, eeprom, seed, circuit, boardComponent.Id);
+        var mcu = new Mcu(board, engine, eeprom, seed, circuit, boardComponent.Id, i2c);
         circuit.Build();
         foreach (SimComponent component in components)
         {

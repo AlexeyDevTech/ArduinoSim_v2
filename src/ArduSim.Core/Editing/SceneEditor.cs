@@ -36,6 +36,7 @@ public sealed partial class SceneEditor
         ["slide-switch"] = "sw",
         ["potentiometer"] = "pot",
         ["buzzer"] = "bz",
+        ["lcd"] = "lcd",
     };
 
     private readonly ComponentRegistry _registry;
@@ -61,7 +62,12 @@ public sealed partial class SceneEditor
 
     public static double Snap(double value) => Math.Round(value / Grid) * Grid;
 
-    public ComponentDefinition? Definition(PartModel part) => _registry.Find(part.Type);
+    /// <summary>The part's definition for its property values (the LCD's size and pins depend on them).</summary>
+    public ComponentDefinition? Definition(PartModel part)
+    {
+        ArgumentNullException.ThrowIfNull(part);
+        return _registry.Find(part.Type)?.Resolve(part.Properties);
+    }
 
     public bool IsBoard(PartModel part) => Definition(part)?.Category == "board";
 
@@ -79,7 +85,8 @@ public sealed partial class SceneEditor
 
     public void NotifyChanged() => Changed?.Invoke();
 
-    public PartModel AddPart(string type, double x, double y)
+    /// <param name="properties">Initial property values (a palette preset); null for the defaults.</param>
+    public PartModel AddPart(string type, double x, double y, IReadOnlyDictionary<string, JsonElement>? properties = null)
     {
         if (_registry.Find(type) is null)
         {
@@ -88,6 +95,11 @@ public sealed partial class SceneEditor
 
         Checkpoint();
         var part = new PartModel(NewPartId(type), type) { X = Snap(x), Y = Snap(y) };
+        foreach ((string name, JsonElement value) in properties ?? new Dictionary<string, JsonElement>())
+        {
+            part.Properties[name] = value.Clone();
+        }
+
         Scene.Parts.Add(part);
         Changed?.Invoke();
         return part;
@@ -240,6 +252,14 @@ public sealed partial class SceneEditor
 
         Checkpoint();
         part.Properties[name] = value.Clone();
+
+        // A property can change the pins (the LCD's interface): wires to pins that are gone go too.
+        if (Definition(part) is { } definition)
+        {
+            Scene.Wires.RemoveAll(w => (w.From.Component == partId && definition.FindPin(w.From.Pin) is null) ||
+                                       (w.To.Component == partId && definition.FindPin(w.To.Pin) is null));
+        }
+
         Changed?.Invoke();
     }
 

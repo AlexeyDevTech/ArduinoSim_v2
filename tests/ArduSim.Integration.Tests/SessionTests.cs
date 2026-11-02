@@ -58,6 +58,24 @@ public sealed class SessionTests(ToolchainFixture toolchain)
         }
     }
 
+    [Theory]
+    [InlineData("examples/LcdHello", "hello, world!")]
+    [InlineData("examples/LcdI2c", "hello, world!")]
+    public async Task Lcd_frames_stream_over_the_session_at_real_time(string example, string _)
+    {
+        (PipeSimulationSession session, Recorder r) = await StartAsync(example, speed: 1);
+        await using (session)
+        {
+            var wall = System.Diagnostics.Stopwatch.StartNew();
+            await Until(() => r.Snapshots.LastOrDefault()?.TimeNs > 1_500 * VirtualTime.Millisecond, "1.5 s of virtual time");
+            // LiquidCrystal's global constructor already waits 50 ms; that must be paced like the rest.
+            Assert.True(wall.Elapsed < TimeSpan.FromSeconds(2.5), $"1.5 s of virtual time took {wall.Elapsed.TotalSeconds:F1} s of wall time");
+            DisplayData frame = r.Snapshots.SelectMany(s => s.Components).Where(c => c.Id == "lcd1" && c.Display is not null).Select(c => c.Display!).Last();
+            Assert.Equal(7, frame.Status); // powered, on, backlight
+            Assert.Contains(frame.Dots, b => b != 0);
+            await session.StopAsync();
+        }
+    }
     [Fact]
     public async Task Blink_streams_snapshots_and_pauses_steps_and_stops()
     {

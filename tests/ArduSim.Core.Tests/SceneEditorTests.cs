@@ -18,6 +18,42 @@ public sealed class SceneEditorTests
     private static JsonElement Json(object value) => JsonSerializer.SerializeToElement(value);
 
     [Fact]
+    public void A_preset_places_the_lcd_with_its_properties_and_layout()
+    {
+        SceneEditor editor = NewEditor();
+        ComponentDefinition lcd = Scenes.Registry.Find("lcd")!;
+        ComponentPreset preset = lcd.Presets.Single(p => p.Id == "2004-parallel");
+
+        PartModel part = editor.AddPart("lcd", 0, 0, lcd.PresetValues(preset));
+
+        ComponentDefinition layout = editor.Definition(part)!;
+        Assert.Equal("lcd1", part.Id);
+        Assert.Equal((390.0, 240.0), (layout.Width, layout.Height));
+        Assert.NotNull(layout.FindPin("RS"));
+        Assert.Null(layout.FindPin("D0")); // 4-bit wiring hides D0-D3
+        Assert.Null(layout.FindPin("SDA"));
+        Assert.Same(layout, editor.Definition(part)); // one instance per layout
+    }
+
+    [Fact]
+    public void Changing_the_lcd_interface_swaps_its_pins_and_drops_wires_to_pins_that_are_gone()
+    {
+        SceneEditor editor = NewEditor();
+        PartModel lcd = editor.AddPart("lcd", 400, 0);
+        WireModel sda = editor.AddWire(new("board", "A4"), new(lcd.Id, "SDA"), [])!;
+        WireModel power = editor.AddWire(new("board", "GND"), new(lcd.Id, "GND"), [])!;
+        Assert.NotNull(editor.Definition(lcd)!.FindPin("SDA"));
+
+        editor.SetProperty(lcd.Id, "interface", Json("parallel-8"));
+
+        Assert.Null(editor.Definition(lcd)!.FindPin("SDA"));
+        Assert.NotNull(editor.Definition(lcd)!.FindPin("D0"));
+        Assert.Empty(editor.Scene.Wires);
+
+        editor.Undo();
+        Assert.Equal([sda.Id, power.Id], editor.Scene.Wires.Select(w => w.Id));
+    }
+    [Fact]
     public void Added_parts_snap_to_the_grid_and_get_numbered_ids()
     {
         SceneEditor editor = NewEditor();

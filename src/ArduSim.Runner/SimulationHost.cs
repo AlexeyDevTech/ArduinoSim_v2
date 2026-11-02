@@ -134,10 +134,13 @@ internal sealed unsafe class SimulationHost : IDisposable
     public void Run(string firmwarePath, bool startPaused = false)
     {
         SimHostApi* api = HostCallbacks.Create(this, (SimCrashInfo*)_crash.Address);
-        _firmware = FirmwareLibrary.Load(firmwarePath, api);
+
+        // Static constructors run while the DLL loads and may already wait (LiquidCrystal's
+        // constructor calls begin(), which delays 50 ms): the clock and the pacer start first.
         _wall.Start();
         Pacer.Reset(Engine.Clock.Now);
         StartWatchdog();
+        _firmware = FirmwareLibrary.Load(firmwarePath, api);
         _paused = startPaused;
         OnSchedulingPoint();
 

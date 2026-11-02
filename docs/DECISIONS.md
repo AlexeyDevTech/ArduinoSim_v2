@@ -61,3 +61,20 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-02 — Build saves the open files; Run also saves the scene and settings, because the Runner reads the project from disk.
 - 2026-11-02 — Log messages that share a code carry a variant (`scene.duplicate-id`); the resource key is `Log_<code>[.<variant>]`, arguments formatted invariantly as the English pattern asks.
 - 2026-11-02 — The properties panel shows a choice with swatches when it is a color, a segmented control up to four options, otherwise a dropdown (docs/UI.md §2.4).
+- 2026-11-02 — LiquidCrystal_I2C 1.1.2 has no license; the owner decided to bundle it as distributed through the Arduino Library Manager (sources only, the repository's prebuilt `.o` left out). To be settled before a public release.
+- 2026-11-02 — Wire follows the AVR TwoWire: write() past 32 bytes returns 0 and the bytes are dropped (with one warning), a NACK always ends with STOP, `endTransmission(false)` makes the next start a repeated start. Slave mode and `onReceive`/`onRequest` warn that they are not simulated.
+- 2026-11-02 — `Wire.begin()` turns on the internal pull-ups of SDA/SCL, as the AVR core does. The pull-up note fires when the bus source resistance is above 20 kΩ (only the ~35 kΩ internal ones); LCD backpacks carry 4.7 kΩ to their VCC.
+- 2026-11-02 — Wire calls before `Wire.begin()` warn once and still work (a real board would hang).
+- 2026-11-02 — I2C NACK warnings are per address and say why: nothing on the bus, a device with that address wired to other nets, or SDA/SCL swapped.
+- 2026-11-02 — The HD44780 executes a command that arrives while busy and warns once (a real controller may drop it), so a timing slip in a sketch is visible but not fatal.
+- 2026-11-02 — The HD44780 has pull-ups on RS, RW and D0-D7 (about 50 kΩ); the 4-bit LCD layout hides D0-D3, which then read 1. An unconnected RW therefore reads HIGH (read mode) and writes are ignored, with a warning.
+- 2026-11-02 — LCD contrast: V0 at 0 V is darkest, about 2 V and up shows nothing (VDD 5 V); with V0 unwired, and on I2C backpacks, the `contrast` property applies. The parallel backlight is on when A is at least 2.5 V above K.
+- 2026-11-02 — 5x10 font mode is accepted and drawn as 5x8; 1-line mode shows only the first row of the glass.
+- 2026-11-02 — The A00 character ROM is drawn by hand after the datasheet table (7 rows per glyph, 0xFF fills all 8); small pixel differences from a given physical ROM are possible.
+- 2026-11-02 — Part size and pins may depend on properties: `ComponentDefinition.Layout` returns one cached definition per layout. Changing such a property removes wires to pins that no longer exist, in the same undo step.
+- 2026-11-02 — Palette presets are `ComponentPreset`s (id, name, property values); a drag carries `type#preset`.
+- 2026-11-02 — Display frames ride in `ComponentUpdate.Display` (optional, appended): character LCDs send rows x 8 lines of 5-bit cells, status bits and contrast. Old and new fields are compatible, so the IPC protocol version stays 1.
+- 2026-11-02 — The headless Runner prints display text 20 ms of virtual time after a change, so text written character by character shows up once; CGRAM glyphs print as `\0`-`\7`, other non-ASCII codes (and ¥ 0x5C, `"`) as `\xNN`.
+- 2026-11-02 — Builds pass core and library include folders as `-isystem` to the sketch and compile library sources with `-w` (the Arduino IDE's default "warnings: none" for libraries); the sketch's own warnings still show.
+- 2026-11-02 — The LCD glass is a WriteableBitmap drawn at the zoom's resolution (whole-pixel dots, never larger than they appear, at most 4 px per canvas unit) and shown at a fixed glass size with nearest-neighbor scaling, so it is only ever scaled up by less than a dot (brief §3.5).
+- 2026-11-02 — The run's wall clock, pacer and watchdog start before the firmware DLL loads, because static constructors may already call the Arduino API.

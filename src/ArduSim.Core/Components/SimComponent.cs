@@ -1,15 +1,20 @@
+using ArduSim.Core.Buses;
 using ArduSim.Core.Circuits;
 using ArduSim.Core.Diagnostics;
+using ArduSim.Core.Displays;
 using ArduSim.Core.Simulation;
 
 namespace ArduSim.Core.Components;
 
 /// <summary>What a part needs while it attaches to the circuit.</summary>
-public sealed class ComponentContext(Circuit circuit, SimulationEngine engine)
+/// <param name="i2c">The board's I2C bus, when it has one; devices register on it.</param>
+public sealed class ComponentContext(Circuit circuit, SimulationEngine engine, I2cBus? i2c = null)
 {
     public Circuit Circuit { get; } = circuit;
 
     public SimulationEngine Engine { get; } = engine;
+
+    public I2cBus? I2c { get; } = i2c;
 
     public SimulationLog Log => Engine.Log;
 }
@@ -38,6 +43,9 @@ public abstract class SimComponent
     public ComponentProperties Properties { get; }
 
     public IReadOnlyDictionary<string, double> State => _state;
+
+    /// <summary>The picture of the part's display, for parts that have one (rendered on demand).</summary>
+    public virtual DisplayFrame? Display => null;
 
     protected ComponentContext Context { get; private set; } = null!;
 
@@ -79,6 +87,9 @@ public abstract class SimComponent
     }
 
     protected NetState Net(string pin) => Circuit.StateOf(Pin(pin));
+
+    /// <summary>The display changed; the next snapshot carries a new frame.</summary>
+    protected void NotifyDisplayChanged() => StateChanged?.Invoke(this);
 
     protected void SetState(string key, double value)
     {

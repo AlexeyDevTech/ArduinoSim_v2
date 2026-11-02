@@ -5,7 +5,56 @@
   <!-- Part drawings in canvas units (0.01 inch), keyed "Part.<type>" (docs/UI.md §3.6). Input is handled by SchematicCanvas. -->
   <v:ColorToBrushConverter x:Key="ColorToBrush" />
   <v:FrequencyConverter x:Key="Frequency" />
+  <v:BoolToVisibilityConverter x:Key="BoolToVisibility" />
   <SolidColorBrush x:Key="Lead" Color="#FFB4BAC4" />
+
+  <!-- Character LCD: green PCB, black bezel, the glass as a nearest-neighbor bitmap; parallel header on top or the I2C backpack at the left. -->
+  <DataTemplate x:Key="Part.lcd" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="{Binding Width}" Height="{Binding Height}">
+      <Rectangle Width="{Binding Width}" Height="{Binding Height}" RadiusX="4" RadiusY="4" Fill="#FF1E6B3C" Stroke="#FF15502C" />
+      <Ellipse Canvas.Left="5" Canvas.Top="5" Width="9" Height="9" Fill="#FF0E1A12" Stroke="#FFC9A33A" />
+      <Ellipse Canvas.Left="{Binding HoleRight}" Canvas.Top="5" Width="9" Height="9" Fill="#FF0E1A12" Stroke="#FFC9A33A" />
+      <Ellipse Canvas.Left="5" Canvas.Top="{Binding HoleBottom}" Width="9" Height="9" Fill="#FF0E1A12" Stroke="#FFC9A33A" />
+      <Ellipse Canvas.Left="{Binding HoleRight}" Canvas.Top="{Binding HoleBottom}" Width="9" Height="9" Fill="#FF0E1A12" Stroke="#FFC9A33A" />
+      <Border Canvas.Left="{Binding BezelLeft}" Canvas.Top="{Binding BezelTop}" Width="{Binding BezelWidth}" Height="{Binding BezelHeight}"
+              Background="#FF151617" CornerRadius="2" Padding="8">
+        <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill"
+               HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+      </Border>
+      <!-- The PCF8574 backpack behind the module: only its edge with the four pins shows. -->
+      <Rectangle Canvas.Left="-6" Canvas.Top="{Binding BackpackTop}" Width="12" Height="50" RadiusX="1.5" RadiusY="1.5" Fill="#FF1C3E8A" Stroke="#FF132B60"
+                 Visibility="{Binding IsI2c, Converter={StaticResource BoolToVisibility}}" />
+      <ItemsControl ItemsSource="{Binding Pins}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:PinViewModel}">
+            <Canvas>
+              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
+              <TextBlock x:Name="Label" Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+            </Canvas>
+            <DataTemplate.Triggers>
+              <!-- Backpack pins sit at the left edge: labels go to their right. -->
+              <DataTrigger Binding="{Binding X}" Value="0">
+                <Setter TargetName="Label" Property="Canvas.Left" Value="8" />
+                <Setter TargetName="Label" Property="Canvas.Top" Value="-2.6" />
+                <Setter TargetName="Label" Property="TextAlignment" Value="Left" />
+              </DataTrigger>
+            </DataTemplate.Triggers>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Canvas>
+  </DataTemplate>
 
   <DataTemplate x:Key="Part.board" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="180" Height="70">

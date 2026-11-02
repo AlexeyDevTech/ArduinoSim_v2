@@ -19,8 +19,15 @@ llvm-mingw 20261020 (UCRT, x86_64) by Martin Storsjö — LLVM (Apache-2.0 with 
 
 ## Vendored Arduino libraries
 
-None yet. Planned for M4/M5 with pinned versions, each keeping its own license (verified when vendored): LiquidCrystal, LiquidCrystal_I2C (Frank de Brabander), Adafruit_GFX, Adafruit_BusIO, Adafruit_SSD1306, Adafruit_SH110X, U8g2, GyverOLED.
+Sources only, unmodified, in `libraries/`; compiled by the user's builds.
+
+| Library | Version | Source | License |
+| --- | --- | --- | --- |
+| LiquidCrystal | 1.0.7 (a89b4d4) | github.com/arduino-libraries/LiquidCrystal | LGPL-2.1-or-later (see its README.adoc) |
+| LiquidCrystal_I2C | 1.1.2 (5d01111) | github.com/johnrickman/LiquidCrystal_I2C (Frank de Brabander; Arduino Library Manager entry) | None stated by the author. Bundled as distributed through the Arduino Library Manager, on the owner's decision of 2026-11-02; the prebuilt `LiquidCrystal_I2C.o` of the repository is not included. Settle before any public release. |
+
+Planned for M5, each keeping its own license (verified when vendored): Adafruit_GFX, Adafruit_BusIO, Adafruit_SSD1306, Adafruit_SH110X, U8g2, GyverOLED.
 
 ## Icons
 
-Planned: Fluent UI System Icons (MIT).
+The Windows icon font (Segoe Fluent Icons, Segoe MDL2 Assets on Windows 10), part of Windows; nothing is bundled.

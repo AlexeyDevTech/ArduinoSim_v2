@@ -266,7 +266,7 @@ public partial class MainWindow : Window
         if (PaletteItemAt(e.OriginalSource) is { } item && _viewModel.Scene is { IsLocked: false })
         {
             _viewModel.SelectedTab = SceneTab.Instance;
-            DragDrop.DoDragDrop((DependencyObject)sender, new DataObject(SchematicCanvas.PartTypeFormat, item.Type), DragDropEffects.Copy);
+            DragDrop.DoDragDrop((DependencyObject)sender, new DataObject(SchematicCanvas.PartTypeFormat, item.Request), DragDropEffects.Copy);
         }
     }
 
@@ -290,7 +290,7 @@ public partial class MainWindow : Window
     private void PlacePart(PaletteItem item)
     {
         _viewModel.SelectedTab = SceneTab.Instance;
-        Canvas.PlaceAtCenter(item.Type);
+        Canvas.PlaceAtCenter(item.Request);
         Canvas.Focus();
     }
 

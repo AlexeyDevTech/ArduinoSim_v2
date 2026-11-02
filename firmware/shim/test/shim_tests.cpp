@@ -1,9 +1,10 @@
 // Standalone shim test harness: links the shim with a fake host and checks the
 // Arduino API behaviour that needs no simulator (String, Print, Stream, port
-// registers, random, pgmspace, EEPROM). Built and run by
+// registers, random, pgmspace, EEPROM, Wire). Built and run by
 // tests/ArduSim.Integration.Tests/ShimHarnessTests.cs; exit code = failed checks.
 #include <Arduino.h>
 #include <EEPROM.h>
+#include <Wire.h>
 #include <stdio.h>
 
 #include "sim_abi.h"
@@ -119,13 +120,27 @@ int32_t h_serial_peek(int32_t) { return g_serial_input[g_serial_pos] != 0 ? stat
 int32_t h_serial_available(int32_t) { return static_cast<int32_t>(strlen(g_serial_input + g_serial_pos)); }
 int32_t h_serial_available_for_write(int32_t) { return 64; }
 void h_serial_flush(int32_t) {}
-void h_i2c_begin() {}
+// One fake I2C device at 0x27: it ACKs, NACKs a data byte of 0xEE, and answers reads with 0x10, 0x11, ...
+uint8_t g_i2c_next_read = 0x10;
+void h_i2c_begin() { record("i2c_begin"); }
 void h_i2c_end() {}
-void h_i2c_set_clock(uint32_t) {}
-int32_t h_i2c_start(uint8_t, int32_t) { return 0; }
-int32_t h_i2c_write(uint8_t) { return 0; }
-uint8_t h_i2c_read(int32_t) { return 0xFF; }
-void h_i2c_stop() {}
+void h_i2c_set_clock(uint32_t hz) { record("i2c_set_clock", static_cast<int32_t>(hz)); }
+int32_t h_i2c_start(uint8_t address, int32_t read)
+{
+    record("i2c_start", address, read);
+    return address == 0x27 ? 1 : 0;
+}
+int32_t h_i2c_write(uint8_t value)
+{
+    record("i2c_write", value);
+    return value == 0xEE ? 0 : 1;
+}
+uint8_t h_i2c_read(int32_t ack)
+{
+    record("i2c_read", ack);
+    return g_i2c_next_read++;
+}
+void h_i2c_stop() { record("i2c_stop"); }
 void h_spi_begin() {}
 void h_spi_end() {}
 void h_spi_settings(uint32_t, int32_t, int32_t) {}
@@ -486,6 +501,67 @@ void test_eeprom()
     CHECK(eeprom_read_byte(reinterpret_cast<const uint8_t*>(10)) == 0x42);
 }
 
+void test_wire()
+{
+    g_call_count = 0;
+    Wire.begin();
+    Wire.setClock(400000);
+    CHECK(has_call("i2c_begin", 0, 0) && has_call("i2c_set_clock", 400000, 0));
+
+    // A write transaction: START + address, the bytes, STOP; 0 = success.
+    g_call_count = 0;
+    Wire.beginTransmission(0x27);
+    CHECK(Wire.write(0x12) == 1);
+    uint8_t pair[] = {0x34, 0x56};
+    CHECK(Wire.write(pair, 2) == 2);
+    CHECK(Wire.endTransmission() == 0);
+    CHECK(g_call_count == 5 && has_call("i2c_start", 0x27, 0) && has_call("i2c_write", 0x56, 0) && count_calls("i2c_stop") == 1);
+
+    // Nobody at 0x50: NACK on the address returns 2 and still ends with STOP.
+    g_call_count = 0;
+    Wire.beginTransmission(0x50);
+    Wire.write(1);
+    CHECK(Wire.endTransmission() == 2);
+    CHECK(count_calls("i2c_write") == 0 && count_calls("i2c_stop") == 1);
+
+    // NACK on a data byte returns 3.
+    Wire.beginTransmission(0x27);
+    Wire.write(0xEE);
+    Wire.write(0x01);
+    CHECK(Wire.endTransmission() == 3);
+
+    // The 33rd byte does not fit: write() returns 0, one warning, 32 bytes go out.
+    g_call_count = 0;
+    int warnings = g_warnings;
+    Wire.beginTransmission(0x27);
+    size_t accepted = 0;
+    for (int i = 0; i < 33; i++) {
+        accepted += Wire.write(static_cast<uint8_t>(i));
+    }
+    CHECK(accepted == 32 && g_warnings == warnings + 1);
+    CHECK(Wire.endTransmission() == 0 && count_calls("i2c_write") == 32);
+
+    // endTransmission(false) keeps the bus: no STOP, so the next START is a repeated start.
+    g_call_count = 0;
+    Wire.beginTransmission(0x27);
+    Wire.write(0x00);
+    CHECK(Wire.endTransmission(false) == 0 && count_calls("i2c_stop") == 0);
+
+    // requestFrom: ACK after every byte but the last, then STOP; the bytes are read back in order.
+    g_i2c_next_read = 0x10;
+    CHECK(Wire.requestFrom(0x27, 3) == 3);
+    CHECK(has_call("i2c_start", 0x27, 1) && has_call("i2c_read", 1, 0) && has_call("i2c_read", 0, 0) && count_calls("i2c_stop") == 1);
+    CHECK(Wire.available() == 3 && Wire.peek() == 0x10 && Wire.read() == 0x10 && Wire.read() == 0x11 && Wire.read() == 0x12 && Wire.read() == -1);
+
+    // A read from a missing device returns 0 bytes.
+    CHECK(Wire.requestFrom(0x50, 2) == 0 && Wire.available() == 0);
+
+    // Register address first, then a repeated-start read (requestFrom with iaddress).
+    g_call_count = 0;
+    CHECK(Wire.requestFrom(static_cast<uint8_t>(0x27), static_cast<uint8_t>(1), static_cast<uint32_t>(0x0102), static_cast<uint8_t>(2), static_cast<uint8_t>(true)) == 1);
+    CHECK(has_call("i2c_write", 0x01, 0) && has_call("i2c_write", 0x02, 0) && count_calls("i2c_start") == 2 && count_calls("i2c_stop") == 1);
+}
+
 void test_entry_points()
 {
     g_serial_input = "x";
@@ -524,6 +600,7 @@ int main()
     test_random_and_math();
     test_pgmspace();
     test_eeprom();
+    test_wire();
     test_entry_points();
 
     printf("shim tests: %d checks, %d failed\n", g_checks, g_failures);

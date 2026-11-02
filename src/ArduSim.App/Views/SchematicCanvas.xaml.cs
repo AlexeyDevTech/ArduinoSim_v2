@@ -127,6 +127,7 @@ public partial class SchematicCanvas : UserControl
         _gridDot.RadiusX = _gridDot.RadiusY = 1.1 / _scale;
         GridLayer.Opacity = _scale < 0.5 * PixelsPerUnitAt100 ? 0 : 1;
         ZoomButton.Content = (_scale / PixelsPerUnitAt100 * 100).ToString("0", CultureInfo.CurrentCulture) + " %";
+        Scene?.SetPixelsPerUnit(_scale * VisualTreeHelper.GetDpi(this).DpiScaleX);
     }
 
     private void ZoomAt(Point screen, double factor)
@@ -518,7 +519,7 @@ public partial class SchematicCanvas : UserControl
     protected override void OnDragOver(DragEventArgs e)
     {
         base.OnDragOver(e);
-        if (Scene is { IsLocked: false } scene && e.Data.GetData(PartTypeFormat) is string type && scene.Editor.Registry.Find(type) is { } definition)
+        if (Scene is { IsLocked: false } scene && e.Data.GetData(PartTypeFormat) is string request && scene.Resolve(request) is { Definition: var definition })
         {
             e.Effects = DragDropEffects.Copy;
             Point world = ToWorld(e.GetPosition(this));
@@ -546,19 +547,19 @@ public partial class SchematicCanvas : UserControl
     {
         base.OnDrop(e);
         DropGhost.Visibility = Visibility.Collapsed;
-        if (Scene is { IsLocked: false } scene && e.Data.GetData(PartTypeFormat) is string type)
+        if (Scene is { IsLocked: false } scene && e.Data.GetData(PartTypeFormat) is string request)
         {
-            scene.Place(type, ToWorld(e.GetPosition(this)));
+            scene.Place(request, ToWorld(e.GetPosition(this)));
             Focus();
         }
     }
 
-    /// <summary>Places a part at the center of the view (palette double-click).</summary>
-    public void PlaceAtCenter(string type)
+    /// <summary>Places a part at the center of the view (palette double-click); <paramref name="request"/> is <c>type</c> or <c>type#preset</c>.</summary>
+    public void PlaceAtCenter(string request)
     {
         if (Scene is { IsLocked: false } scene)
         {
-            scene.Place(type, ToWorld(new Point(ActualWidth / 2, ActualHeight / 2)));
+            scene.Place(request, ToWorld(new Point(ActualWidth / 2, ActualHeight / 2)));
             Focus();
         }
     }

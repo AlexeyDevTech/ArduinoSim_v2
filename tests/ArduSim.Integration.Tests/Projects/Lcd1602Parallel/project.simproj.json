@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 420, "y": 0 },
+      { "id": "lcd1", "type": "lcd", "x": 0, "y": 160, "properties": { "interface": "parallel-4" } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "lcd1", "pin": "VSS" }, "to": { "component": "board", "pin": "GND" } },
+      { "id": "w2", "from": { "component": "lcd1", "pin": "VDD" }, "to": { "component": "board", "pin": "5V" } },
+      { "id": "w3", "from": { "component": "lcd1", "pin": "RW" }, "to": { "component": "board", "pin": "GND.2" } },
+      { "id": "w4", "from": { "component": "lcd1", "pin": "RS" }, "to": { "component": "board", "pin": "D12" } },
+      { "id": "w5", "from": { "component": "lcd1", "pin": "E" }, "to": { "component": "board", "pin": "D11" } },
+      { "id": "w6", "from": { "component": "lcd1", "pin": "D4" }, "to": { "component": "board", "pin": "D5" } },
+      { "id": "w7", "from": { "component": "lcd1", "pin": "D5" }, "to": { "component": "board", "pin": "D4" } },
+      { "id": "w8", "from": { "component": "lcd1", "pin": "D6" }, "to": { "component": "board", "pin": "D3" } },
+      { "id": "w9", "from": { "component": "lcd1", "pin": "D7" }, "to": { "component": "board", "pin": "D2" } }
+    ]
+  }
+}

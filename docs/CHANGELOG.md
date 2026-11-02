@@ -1,5 +1,18 @@
 # Changelog
 
+## M4 — LCD (2026-11-02)
+
+- I2C: the board's SDA/SCL nets form a bus; a transfer reaches the device with that address on those nets, at 9 bit times per byte at the Wire clock. Nobody at an address is a NACK, as on hardware, with one warning that names the address and what is on the bus, or that the SDA/SCL wires of a device with that address are swapped or not on A4/A5. A note when the bus has only the MCU's weak pull-ups.
+- Wire library in the shim: the AVR TwoWire API, 32-byte buffers, repeated start, `endTransmission` 0/2/3, `requestFrom` with and without a register address; slave mode warns that it is not simulated.
+- HD44780 controller: full instruction set, DDRAM maps for 16x2 and 20x4, 8 CGRAM glyphs, 4-bit and 8-bit interfaces with the init sequence, busy flag and address counter reads, display/cursor shift, blinking cursor, the A00 character ROM. PCF8574 expander with the standard and mjkdz backpack wirings.
+- LCD part: 16x2 or 20x4; I2C backpack, 4-bit or 8-bit parallel, with the pins following the choice; I2C address, backlight (blue, green, none) and contrast (from V0 when it is wired). It needs 5V and GND, reads an unconnected RW as "read" like the real controller, and warns about both. Palette presets: LCD 1602/2004, I2C or parallel.
+- The glass is drawn dot by dot with the unlit grid visible, at the canvas zoom, so it stays sharp at every zoom level; frames travel in snapshots and identical frames are not redrawn.
+- Bundled libraries LiquidCrystal 1.0.7 and LiquidCrystal_I2C 1.1.2; examples LcdHello, LcdI2c and LcdCustomChars. The libraries' own HelloWorld, Scroll and CustomCharacter examples run unmodified in the tests.
+- The headless Runner prints each display's rows when they change (`lcd1: "hello, world!   " "3               "`).
+- Builds show the sketch's warnings only: core and library headers are system headers, library sources compile without warnings.
+- Fixed: a sketch whose global constructors wait (LiquidCrystal's calls `begin()`) started seconds late at 1×, because the run's clock started after the firmware had loaded.
+- Fixed: errors while the app handled a message from the simulation were lost; they are logged now.
+
 ## M3 — Schematic editor (2026-11-02)
 
 - Window per `docs/UI.md`: one 48 px title bar with the toolbar (project menu, Build/Run/Pause/Stop, step, speed, board, clock, status pill, snap-layout maximize), palette, center tabs, properties, bottom tabs and status bar; panels collapse to strips (Ctrl+1/2/3) and keep their sizes; a start view with recent projects and examples.

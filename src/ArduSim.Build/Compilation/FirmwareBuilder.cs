@@ -43,6 +43,10 @@ public sealed record BuildResult(
     IReadOnlyList<string> Libraries,
     BuildStatistics Statistics);
 
+/// <param name="SystemIncludes">Searched after <paramref name="Includes"/>; warnings in their headers are not shown.</param>
+/// <param name="Quiet">Compile without warnings (library sources).</param>
+internal sealed record CompileUnit(string Source, IReadOnlyList<string> SystemIncludes, IReadOnlyList<string> Includes, bool Quiet);
+
 /// <summary>Preprocesses the sketch, resolves libraries, compiles every unit (cached, in parallel) and links <c>firmware.dll</c>.</summary>
 public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, ShimLayout shim)
 {
@@ -77,12 +81,14 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
         IEnumerable<string> sketchHeaders = Directory.EnumerateFiles(sketch.Directory, "*.h");
         LibraryResolution resolution = resolver.Resolve([.. sketch.InoFiles, .. sketch.SourceFiles, .. sketchHeaders]);
         string[] libraryIncludes = [.. coreIncludes, .. resolution.Libraries.SelectMany(l => l.IncludeDirectories)];
-        string[] sketchIncludes = [.. libraryIncludes, sketch.Directory];
 
-        var units = new List<(string Source, string[] Includes)> { (generated, sketchIncludes) };
-        units.AddRange(sketch.SourceFiles.Select(s => (s, sketchIncludes)));
-        units.AddRange(Directory.EnumerateFiles(shim.SourceDirectory).Where(IsSource).Order(StringComparer.Ordinal).Select(s => (s, coreIncludes)));
-        units.AddRange(resolution.Libraries.SelectMany(l => l.SourceFiles()).Select(s => (s, libraryIncludes)));
+        // As the Arduino IDE (warnings "none" for libraries): the sketch sees the core and library
+        // headers as system headers, and library sources compile without warnings, so the build
+        // reports the sketch's own warnings, not third-party ones.
+        var units = new List<CompileUnit> { new(generated, libraryIncludes, [sketch.Directory], Quiet: false) };
+        units.AddRange(sketch.SourceFiles.Select(s => new CompileUnit(s, libraryIncludes, [sketch.Directory], Quiet: false)));
+        units.AddRange(Directory.EnumerateFiles(shim.SourceDirectory).Where(IsSource).Order(StringComparer.Ordinal).Select(s => new CompileUnit(s, [], coreIncludes, Quiet: false)));
+        units.AddRange(resolution.Libraries.SelectMany(l => l.SourceFiles()).Select(s => new CompileUnit(s, [], libraryIncludes, Quiet: true)));
 
         var hashes = new FileHashes();
         var outputs = new ConcurrentDictionary<int, string>();
@@ -93,8 +99,9 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
             new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = cancellationToken },
             async (index, ct) =>
             {
-                (string source, string[] includes) = units[index];
-                (CacheEntry? entry, bool hit, string output) = await CompileAsync(source, includes, request.Defines, hashes, ct);
+                CompileUnit unit = units[index];
+                string source = unit.Source;
+                (CacheEntry? entry, bool hit, string output) = await CompileAsync(unit, request.Defines, hashes, ct);
                 entries[index] = entry;
                 if (hit)
                 {
@@ -143,13 +150,20 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
     }
 
     private async Task<(CacheEntry? Entry, bool Hit, string Output)> CompileAsync(
-        string source, string[] includes, IReadOnlyList<string> defines, FileHashes hashes, CancellationToken cancellationToken)
+        CompileUnit unit, IReadOnlyList<string> defines, FileHashes hashes, CancellationToken cancellationToken)
     {
+        string source = unit.Source;
         bool isC = string.Equals(Path.GetExtension(source), ".c", StringComparison.OrdinalIgnoreCase);
         var arguments = new List<string>(CommonFlags);
         arguments.AddRange(isC ? CFlags : CxxFlags);
+        if (unit.Quiet)
+        {
+            arguments.Add("-w");
+        }
+
         arguments.AddRange(defines.Select(d => "-D" + d));
-        arguments.AddRange(includes.Select(i => "-I" + i));
+        arguments.AddRange(unit.Includes.Select(i => "-I" + i));
+        arguments.AddRange(unit.SystemIncludes.SelectMany(i => new[] { "-isystem", i }));
 
         string key = ObjectCache.ComputeKey([toolchain.Id, .. arguments, source, hashes.Get(source)]);
         if (cache.TryGet(key, hashes) is { } cached)

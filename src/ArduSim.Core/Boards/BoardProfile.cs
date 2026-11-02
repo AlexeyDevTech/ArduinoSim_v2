@@ -48,6 +48,7 @@ public sealed record TimingTable(
 /// <param name="Defines">Compiler macros for the sketch.</param>
 /// <param name="ExternalInterrupts">Interrupt number → pin.</param>
 /// <param name="Width">Size of the board drawing in canvas units.</param>
+/// <param name="I2cSda">Pin number of the hardware I2C data line (Nano: A4); null when the board has no I2C.</param>
 public sealed record BoardProfile(
     string Id,
     string DisplayName,
@@ -63,7 +64,9 @@ public sealed record BoardProfile(
     int? BuiltinLed,
     double Width,
     double Height,
-    TimingTable Timing)
+    TimingTable Timing,
+    int? I2cSda = null,
+    int? I2cScl = null)
 {
     public BoardPin? FindPin(int number) => Pins.FirstOrDefault(p => p.Number == number);
 
