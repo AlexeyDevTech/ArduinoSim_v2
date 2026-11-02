@@ -165,7 +165,7 @@ internal sealed unsafe class SimulationHost : IDisposable
             2 => SimSeverity.Warning,
             _ => SimSeverity.Info,
         };
-        Engine.Log.Report(severity, "firmware", message);
+        Engine.Log.Report(severity, "firmware", $"{message}");
     }
 
     public void FirmwareFatal(string message) => Fail("firmware: " + message, ProcessExit.FirmwareError);

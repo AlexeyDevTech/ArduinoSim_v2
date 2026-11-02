@@ -49,3 +49,15 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-02 — M2 draws parts with XAML templates in MainWindow (handlers stay view glue); definition-driven vector art and the editor arrive with M3.
 - 2026-11-02 — The M2 canvas fits the scene with a Viewbox; pan and zoom arrive with the M3 editor.
 - 2026-11-02 — Headless `--input <ms>:<part>:<name>=<value>` schedules part inputs, so tests can press buttons.
+- 2026-11-02 — Part art is a XAML template per part type in `App/Themes/Parts.xaml` (keyed `Part.<type>`), not vector data in Core definitions; ADR-007 keeps definitions and behaviour together, the look stays in the App.
+- 2026-11-02 — Canvas units are 0.01 inch; 100 % zoom draws 2 px per unit. Hit testing runs on view-model geometry (part bounds, pin positions, route segments), not on WPF visuals.
+- 2026-11-02 — Undo is a snapshot of the whole scene per step (scenes are small); a drag is one step.
+- 2026-11-02 — Boards are picked in the toolbar, not placed from the palette; the board part cannot be deleted.
+- 2026-11-02 — Icons use the Windows icon font (Segoe Fluent Icons, Segoe MDL2 Assets on Windows 10) instead of shipping the Fluent UI System Icons package: the same design family, nothing to bundle.
+- 2026-11-02 — Dragging a wire segment turns every bend of its route into an explicit waypoint; a segment that ends on a pin gets a waypoint at the pin so the pin stays put.
+- 2026-11-02 — Recent projects and the panel layout live in `%LOCALAPPDATA%\ArduSim\ui-state.json`; an unreadable file means defaults.
+- 2026-11-02 — A new project is created in the folder the user picks (created if needed): `project.simproj.json` and `sketch/<folder name>.ino` (non-identifier characters become `_`); a folder that already holds a project is opened instead.
+- 2026-11-02 — Code tabs open every sketch source file (`.ino` first); a closed tab is reopened from the "+" menu.
+- 2026-11-02 — Build saves the open files; Run also saves the scene and settings, because the Runner reads the project from disk.
+- 2026-11-02 — Log messages that share a code carry a variant (`scene.duplicate-id`); the resource key is `Log_<code>[.<variant>]`, arguments formatted invariantly as the English pattern asks.
+- 2026-11-02 — The properties panel shows a choice with swatches when it is a color, a segmented control up to four options, otherwise a dropdown (docs/UI.md §2.4).

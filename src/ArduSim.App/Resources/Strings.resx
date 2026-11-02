@@ -12,21 +12,146 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+
+  <!-- Window and toolbar -->
   <data name="App_Title" xml:space="preserve"><value>ArduSim</value></data>
-  <data name="Toolbar_Project" xml:space="preserve"><value>Пример</value></data>
-  <data name="Toolbar_OpenFolder" xml:space="preserve"><value>Открыть папку…</value></data>
+  <data name="Window_Minimize" xml:space="preserve"><value>Свернуть</value></data>
+  <data name="Window_Maximize" xml:space="preserve"><value>Развернуть</value></data>
+  <data name="Window_Restore" xml:space="preserve"><value>Восстановить</value></data>
+  <data name="Window_Close" xml:space="preserve"><value>Закрыть</value></data>
+  <data name="Toolbar_Unsaved" xml:space="preserve"><value>Есть несохранённые изменения</value></data>
   <data name="Toolbar_Build" xml:space="preserve"><value>Собрать</value></data>
   <data name="Toolbar_Run" xml:space="preserve"><value>Запуск</value></data>
   <data name="Toolbar_Pause" xml:space="preserve"><value>Пауза</value></data>
   <data name="Toolbar_Resume" xml:space="preserve"><value>Продолжить</value></data>
   <data name="Toolbar_Stop" xml:space="preserve"><value>Стоп</value></data>
-  <data name="Toolbar_Step" xml:space="preserve"><value>Шаг:</value></data>
-  <data name="Toolbar_StepLoop" xml:space="preserve"><value>loop()</value></data>
+  <data name="Toolbar_StepLoopTip" xml:space="preserve"><value>Шаг: один loop() (F10)</value></data>
+  <data name="Toolbar_StepTip" xml:space="preserve"><value>Шаг по виртуальному времени</value></data>
   <data name="Toolbar_Step1" xml:space="preserve"><value>1 мс</value></data>
   <data name="Toolbar_Step10" xml:space="preserve"><value>10 мс</value></data>
   <data name="Toolbar_Step100" xml:space="preserve"><value>100 мс</value></data>
-  <data name="Toolbar_Speed" xml:space="preserve"><value>Скорость:</value></data>
+  <data name="Toolbar_Speed" xml:space="preserve"><value>Скорость симуляции</value></data>
+  <data name="Toolbar_Board" xml:space="preserve"><value>Плата</value></data>
+  <data name="Toolbar_ClockTip" xml:space="preserve"><value>Виртуальное время; щелчок переключает с / мс</value></data>
   <data name="Speed_Max" xml:space="preserve"><value>макс</value></data>
+  <data name="Unit_Seconds" xml:space="preserve"><value>с</value></data>
+  <data name="Unit_Milliseconds" xml:space="preserve"><value>мс</value></data>
+
+  <!-- Project menu -->
+  <data name="Menu_New" xml:space="preserve"><value>Новый проект…</value></data>
+  <data name="Menu_Open" xml:space="preserve"><value>Открыть…</value></data>
+  <data name="Menu_Recent" xml:space="preserve"><value>Недавние</value></data>
+  <data name="Menu_Examples" xml:space="preserve"><value>Примеры</value></data>
+  <data name="Menu_Save" xml:space="preserve"><value>Сохранить</value></data>
+  <data name="Menu_Reveal" xml:space="preserve"><value>Открыть папку в проводнике</value></data>
+  <data name="Menu_CloseProject" xml:space="preserve"><value>Закрыть проект</value></data>
+
+  <!-- Canvas context menu and hints -->
+  <data name="Menu_Rotate" xml:space="preserve"><value>Повернуть</value></data>
+  <data name="Menu_Flip" xml:space="preserve"><value>Отразить</value></data>
+  <data name="Menu_Duplicate" xml:space="preserve"><value>Дублировать</value></data>
+  <data name="Menu_Copy" xml:space="preserve"><value>Копировать</value></data>
+  <data name="Menu_Delete" xml:space="preserve"><value>Удалить</value></data>
+  <data name="Menu_WireColor" xml:space="preserve"><value>Цвет</value></data>
+  <data name="Menu_Paste" xml:space="preserve"><value>Вставить</value></data>
+  <data name="Menu_Fit" xml:space="preserve"><value>Вписать</value></data>
+  <data name="Canvas_Fit" xml:space="preserve"><value>Вписать</value></data>
+  <data name="Canvas_LockedHint" xml:space="preserve"><value>Остановите симуляцию, чтобы изменить схему</value></data>
+  <data name="Key_Space" xml:space="preserve"><value>Пробел</value></data>
+  <data name="Pin_DigitalPwm" xml:space="preserve"><value>цифровой, ШИМ</value></data>
+  <data name="Pin_Digital" xml:space="preserve"><value>цифровой, ШИМ нет</value></data>
+  <data name="Pin_Analog" xml:space="preserve"><value>только аналоговый вход</value></data>
+  <data name="Pin_Input" xml:space="preserve"><value>вход</value></data>
+  <data name="Pin_Wires" xml:space="preserve"><value>проводов: {0}</value></data>
+
+  <!-- Colors (wires and parts) -->
+  <data name="Color_auto" xml:space="preserve"><value>Авто (по типу цепи)</value></data>
+  <data name="Color_red" xml:space="preserve"><value>Красный</value></data>
+  <data name="Color_green" xml:space="preserve"><value>Зелёный</value></data>
+  <data name="Color_blue" xml:space="preserve"><value>Синий</value></data>
+  <data name="Color_yellow" xml:space="preserve"><value>Жёлтый</value></data>
+  <data name="Color_orange" xml:space="preserve"><value>Оранжевый</value></data>
+  <data name="Color_purple" xml:space="preserve"><value>Фиолетовый</value></data>
+  <data name="Color_pink" xml:space="preserve"><value>Розовый</value></data>
+  <data name="Color_white" xml:space="preserve"><value>Белый</value></data>
+  <data name="Color_grey" xml:space="preserve"><value>Серый</value></data>
+  <data name="Color_black" xml:space="preserve"><value>Чёрный</value></data>
+
+  <!-- Parts and the palette -->
+  <data name="Board_arduino-nano-v3" xml:space="preserve"><value>Arduino Nano</value></data>
+  <data name="Part_Led" xml:space="preserve"><value>Светодиод</value></data>
+  <data name="Part_RgbLed" xml:space="preserve"><value>RGB-светодиод</value></data>
+  <data name="Part_PushButton" xml:space="preserve"><value>Кнопка</value></data>
+  <data name="Part_SlideSwitch" xml:space="preserve"><value>Переключатель</value></data>
+  <data name="Part_Potentiometer" xml:space="preserve"><value>Потенциометр</value></data>
+  <data name="Part_Resistor" xml:space="preserve"><value>Резистор</value></data>
+  <data name="Part_Buzzer" xml:space="preserve"><value>Пищалка</value></data>
+  <data name="Category_board" xml:space="preserve"><value>Платы</value></data>
+  <data name="Category_output" xml:space="preserve"><value>Вывод</value></data>
+  <data name="Category_input" xml:space="preserve"><value>Ввод</value></data>
+  <data name="Category_passive" xml:space="preserve"><value>Пассивные</value></data>
+  <data name="Category_display" xml:space="preserve"><value>Дисплеи</value></data>
+  <data name="Panel_Palette" xml:space="preserve"><value>Детали</value></data>
+  <data name="Panel_Properties" xml:space="preserve"><value>Свойства</value></data>
+  <data name="Panel_CollapseTip1" xml:space="preserve"><value>Свернуть панель (Ctrl+1)</value></data>
+  <data name="Panel_CollapseTip2" xml:space="preserve"><value>Свернуть панель (Ctrl+2)</value></data>
+  <data name="Panel_CollapseTip3" xml:space="preserve"><value>Свернуть панель (Ctrl+3)</value></data>
+  <data name="Palette_Search" xml:space="preserve"><value>Поиск деталей</value></data>
+  <data name="Palette_ItemTip" xml:space="preserve"><value>Перетащите на схему или дважды щёлкните</value></data>
+
+  <!-- Properties -->
+  <data name="Properties_Project" xml:space="preserve"><value>Проект</value></data>
+  <data name="Properties_Wire" xml:space="preserve"><value>провод</value></data>
+  <data name="Properties_Many" xml:space="preserve"><value>Выбрано деталей: {0}</value></data>
+  <data name="Properties_From" xml:space="preserve"><value>от</value></data>
+  <data name="Properties_To" xml:space="preserve"><value>к</value></data>
+  <data name="Properties_Pins" xml:space="preserve"><value>Пины</value></data>
+  <data name="Properties_Color" xml:space="preserve"><value>Цвет</value></data>
+  <data name="Properties_IdTip" xml:space="preserve"><value>Имя детали: строчные латинские буквы, цифры и дефис; Enter применяет</value></data>
+  <data name="Properties_BadId" xml:space="preserve"><value>Имя занято или недопустимо: строчные латинские буквы, цифры и дефис, начиная с буквы.</value></data>
+  <data name="Properties_Range" xml:space="preserve"><value>Нужно число от {0} до {1}.</value></data>
+  <data name="Properties_KeyTip" xml:space="preserve"><value>Нажмите клавишу; Backspace — без клавиши</value></data>
+  <data name="Property_color" xml:space="preserve"><value>Цвет</value></data>
+  <data name="Property_key" xml:space="preserve"><value>Клавиша</value></data>
+  <data name="Property_position" xml:space="preserve"><value>Положение</value></data>
+  <data name="Property_resistance" xml:space="preserve"><value>Сопротивление</value></data>
+  <data name="Property_value" xml:space="preserve"><value>Положение движка (0…1)</value></data>
+  <data name="Property_common" xml:space="preserve"><value>Общий вывод</value></data>
+  <data name="Property_baud" xml:space="preserve"><value>Скорость порта по умолчанию, бод</value></data>
+  <data name="Property_libraryPaths" xml:space="preserve"><value>Папки библиотек (через ;)</value></data>
+  <data name="Option_position_0" xml:space="preserve"><value>Слева</value></data>
+  <data name="Option_position_1" xml:space="preserve"><value>Справа</value></data>
+  <data name="Option_common_cathode" xml:space="preserve"><value>Катод</value></data>
+  <data name="Option_common_anode" xml:space="preserve"><value>Анод</value></data>
+
+  <!-- Center tabs and the code editor -->
+  <data name="Tab_Scene" xml:space="preserve"><value>Схема</value></data>
+  <data name="Tab_Close" xml:space="preserve"><value>Закрыть вкладку (Ctrl+W)</value></data>
+  <data name="Tab_OpenFile" xml:space="preserve"><value>Открыть файл скетча</value></data>
+  <data name="Tab_NoClosedFiles" xml:space="preserve"><value>Все файлы скетча открыты</value></data>
+  <data name="Editor_Conflict" xml:space="preserve"><value>Файл изменён вне ArduSim.</value></data>
+  <data name="Editor_Reload" xml:space="preserve"><value>Загрузить с диска</value></data>
+  <data name="Editor_KeepMine" xml:space="preserve"><value>Оставить мою версию</value></data>
+
+  <!-- Start view and dialogs -->
+  <data name="Start_Tagline" xml:space="preserve"><value>Симулятор скетчей Arduino: схема, код и прошивка на вашем компьютере.</value></data>
+  <data name="Start_New" xml:space="preserve"><value>Новый проект</value></data>
+  <data name="Start_Open" xml:space="preserve"><value>Открыть папку…</value></data>
+  <data name="Start_Recent" xml:space="preserve"><value>Недавние</value></data>
+  <data name="Start_NoRecent" xml:space="preserve"><value>Здесь появятся проекты, которые вы открывали.</value></data>
+  <data name="Start_Examples" xml:space="preserve"><value>Примеры</value></data>
+  <data name="Dialog_NewProject" xml:space="preserve"><value>Папка нового проекта</value></data>
+  <data name="Dialog_OpenProject" xml:space="preserve"><value>Папка проекта</value></data>
+  <data name="Dialog_UnsavedTitle" xml:space="preserve"><value>Сохранить изменения в «{0}»?</value></data>
+  <data name="Dialog_UnsavedBody" xml:space="preserve"><value>Если не сохранить, изменения пропадут.</value></data>
+  <data name="Dialog_Save" xml:space="preserve"><value>Сохранить</value></data>
+  <data name="Dialog_Discard" xml:space="preserve"><value>Не сохранять</value></data>
+  <data name="Dialog_Cancel" xml:space="preserve"><value>Отмена</value></data>
+  <data name="Toast_Saved" xml:space="preserve"><value>Проект сохранён</value></data>
+  <data name="Toast_Reloaded" xml:space="preserve"><value>Файл {0} перезагружен с диска</value></data>
+  <data name="Toast_RecentMissing" xml:space="preserve"><value>Проекта больше нет: {0}</value></data>
+
+  <!-- Status -->
   <data name="Status_Idle" xml:space="preserve"><value>Готово</value></data>
   <data name="Status_Building" xml:space="preserve"><value>Сборка…</value></data>
   <data name="Status_BuildFailed" xml:space="preserve"><value>Ошибка сборки</value></data>
@@ -34,14 +159,20 @@
   <data name="Status_Running" xml:space="preserve"><value>Работает</value></data>
   <data name="Status_Paused" xml:space="preserve"><value>Пауза</value></data>
   <data name="Status_Crashed" xml:space="preserve"><value>Прошивка упала</value></data>
-  <data name="Status_Busy" xml:space="preserve"><value>Прошивка не отвечает</value></data>
+  <data name="Status_Busy" xml:space="preserve"><value>Не отвечает</value></data>
   <data name="Status_Stopped" xml:space="preserve"><value>Остановлено</value></data>
-  <data name="Status_Toolchain" xml:space="preserve"><value>Компилятор: {0} {1}%</value></data>
+  <data name="Status_ToolchainProgress" xml:space="preserve"><value>Компилятор: {0} {1}%</value></data>
+  <data name="Status_Toolchain" xml:space="preserve"><value>компилятор {0}</value></data>
+  <data name="Status_NoToolchain" xml:space="preserve"><value>компилятор не установлен</value></data>
+  <data name="Status_LastBuild" xml:space="preserve"><value>сборка {0:F2} с</value></data>
   <data name="Toolchain_Downloading" xml:space="preserve"><value>загрузка</value></data>
   <data name="Toolchain_Verifying" xml:space="preserve"><value>проверка</value></data>
   <data name="Toolchain_Extracting" xml:space="preserve"><value>распаковка</value></data>
   <data name="Toolchain_Testing" xml:space="preserve"><value>проверка сборки</value></data>
   <data name="Build_Summary" xml:space="preserve"><value>Собрано за {0:F2} с: единиц компиляции {1}, из кеша {2}.</value></data>
+  <data name="Inproc_Badge" xml:space="preserve"><value>в процессе (отладка)</value></data>
+
+  <!-- Bottom tabs -->
   <data name="Tab_Serial" xml:space="preserve"><value>Монитор порта</value></data>
   <data name="Tab_Build" xml:space="preserve"><value>Сборка</value></data>
   <data name="Tab_Log" xml:space="preserve"><value>Журнал</value></data>
@@ -52,6 +183,8 @@
   <data name="Serial_NoEnding" xml:space="preserve"><value>нет</value></data>
   <data name="Serial_Baud" xml:space="preserve"><value>{0} бод</value></data>
   <data name="Log_Show" xml:space="preserve"><value>Показать</value></data>
+
+  <!-- Banners -->
   <data name="Banner_Close" xml:space="preserve"><value>Закрыть</value></data>
   <data name="Banner_CrashTitle" xml:space="preserve"><value>Прошивка упала</value></data>
   <data name="Banner_CrashBody" xml:space="preserve"><value>{0}: {1}.</value></data>
@@ -59,14 +192,19 @@
   <data name="Banner_CrashUnknownPlace" xml:space="preserve"><value>место не определено</value></data>
   <data name="Banner_LastCalls" xml:space="preserve"><value>Последние вызовы Arduino API:</value></data>
   <data name="Banner_Rerun" xml:space="preserve"><value>Перезапустить</value></data>
+  <data name="Banner_OpenLine" xml:space="preserve"><value>Открыть строку</value></data>
   <data name="Banner_BusyTitle" xml:space="preserve"><value>Прошивка не отвечает</value></data>
   <data name="Banner_BusyBody" xml:space="preserve"><value>Уже 2 секунды скетч не вызывает Arduino API — похоже на бесконечный цикл без delay() и millis().</value></data>
   <data name="Banner_Stop" xml:space="preserve"><value>Остановить</value></data>
   <data name="Banner_ToolchainTitle" xml:space="preserve"><value>Нужен компилятор</value></data>
   <data name="Banner_ToolchainBody" xml:space="preserve"><value>Чтобы собирать скетчи, ArduSim один раз скачает llvm-mingw ({0} МиБ) в {1} и проверит контрольную сумму.</value></data>
   <data name="Banner_Download" xml:space="preserve"><value>Скачать</value></data>
-  <data name="Banner_ExitedTitle" xml:space="preserve"><value>Симуляция завершилась</value></data>
   <data name="Banner_ToolchainFailed" xml:space="preserve"><value>Не удалось установить компилятор</value></data>
+  <data name="Banner_ExitedTitle" xml:space="preserve"><value>Симуляция завершилась</value></data>
+  <data name="Banner_OpenFailed" xml:space="preserve"><value>Не удалось открыть проект</value></data>
+  <data name="Banner_CreateFailed" xml:space="preserve"><value>Не удалось создать проект</value></data>
+  <data name="Banner_SaveFailed" xml:space="preserve"><value>Не удалось сохранить</value></data>
+  <data name="Banner_UnknownBoard" xml:space="preserve"><value>Плата «{0}» этой версии ArduSim неизвестна.</value></data>
   <data name="Crash_AccessViolation" xml:space="preserve"><value>Обращение к недопустимому адресу памяти</value></data>
   <data name="Crash_DivideByZero" xml:space="preserve"><value>Целочисленное деление на ноль</value></data>
   <data name="Crash_StackOverflow" xml:space="preserve"><value>Переполнение стека</value></data>
@@ -74,6 +212,30 @@
   <data name="Crash_Location" xml:space="preserve"><value>{0}(), {1}:{2}</value></data>
   <data name="Crash_NullWrite" xml:space="preserve"><value>запись по нулевому указателю</value></data>
   <data name="Crash_NullRead" xml:space="preserve"><value>чтение по нулевому указателю</value></data>
-  <data name="Scene_Empty" xml:space="preserve"><value>Выберите пример или откройте папку проекта.</value></data>
-  <data name="Inproc_Badge" xml:space="preserve"><value>в процессе (отладка)</value></data>
+
+  <!-- Simulation log: Log_<code>[.<variant>], filled with the entry's arguments in order (Core/Diagnostics/SimulationLog.cs). -->
+  <data name="Log_firmware" xml:space="preserve"><value>{0}</value></data>
+  <data name="Log_unknown-input" xml:space="preserve"><value>У {0} ({1}) нет входа «{2}».</value></data>
+  <data name="Log_unknown-input.missing-part" xml:space="preserve"><value>Ввод для «{0}», которой нет в симуляции.</value></data>
+  <data name="Log_serial-config" xml:space="preserve"><value>{0}.begin(0): скорость 0 недопустима, порт остаётся закрытым.</value></data>
+  <data name="Log_serial-not-begun" xml:space="preserve"><value>Запись в {0} до вызова {1}.begin(): вывод отброшен.</value></data>
+  <data name="Log_serial-rx-overflow" xml:space="preserve"><value>Приёмный буфер {0} переполнен ({1} байт): входящие байты теряются, пока скетч их не прочитает.</value></data>
+  <data name="Log_circuit-unstable" xml:space="preserve"><value>Схема не приходит в устойчивое состояние (детали без конца меняют друг друга); расчёт остановлен.</value></data>
+  <data name="Log_short-circuit" xml:space="preserve"><value>Короткое замыкание в цепи {0}: {1} выдаёт {2} В, а {3} — {4} В.</value></data>
+  <data name="Log_invalid-pin" xml:space="preserve"><value>{0}({1}): у {2} нет вывода {3}, вызов пропущен.</value></data>
+  <data name="Log_invalid-pin.analog" xml:space="preserve"><value>analogRead({0}): на {1} это не аналоговый вход, результат 0.</value></data>
+  <data name="Log_analog-only-pin" xml:space="preserve"><value>{0}({1}): {2} на {3} только аналоговый, вызов пропущен.</value></data>
+  <data name="Log_not-simulated" xml:space="preserve"><value>{0} пока не симулируется: устройства на шине не видны.</value></data>
+  <data name="Log_invalid-interrupt" xml:space="preserve"><value>attachInterrupt({0}): у {1} нет внешнего прерывания {2}.</value></data>
+  <data name="Log_undefined-level" xml:space="preserve"><value>{0} под напряжением {1} В — между порогами LOW ({2} В) и HIGH ({3} В), поэтому читается случайное значение.</value></data>
+  <data name="Log_floating-input" xml:space="preserve"><value>{0} ни к чему не подключён: цепь {1} никто не задаёт и не подтягивает, поэтому читается случайное значение.</value></data>
+  <data name="Log_floating-input.analog" xml:space="preserve"><value>{0} ни к чему не подключён: цепь {1} никто не задаёт и не подтягивает, поэтому analogRead возвращает шум.</value></data>
+  <data name="Log_floating-input.aref" xml:space="preserve"><value>Задан analogReference(EXTERNAL), но AREF не подключён: используется Vcc.</value></data>
+  <data name="Log_invalid-serial" xml:space="preserve"><value>У {0} нет последовательного порта {1}.</value></data>
+  <data name="Log_eeprom-address" xml:space="preserve"><value>Адрес EEPROM {0} вне диапазона 0..{1}: как и на ATmega328P, он сворачивается в {2}.</value></data>
+  <data name="Log_scene.duplicate-id" xml:space="preserve"><value>Две детали с одним именем «{0}»: вторая исключена.</value></data>
+  <data name="Log_scene.unknown-type" xml:space="preserve"><value>Неизвестный тип детали «{0}» ({1}) исключён из симуляции.</value></data>
+  <data name="Log_scene.wrong-board" xml:space="preserve"><value>Плата {0} — не плата проекта ({1}), она исключена.</value></data>
+  <data name="Log_scene.missing-part" xml:space="preserve"><value>Провод {0} ведёт к детали «{1}», которой нет на схеме: провод исключён.</value></data>
+  <data name="Log_scene.missing-pin" xml:space="preserve"><value>Провод {0} ведёт к {1}.{2}, но у {3} нет вывода {4}: провод исключён.</value></data>
 </root>

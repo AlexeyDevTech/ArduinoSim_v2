@@ -50,14 +50,14 @@ public sealed class BoardSimulation
         {
             if (components.Any(c => c.Id == document.Id))
             {
-                log.Report(SimSeverity.Warning, "scene", $"Two parts share the id '{document.Id}'; the second is left out.", document.Id);
+                log.Report(SimSeverity.Warning, "scene", $"Two parts share the id '{document.Id}'; the second is left out.", document.Id, "duplicate-id");
                 continue;
             }
 
             SimComponent? component = registry.Create(document.Type, document.Id, document.Properties);
             if (component is null)
             {
-                log.Report(SimSeverity.Warning, "scene", $"Unknown part type '{document.Type}' ({document.Id}) is left out of the simulation.", document.Id);
+                log.Report(SimSeverity.Warning, "scene", $"Unknown part type '{document.Type}' ({document.Id}) is left out of the simulation.", document.Id, "unknown-type");
                 continue;
             }
 
@@ -65,7 +65,7 @@ public sealed class BoardSimulation
             {
                 if (b.Board.Id != board.Id || boardComponent is not null)
                 {
-                    log.Report(SimSeverity.Warning, "scene", $"Board part {document.Id} is not the project's board ({board.Id}) and is left out.", document.Id);
+                    log.Report(SimSeverity.Warning, "scene", $"Board part {document.Id} is not the project's board ({board.Id}) and is left out.", document.Id, "wrong-board");
                     continue;
                 }
 
@@ -109,13 +109,13 @@ public sealed class BoardSimulation
     {
         if (!components.TryGetValue(end.Component, out SimComponent? component))
         {
-            log.Report(SimSeverity.Warning, "scene", $"Wire {wireId} ends at part '{end.Component}', which is not in the scene; the wire is left out.", wireId);
+            log.Report(SimSeverity.Warning, "scene", $"Wire {wireId} ends at part '{end.Component}', which is not in the scene; the wire is left out.", wireId, "missing-part");
             return null;
         }
 
         if (component.Definition.FindPin(end.Pin) is null)
         {
-            log.Report(SimSeverity.Warning, "scene", $"Wire {wireId} ends at {end.Component}.{end.Pin}, but {component.Definition.Type} has no pin {end.Pin}; the wire is left out.", end.Component);
+            log.Report(SimSeverity.Warning, "scene", $"Wire {wireId} ends at {end.Component}.{end.Pin}, but {component.Definition.Type} has no pin {end.Pin}; the wire is left out.", end.Component, "missing-pin");
             return null;
         }
 

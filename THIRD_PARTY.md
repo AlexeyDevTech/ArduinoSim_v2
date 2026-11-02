@@ -4,6 +4,7 @@
 
 | Package | Version | License | Used by |
 | --- | --- | --- | --- |
+| AvalonEdit | 6.3.1.120 | MIT | App |
 | CommunityToolkit.Mvvm | 8.4.2 | MIT | App |
 | Microsoft.Extensions.Hosting | 10.0.14 | MIT | App |
 | Serilog | 4.4.0 | Apache-2.0 | App |

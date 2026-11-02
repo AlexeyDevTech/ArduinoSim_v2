@@ -6,9 +6,10 @@
         xmlns:l="clr-namespace:ArduSim.App.Localization"
         xmlns:vm="clr-namespace:ArduSim.App.ViewModels"
         xmlns:v="clr-namespace:ArduSim.App.Views"
+        xmlns:s="clr-namespace:ArduSim.App.Services"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
-        Title="{l:Loc App_Title}"
+        Title="{Binding WindowTitle}"
         Width="1360" Height="860" MinWidth="1000" MinHeight="640"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource Brush.Background}"
@@ -16,377 +17,681 @@
         FontFamily="{DynamicResource Font.Ui}"
         FontSize="{DynamicResource FontSize.Body}"
         PreviewKeyDown="OnPreviewKeyDown" PreviewKeyUp="OnPreviewKeyUp">
+  <WindowChrome.WindowChrome>
+    <WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
+  </WindowChrome.WindowChrome>
+
   <Window.InputBindings>
+    <KeyBinding Key="N" Modifiers="Control" Command="{Binding NewProjectCommand}" />
+    <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenProjectCommand}" />
+    <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveCommand}" />
+    <KeyBinding Key="Z" Modifiers="Control" Command="{Binding UndoCommand}" />
+    <KeyBinding Key="Y" Modifiers="Control" Command="{Binding RedoCommand}" />
+    <KeyBinding Key="Z" Modifiers="Control+Shift" Command="{Binding RedoCommand}" />
     <KeyBinding Key="B" Modifiers="Control" Command="{Binding BuildCommand}" />
     <KeyBinding Key="F5" Command="{Binding RunCommand}" />
     <KeyBinding Key="F5" Modifiers="Shift" Command="{Binding StopCommand}" />
+    <KeyBinding Key="F6" Command="{Binding PauseCommand}" />
+    <KeyBinding Key="F8" Command="{Binding NextDiagnosticCommand}" />
+    <KeyBinding Key="F8" Modifiers="Shift" Command="{Binding PreviousDiagnosticCommand}" />
+    <KeyBinding Key="D1" Modifiers="Control" Command="{Binding TogglePaletteCommand}" />
+    <KeyBinding Key="D2" Modifiers="Control" Command="{Binding TogglePropertiesCommand}" />
+    <KeyBinding Key="D3" Modifiers="Control" Command="{Binding ToggleBottomCommand}" />
+    <KeyBinding Key="Tab" Modifiers="Control" Command="{Binding NextTabCommand}" />
+    <KeyBinding Key="W" Modifiers="Control" Command="{Binding CloseTabCommand}" />
   </Window.InputBindings>
 
   <Window.Resources>
     <v:EqualsToVisibilityConverter x:Key="IsVisibleWhen" />
     <v:NotEqualsToVisibilityConverter x:Key="IsHiddenWhen" />
     <v:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+    <v:BoolToVisibilityConverter x:Key="InvertBoolToVisibility" Invert="True" />
     <v:NullToVisibilityConverter x:Key="NullToVisibility" />
     <v:NullToVisibilityConverter x:Key="VisibleWhenNull" Invert="True" />
-    <v:BoolToVisibilityConverter x:Key="InvertBoolToVisibility" Invert="True" />
     <v:SeverityToBrushConverter x:Key="SeverityToBrush" />
-    <v:FrequencyConverter x:Key="Frequency" />
-    <v:ColorToBrushConverter x:Key="ColorToBrush" />
-    <v:PartTemplateSelector x:Key="PartTemplates" />
-    <SolidColorBrush x:Key="Lead" Color="#FFB4BAC4" />
+    <v:SameToVisibilityConverter x:Key="SameToVisibility" />
+    <v:PositiveToVisibilityConverter x:Key="PositiveToVisibility" />
+    <v:InvertBoolConverter x:Key="InvertBool" />
 
-    <!-- Parts, drawn in canvas units (0.01 inch). Templates live here so their handlers are view glue in MainWindow. -->
-    <DataTemplate x:Key="Part.board" DataType="{x:Type vm:PartViewModel}">
-      <Canvas Width="180" Height="70">
-        <Rectangle Width="180" Height="70" RadiusX="3" RadiusY="3" Fill="#FF1D5AA8" Stroke="#FF143F78" />
-        <Rectangle Canvas.Left="-12" Canvas.Top="24" Width="24" Height="22" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
-        <Rectangle Canvas.Left="72" Canvas.Top="24" Width="36" Height="22" Fill="#FF1E1F24" />
-        <TextBlock Canvas.Left="74.5" Canvas.Top="32" FontSize="4.4" Foreground="#FF8A93A6" Text="ATmega328P" />
-        <TextBlock Canvas.Left="120" Canvas.Top="30" FontSize="7" FontWeight="SemiBold" Foreground="#FFD8E2F4" Text="NANO" />
-        <Rectangle Canvas.Left="30" Canvas.Top="38" Width="7" Height="4" Fill="#FF4A3410" />
-        <Ellipse Canvas.Left="23.5" Canvas.Top="30" Width="20" Height="20" Opacity="{Binding OnboardLed}" IsHitTestVisible="False">
-          <Ellipse.Fill>
-            <RadialGradientBrush>
-              <GradientStop Color="#C0FFA020" Offset="0" />
-              <GradientStop Color="#00FFA020" Offset="1" />
-            </RadialGradientBrush>
-          </Ellipse.Fill>
-        </Ellipse>
-        <Rectangle Canvas.Left="30" Canvas.Top="38" Width="7" Height="4" Fill="#FFFFA020" Opacity="{Binding OnboardLed}" />
-        <TextBlock Canvas.Left="31.5" Canvas.Top="43" FontSize="4" Foreground="White" Text="L" />
-        <Rectangle Canvas.Left="44" Canvas.Top="38" Width="7" Height="4" Fill="#FF3AE06A" />
-        <TextBlock Canvas.Left="43.5" Canvas.Top="43" FontSize="4" Foreground="White" Text="ON" />
-        <ItemsControl ItemsSource="{Binding Pins}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <Canvas />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemContainerStyle>
-            <Style TargetType="ContentPresenter">
-              <Setter Property="Canvas.Left" Value="{Binding X}" />
-              <Setter Property="Canvas.Top" Value="{Binding Y}" />
-            </Style>
-          </ItemsControl.ItemContainerStyle>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="{x:Type vm:PinViewModel}">
-              <Canvas ToolTip="{Binding Name}">
-                <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-                <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
-              </Canvas>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </Canvas>
+    <!-- Center tab headers -->
+    <DataTemplate DataType="{x:Type vm:SceneTab}">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE950;" Margin="0,0,8,0" />
+        <TextBlock Text="{l:Loc Tab_Scene}" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:CodeDocumentViewModel}">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="{Binding Title}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" VerticalAlignment="Center" />
+        <TextBlock Text=" ●" Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Center" Visibility="{Binding IsDirty, Converter={StaticResource BoolToVisibility}}" />
+        <Button Style="{StaticResource Button.Icon}" Width="20" Height="20" FontSize="10" Content="&#xE711;" Margin="6,0,-6,0"
+                ToolTip="{l:Loc Tab_Close}" Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+      </StackPanel>
     </DataTemplate>
 
-    <DataTemplate x:Key="Part.led" DataType="{x:Type vm:PartViewModel}">
-      <Canvas Width="40" Height="70">
-        <Line X1="10" Y1="40" X2="10" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Line X1="30" Y1="40" X2="30" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Ellipse Canvas.Left="-20" Canvas.Top="-24" Width="80" Height="80" Opacity="{Binding Brightness}" IsHitTestVisible="False">
-          <Ellipse.Fill>
-            <RadialGradientBrush>
-              <GradientStop Color="{Binding LedColor}" Offset="0" />
-              <GradientStop Color="Transparent" Offset="1" />
-            </RadialGradientBrush>
-          </Ellipse.Fill>
-        </Ellipse>
-        <Path Data="M 5,40 L 5,18 A 15,15 0 0 1 35,18 L 35,40 Z" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}" Opacity="0.35" />
-        <Path Data="M 5,40 L 5,18 A 15,15 0 0 1 35,18 L 35,40 Z" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}" Opacity="{Binding Brightness}" />
-        <Rectangle Canvas.Left="2" Canvas.Top="38" Width="36" Height="4" RadiusX="1" RadiusY="1" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}" Opacity="0.6" />
-      </Canvas>
-    </DataTemplate>
-
-    <DataTemplate x:Key="Part.rgb-led" DataType="{x:Type vm:PartViewModel}">
-      <Canvas Width="50" Height="80">
-        <Line X1="10" Y1="48" X2="10" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Line X1="20" Y1="48" X2="20" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Line X1="30" Y1="48" X2="30" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Line X1="40" Y1="48" X2="40" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Ellipse Canvas.Left="-15" Canvas.Top="-20" Width="80" Height="80" Opacity="{Binding RgbIntensity}" IsHitTestVisible="False">
-          <Ellipse.Fill>
-            <RadialGradientBrush>
-              <GradientStop Color="{Binding RgbColor}" Offset="0" />
-              <GradientStop Color="Transparent" Offset="1" />
-            </RadialGradientBrush>
-          </Ellipse.Fill>
-        </Ellipse>
-        <Path Data="M 6,48 L 6,22 A 19,19 0 0 1 44,22 L 44,48 Z" Fill="#55D8DCE6" />
-        <Path Data="M 6,48 L 6,22 A 19,19 0 0 1 44,22 L 44,48 Z" Fill="{Binding RgbColor, Converter={StaticResource ColorToBrush}}" Opacity="{Binding RgbIntensity}" />
-      </Canvas>
-    </DataTemplate>
-
-    <DataTemplate x:Key="Part.resistor" DataType="{x:Type vm:PartViewModel}">
-      <Canvas Width="60" Height="20">
-        <Line X1="0" Y1="10" X2="60" Y2="10" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Rectangle Canvas.Left="13" Canvas.Top="4" Width="34" Height="12" RadiusX="4" RadiusY="4" Fill="#FFD9C28E" />
-        <Rectangle Canvas.Left="19" Canvas.Top="4" Width="2.5" Height="12" Fill="#FFC23B32" />
-        <Rectangle Canvas.Left="25" Canvas.Top="4" Width="2.5" Height="12" Fill="#FFC23B32" />
-        <Rectangle Canvas.Left="31" Canvas.Top="4" Width="2.5" Height="12" Fill="#FF6E4B2A" />
-        <Rectangle Canvas.Left="40" Canvas.Top="4" Width="2.5" Height="12" Fill="#FFD4AF37" />
-        <TextBlock Canvas.Left="0" Canvas.Top="-10" Width="60" TextAlignment="Center" FontSize="6" Foreground="{DynamicResource Brush.Text.Secondary}" Text="{Binding ResistanceText}" />
-      </Canvas>
-    </DataTemplate>
-
-    <DataTemplate x:Key="Part.pushbutton" DataType="{x:Type vm:PartViewModel}">
-      <Canvas Width="60" Height="60" Background="Transparent" Cursor="Hand"
-              MouseLeftButtonDown="OnPartPress" MouseLeftButtonUp="OnPartRelease" MouseLeave="OnPartRelease">
-        <Line X1="10" Y1="52" X2="10" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Line X1="50" Y1="52" X2="50" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Rectangle Canvas.Left="4" Canvas.Top="4" Width="52" Height="48" RadiusX="3" RadiusY="3" Fill="#FF2A2E36" Stroke="#FF454B58" />
-        <Ellipse x:Name="Cap" Canvas.Left="15" Canvas.Top="13" Width="30" Height="30" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}"
-                 Stroke="#40000000" StrokeThickness="2" RenderTransformOrigin="0.5,0.5">
-          <Ellipse.RenderTransform>
-            <ScaleTransform />
-          </Ellipse.RenderTransform>
-        </Ellipse>
-        <TextBlock Canvas.Left="6" Canvas.Top="-10" Width="48" TextAlignment="Center" FontSize="6" Foreground="{DynamicResource Brush.Text.Secondary}" Text="{Binding Key}" />
-      </Canvas>
-      <DataTemplate.Triggers>
-        <DataTrigger Binding="{Binding Pressed}" Value="True">
-          <Setter TargetName="Cap" Property="RenderTransform">
-            <Setter.Value>
-              <ScaleTransform ScaleX="0.86" ScaleY="0.86" />
-            </Setter.Value>
-          </Setter>
-          <Setter TargetName="Cap" Property="Opacity" Value="0.75" />
-        </DataTrigger>
-      </DataTemplate.Triggers>
-    </DataTemplate>
-
-    <DataTemplate x:Key="Part.slide-switch" DataType="{x:Type vm:PartViewModel}">
-      <Canvas Width="60" Height="40" Background="Transparent" Cursor="Hand" MouseLeftButtonUp="OnPartToggle">
-        <Line X1="10" Y1="28" X2="10" Y2="40" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Line X1="30" Y1="28" X2="30" Y2="40" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Line X1="50" Y1="28" X2="50" Y2="40" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Rectangle Canvas.Top="4" Width="60" Height="24" RadiusX="3" RadiusY="3" Fill="#FF2A2E36" Stroke="#FF454B58" />
-        <Rectangle Canvas.Left="10" Canvas.Top="11" Width="40" Height="10" RadiusX="2" RadiusY="2" Fill="#FF15171C" />
-        <Rectangle x:Name="Knob" Canvas.Left="10" Canvas.Top="9" Width="20" Height="14" RadiusX="2" RadiusY="2" Fill="#FFC9CED8" />
-      </Canvas>
-      <DataTemplate.Triggers>
-        <DataTrigger Binding="{Binding SwitchRight}" Value="True">
-          <Setter TargetName="Knob" Property="Canvas.Left" Value="30" />
-        </DataTrigger>
-      </DataTemplate.Triggers>
-    </DataTemplate>
-
-    <DataTemplate x:Key="Part.potentiometer" DataType="{x:Type vm:PartViewModel}">
-      <Canvas Width="60" Height="60">
-        <Line X1="10" Y1="44" X2="10" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Line X1="30" Y1="44" X2="30" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Line X1="50" Y1="44" X2="50" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Rectangle Canvas.Left="4" Canvas.Top="4" Width="52" Height="42" RadiusX="3" RadiusY="3" Fill="#FF2F5E9E" />
-        <Canvas Canvas.Left="30" Canvas.Top="25" Background="Transparent" Cursor="SizeNS" MouseWheel="OnKnobWheel">
-          <Ellipse Canvas.Left="-16" Canvas.Top="-16" Width="32" Height="32" Fill="#FFD7DBE3" Stroke="#FF8A93A6" />
-          <Line X1="0" Y1="0" X2="0" Y2="-13" Stroke="#FF1E1F24" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round">
-            <Line.RenderTransform>
-              <RotateTransform Angle="{Binding KnobAngle}" />
-            </Line.RenderTransform>
-          </Line>
-        </Canvas>
-        <Slider Canvas.Left="0" Canvas.Top="-16" Width="60" Minimum="0" Maximum="1" SmallChange="0.01" LargeChange="0.1" Value="{Binding Value, Mode=TwoWay}" />
-      </Canvas>
-    </DataTemplate>
-
-    <DataTemplate x:Key="Part.buzzer" DataType="{x:Type vm:PartViewModel}">
-      <Canvas Width="50" Height="50">
-        <Line X1="15" Y1="40" X2="15" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Line X1="35" Y1="40" X2="35" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-        <Ellipse Canvas.Left="3" Canvas.Top="0" Width="44" Height="44" Fill="#FF1E1F24" Stroke="#FF454B58" />
-        <Ellipse Canvas.Left="20" Canvas.Top="17" Width="10" Height="10" Fill="#FF0D0E11" />
-        <TextBlock Canvas.Left="-10" Canvas.Top="-12" Width="70" TextAlignment="Center" FontSize="7" FontWeight="SemiBold"
-                   Foreground="{DynamicResource Brush.Accent}" Text="{Binding Frequency, Converter={StaticResource Frequency}}" />
-      </Canvas>
-    </DataTemplate>
-
-    <DataTemplate x:Key="Part.unknown" DataType="{x:Type vm:PartViewModel}">
-      <Border Width="{Binding Width}" Height="{Binding Height}" BorderBrush="{DynamicResource Brush.Warning}" BorderThickness="1" CornerRadius="3">
-        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="6" Foreground="{DynamicResource Brush.Warning}" Text="{Binding Id, StringFormat='? {0}'}" />
-      </Border>
-    </DataTemplate>
+    <!-- Project menu (the only menu, docs/UI.md §2.2) -->
+    <ContextMenu x:Key="ProjectMenu">
+      <MenuItem Header="{l:Loc Menu_New}" InputGestureText="Ctrl+N" Command="{Binding NewProjectCommand}" />
+      <MenuItem Header="{l:Loc Menu_Open}" InputGestureText="Ctrl+O" Command="{Binding OpenProjectCommand}" />
+      <MenuItem Header="{l:Loc Menu_Recent}" ItemsSource="{Binding Recent}" IsEnabled="{Binding CanEdit}">
+        <MenuItem.ItemContainerStyle>
+          <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+            <Setter Property="Header" Value="{Binding Name}" />
+            <Setter Property="ToolTip" Value="{Binding Path}" />
+            <Setter Property="Command" Value="{Binding DataContext.OpenRecentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+            <Setter Property="CommandParameter" Value="{Binding}" />
+          </Style>
+        </MenuItem.ItemContainerStyle>
+      </MenuItem>
+      <MenuItem Header="{l:Loc Menu_Examples}" ItemsSource="{Binding Examples}" IsEnabled="{Binding CanEdit}">
+        <MenuItem.ItemContainerStyle>
+          <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+            <Setter Property="Header" Value="{Binding Name}" />
+            <Setter Property="Command" Value="{Binding DataContext.OpenExampleCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+            <Setter Property="CommandParameter" Value="{Binding}" />
+          </Style>
+        </MenuItem.ItemContainerStyle>
+      </MenuItem>
+      <Separator />
+      <MenuItem Header="{l:Loc Menu_Save}" InputGestureText="Ctrl+S" Command="{Binding SaveCommand}" IsEnabled="{Binding HasProject}" />
+      <MenuItem Header="{l:Loc Menu_Reveal}" Command="{Binding RevealProjectCommand}" IsEnabled="{Binding HasProject}" />
+      <MenuItem Header="{l:Loc Menu_CloseProject}" Command="{Binding CloseProjectCommand}" IsEnabled="{Binding HasProject}" />
+    </ContextMenu>
   </Window.Resources>
 
-  <Grid>
+  <Grid x:Name="Root">
     <Grid.RowDefinitions>
-      <RowDefinition Height="Auto" />
+      <RowDefinition Height="48" />
       <RowDefinition Height="*" />
-      <RowDefinition Height="6" />
-      <RowDefinition Height="240" MinHeight="120" />
-      <RowDefinition Height="Auto" />
+      <RowDefinition Height="1" />
+      <RowDefinition x:Name="BottomRow" Height="240" />
+      <RowDefinition Height="24" />
     </Grid.RowDefinitions>
 
-    <!-- Toolbar -->
-    <Border Grid.Row="0" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="12,8">
-      <DockPanel LastChildFill="False">
-        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
-          <TextBlock Text="{l:Loc Toolbar_Project}" Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <ListBox Style="{StaticResource ListBox.Segmented}" ItemsSource="{Binding Examples}" SelectedItem="{Binding SelectedExample}" DisplayMemberPath="Name" IsEnabled="{Binding CanEdit}" />
-          <Button Content="{l:Loc Toolbar_OpenFolder}" Command="{Binding OpenFolderCommand}" Margin="0,0,12,0" />
-          <Button Content="{l:Loc Toolbar_Build}" Command="{Binding BuildCommand}" ToolTip="Ctrl+B" />
-          <Button Content="{l:Loc Toolbar_Run}" Command="{Binding RunCommand}" Style="{StaticResource Button.Primary}" ToolTip="F5" />
-          <Button Command="{Binding PauseCommand}" MinWidth="92">
-            <Grid>
-              <TextBlock Text="{l:Loc Toolbar_Pause}" Visibility="{Binding IsPaused, Converter={StaticResource InvertBoolToVisibility}}" />
-              <TextBlock Text="{l:Loc Toolbar_Resume}" Visibility="{Binding IsPaused, Converter={StaticResource BoolToVisibility}}" />
-            </Grid>
-          </Button>
-          <Button Content="{l:Loc Toolbar_Stop}" Command="{Binding StopCommand}" ToolTip="Shift+F5" Margin="0,0,12,0" />
-          <TextBlock Text="{l:Loc Toolbar_Step}" Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <Button Content="{l:Loc Toolbar_StepLoop}" Command="{Binding StepLoopCommand}" Padding="7,5" Margin="0,0,4,0" />
-          <Button Content="{l:Loc Toolbar_Step1}" Command="{Binding StepTimeCommand}" CommandParameter="1" Padding="7,5" Margin="0,0,4,0" />
-          <Button Content="{l:Loc Toolbar_Step10}" Command="{Binding StepTimeCommand}" CommandParameter="10" Padding="7,5" Margin="0,0,4,0" />
-          <Button Content="{l:Loc Toolbar_Step100}" Command="{Binding StepTimeCommand}" CommandParameter="100" Padding="7,5" Margin="0,0,12,0" />
-          <TextBlock Text="{l:Loc Toolbar_Speed}" Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <ListBox Style="{StaticResource ListBox.Segmented}" ItemsSource="{Binding Speeds}" SelectedItem="{Binding SelectedSpeed}" DisplayMemberPath="Label" />
+    <!-- ===== Title bar + toolbar, 48 px ===== -->
+    <Border Grid.Row="0" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1">
+      <DockPanel LastChildFill="True">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
+          <Button Style="{StaticResource Button.Caption}" Content="&#xE921;" ToolTip="{l:Loc Window_Minimize}" Click="OnMinimize" />
+          <Button x:Name="MaxButton" Style="{StaticResource Button.Caption}" Content="&#xE922;" ToolTip="{l:Loc Window_Maximize}" Click="OnMaximize" />
+          <Button Style="{StaticResource Button.Close}" Content="&#xE8BB;" ToolTip="{l:Loc Window_Close}" Click="OnCloseWindow" />
         </StackPanel>
 
-      </DockPanel>
-    </Border>
-
-    <!-- Canvas -->
-    <Border Grid.Row="1" Background="{DynamicResource Brush.Canvas}" ClipToBounds="True">
-      <Grid>
-      <Rectangle Fill="{DynamicResource Brush.CanvasGrid}" IsHitTestVisible="False" />
-      <Grid>
-        <TextBlock Text="{l:Loc Scene_Empty}" Foreground="{DynamicResource Brush.Text.Secondary}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                   Visibility="{Binding Scene, Converter={StaticResource VisibleWhenNull}}" />
-        <Viewbox Stretch="Uniform" Margin="24" StretchDirection="Both" Visibility="{Binding Scene, Converter={StaticResource NullToVisibility}}">
-          <Grid Width="{Binding Scene.Width}" Height="{Binding Scene.Height}">
-            <Canvas RenderTransform="{Binding Scene.Origin}">
-              <ItemsControl ItemsSource="{Binding Scene.Parts}" ItemTemplateSelector="{StaticResource PartTemplates}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <Canvas />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemContainerStyle>
-                  <Style TargetType="ContentPresenter">
-                    <Setter Property="Canvas.Left" Value="{Binding X}" />
-                    <Setter Property="Canvas.Top" Value="{Binding Y}" />
-                    <Setter Property="Width" Value="{Binding Width}" />
-                    <Setter Property="Height" Value="{Binding Height}" />
-                    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
-                    <Setter Property="RenderTransform">
-                      <Setter.Value>
-                        <TransformGroup>
-                          <ScaleTransform ScaleX="{Binding FlipScale}" />
-                          <RotateTransform Angle="{Binding Rotation}" />
-                        </TransformGroup>
-                      </Setter.Value>
-                    </Setter>
+        <!-- Clock and status, right-aligned before the window buttons -->
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,12,0" WindowChrome.IsHitTestVisibleInChrome="True">
+          <Button Style="{StaticResource Button.Flat}" Command="{Binding ToggleClockCommand}" ToolTip="{l:Loc Toolbar_ClockTip}" MinWidth="88" Height="28">
+            <TextBlock Text="{Binding VirtualTime}" FontFamily="{DynamicResource Font.Mono}" />
+          </Button>
+          <Button Command="{Binding ShowStatusPanelCommand}" Height="28" Padding="10,0" Margin="8,0,0,0" Background="{DynamicResource Brush.SurfaceRaised}">
+            <StackPanel Orientation="Horizontal">
+              <Ellipse x:Name="StatusDot" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center">
+                <Ellipse.Style>
+                  <Style TargetType="Ellipse">
+                    <Setter Property="Fill" Value="{DynamicResource Brush.Text.Secondary}" />
                     <Style.Triggers>
-                      <DataTrigger Binding="{Binding Highlighted}" Value="True">
-                        <Setter Property="Effect">
-                          <Setter.Value>
-                            <DropShadowEffect Color="#FFF0B44C" BlurRadius="12" ShadowDepth="0" Opacity="1" />
-                          </Setter.Value>
-                        </Setter>
+                      <DataTrigger Binding="{Binding Status}" Value="Running">
+                        <Setter Property="Fill" Value="{DynamicResource Brush.Running}" />
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding Status}" Value="Paused">
+                        <Setter Property="Fill" Value="{DynamicResource Brush.Warning}" />
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding Status}" Value="Busy">
+                        <Setter Property="Fill" Value="{DynamicResource Brush.Warning}" />
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding Status}" Value="Building">
+                        <Setter Property="Fill" Value="{DynamicResource Brush.Accent}" />
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding Status}" Value="BuildFailed">
+                        <Setter Property="Fill" Value="{DynamicResource Brush.Error}" />
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding Status}" Value="Crashed">
+                        <Setter Property="Fill" Value="{DynamicResource Brush.Error}" />
                       </DataTrigger>
                     </Style.Triggers>
                   </Style>
-                </ItemsControl.ItemContainerStyle>
-              </ItemsControl>
-              <ItemsControl ItemsSource="{Binding Scene.Wires}" IsHitTestVisible="False">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <Canvas />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
+                </Ellipse.Style>
+              </Ellipse>
+              <TextBlock Text="{Binding StatusText}" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True">
+          <!-- App mark and project menu -->
+          <Rectangle Width="12" Height="12" Fill="{DynamicResource Brush.Accent}" Margin="16,0,10,0" RadiusX="2" RadiusY="2" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False">
+            <Rectangle.RenderTransform>
+              <RotateTransform Angle="45" />
+            </Rectangle.RenderTransform>
+          </Rectangle>
+          <Button x:Name="ProjectButton" Style="{StaticResource Button.Flat}" Height="32" Click="OnProjectMenu" ToolTip="{Binding ProjectDirectory}">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="ArduSim" FontWeight="SemiBold" Visibility="{Binding HasProject, Converter={StaticResource InvertBoolToVisibility}}" />
+              <TextBlock Text="{Binding ProjectName}" FontWeight="SemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text=" ●" Foreground="{DynamicResource Brush.Accent}" Visibility="{Binding IsDirty, Converter={StaticResource BoolToVisibility}}" ToolTip="{l:Loc Toolbar_Unsaved}" />
+              <TextBlock Style="{StaticResource Icon}" FontSize="10" Text="&#xE70D;" Margin="8,0,0,0" Foreground="{DynamicResource Brush.Text.Secondary}" />
+            </StackPanel>
+          </Button>
+          <Rectangle Width="1" Height="24" Fill="{DynamicResource Brush.Border}" Margin="12,0" />
+
+          <!-- Build and run -->
+          <Button Style="{StaticResource Button.Flat}" Command="{Binding BuildCommand}" ToolTip="Ctrl+B" Height="32">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource Icon}" Text="&#xE90F;" Margin="0,0,6,0" />
+              <TextBlock Text="{l:Loc Toolbar_Build}" />
+            </StackPanel>
+          </Button>
+          <Button Style="{StaticResource Button.Primary}" Command="{Binding RunCommand}" ToolTip="F5" Height="32" Margin="6,0,6,0" Padding="12,0">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource Icon}" Text="&#xE768;" Margin="0,0,6,0" />
+              <TextBlock Text="{l:Loc Toolbar_Run}" />
+            </StackPanel>
+          </Button>
+          <Button Style="{StaticResource Button.Flat}" Command="{Binding PauseCommand}" ToolTip="F6" Height="32" MinWidth="104">
+            <Grid>
+              <StackPanel Orientation="Horizontal" Visibility="{Binding IsPaused, Converter={StaticResource InvertBoolToVisibility}}">
+                <TextBlock Style="{StaticResource Icon}" Text="&#xE769;" Margin="0,0,6,0" />
+                <TextBlock Text="{l:Loc Toolbar_Pause}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Visibility="{Binding IsPaused, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Style="{StaticResource Icon}" Text="&#xE768;" Margin="0,0,6,0" />
+                <TextBlock Text="{l:Loc Toolbar_Resume}" />
+              </StackPanel>
+            </Grid>
+          </Button>
+          <Button Style="{StaticResource Button.Flat}" Command="{Binding StopCommand}" ToolTip="Shift+F5" Height="32">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource Icon}" Text="&#xE71A;" Margin="0,0,6,0" />
+              <TextBlock Text="{l:Loc Toolbar_Stop}" />
+            </StackPanel>
+          </Button>
+          <Rectangle Width="1" Height="24" Fill="{DynamicResource Brush.Border}" Margin="8,0" />
+
+          <!-- Step -->
+          <Button Style="{StaticResource Button.Icon}" Content="&#xE8EE;" Command="{Binding StepLoopCommand}" ToolTip="{l:Loc Toolbar_StepLoopTip}" />
+          <Button Style="{StaticResource Button.Flat}" Height="28" Padding="6,0" Command="{Binding StepTimeCommand}" CommandParameter="1" ToolTip="{l:Loc Toolbar_StepTip}">
+            <TextBlock Text="{l:Loc Toolbar_Step1}" FontSize="{DynamicResource FontSize.Small}" />
+          </Button>
+          <Button Style="{StaticResource Button.Flat}" Height="28" Padding="6,0" Command="{Binding StepTimeCommand}" CommandParameter="10" ToolTip="{l:Loc Toolbar_StepTip}">
+            <TextBlock Text="{l:Loc Toolbar_Step10}" FontSize="{DynamicResource FontSize.Small}" />
+          </Button>
+          <Button Style="{StaticResource Button.Flat}" Height="28" Padding="6,0" Command="{Binding StepTimeCommand}" CommandParameter="100" ToolTip="{l:Loc Toolbar_StepTip}">
+            <TextBlock Text="{l:Loc Toolbar_Step100}" FontSize="{DynamicResource FontSize.Small}" />
+          </Button>
+          <Rectangle Width="1" Height="24" Fill="{DynamicResource Brush.Border}" Margin="8,0" />
+
+          <!-- Speed and board -->
+          <ComboBox ItemsSource="{Binding Speeds}" SelectedItem="{Binding SelectedSpeed}" MinWidth="76" ToolTip="{l:Loc Toolbar_Speed}" Margin="0,0,6,0">
+            <ComboBox.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:SpeedOption}">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <ComboBox ItemsSource="{Binding Boards}" SelectedItem="{Binding SelectedBoard}" MinWidth="120" ToolTip="{l:Loc Toolbar_Board}" IsEnabled="{Binding CanEdit}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- ===== Main area ===== -->
+    <Grid x:Name="MainArea" Grid.Row="1" Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition x:Name="PaletteColumn" Width="240" />
+        <ColumnDefinition Width="1" />
+        <ColumnDefinition Width="*" MinWidth="320" />
+        <ColumnDefinition Width="1" />
+        <ColumnDefinition x:Name="PropertiesColumn" Width="280" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Palette -->
+      <Border Grid.Column="0" Background="{DynamicResource Brush.Surface}">
+        <Grid>
+          <DockPanel Visibility="{Binding PaletteOpen, Converter={StaticResource BoolToVisibility}}">
+            <DockPanel DockPanel.Dock="Top" Height="36" Margin="12,0,4,0">
+              <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE76B;" FontSize="12" Command="{Binding TogglePaletteCommand}" ToolTip="{l:Loc Panel_CollapseTip1}" />
+              <TextBlock Style="{StaticResource PanelHeader}" Text="{l:Loc Panel_Palette}" />
+            </DockPanel>
+            <Grid DockPanel.Dock="Top" Margin="12,0,12,8">
+              <TextBox x:Name="PaletteSearch" Text="{Binding Palette.Search, UpdateSourceTrigger=PropertyChanged}" Padding="30,0,6,0" Height="28" />
+              <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE721;" HorizontalAlignment="Left" Margin="9,0,0,0" Foreground="{DynamicResource Brush.Text.Secondary}" IsHitTestVisible="False" />
+              <TextBlock Text="{l:Loc Palette_Search}" Margin="31,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Text.Disabled}" IsHitTestVisible="False"
+                         Visibility="{Binding Palette.Search, Converter={StaticResource VisibleWhenNull}}" />
+            </Grid>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8">
+              <ItemsControl ItemsSource="{Binding Palette.Groups}">
                 <ItemsControl.ItemTemplate>
-                  <DataTemplate DataType="{x:Type vm:WireViewModel}">
-                    <Polyline Points="{Binding Points}" Stroke="{Binding Stroke}" StrokeThickness="2.2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.9" />
+                  <DataTemplate DataType="{x:Type vm:PaletteGroup}">
+                    <StackPanel>
+                      <ToggleButton Style="{StaticResource ToggleButton.Group}" Content="{Binding Name}" IsChecked="{Binding IsExpanded}" />
+                      <ListBox Style="{StaticResource ListBox.Palette}" ItemsSource="{Binding Items}"
+                               Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibility}}"
+                               PreviewMouseLeftButtonDown="OnPaletteMouseDown" PreviewMouseMove="OnPaletteMouseMove"
+                               MouseDoubleClick="OnPaletteDoubleClick" KeyDown="OnPaletteKeyDown">
+                        <ListBox.ItemTemplate>
+                          <DataTemplate DataType="{x:Type vm:PaletteItem}">
+                            <TextBlock Text="{Binding Name}" ToolTip="{l:Loc Palette_ItemTip}" />
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                    </StackPanel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-            </Canvas>
-          </Grid>
-        </Viewbox>
+            </ScrollViewer>
+          </DockPanel>
+          <!-- Collapsed: a 24 px strip with a vertical label -->
+          <Button Style="{StaticResource Button.Strip}" Command="{Binding TogglePaletteCommand}" ToolTip="Ctrl+1"
+                  Visibility="{Binding PaletteOpen, Converter={StaticResource InvertBoolToVisibility}}">
+            <TextBlock Text="{l:Loc Panel_Palette}">
+              <TextBlock.LayoutTransform>
+                <RotateTransform Angle="90" />
+              </TextBlock.LayoutTransform>
+            </TextBlock>
+          </Button>
+        </Grid>
+      </Border>
+      <GridSplitter Grid.Column="1" Style="{StaticResource Splitter.Vertical}" IsEnabled="{Binding PaletteOpen}" DragCompleted="OnSplitterDragCompleted" />
 
-        <!-- Banner: crash, busy firmware, toolchain download, runner exit -->
-        <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,16,0,0" MaxWidth="720" Padding="16,12"
-                Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1" CornerRadius="8"
-                Visibility="{Binding Banner, Converter={StaticResource IsHiddenWhen}, ConverterParameter=None}">
-          <StackPanel>
-            <TextBlock Text="{Binding BannerTitle}" FontSize="{DynamicResource FontSize.Title}" FontWeight="SemiBold" Margin="0,0,0,6" />
-            <TextBlock Text="{Binding BannerBody}" TextWrapping="Wrap" Margin="0,0,0,8" />
-            <TextBox Text="{Binding BannerDetails, Mode=OneWay}" IsReadOnly="True" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
-                     MaxHeight="220" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10" TextWrapping="NoWrap"
-                     Visibility="{Binding BannerDetails, Converter={StaticResource NullToVisibility}}" />
-            <StackPanel Orientation="Horizontal">
-              <Button Content="{l:Loc Banner_Rerun}" Command="{Binding RunCommand}" Style="{StaticResource Button.Primary}"
-                      Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Crash}" />
-              <Button Content="{l:Loc Banner_Stop}" Command="{Binding StopCommand}" Style="{StaticResource Button.Primary}"
-                      Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Busy}" />
-              <Button Content="{l:Loc Banner_Download}" Command="{Binding DownloadToolchainCommand}" Style="{StaticResource Button.Primary}"
-                      Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Toolchain}" />
-              <Button Content="{l:Loc Banner_Close}" Command="{Binding CloseBannerCommand}" />
-            </StackPanel>
+      <!-- Center: schematic and code tabs -->
+      <Grid Grid.Column="2" Background="{DynamicResource Brush.Canvas}">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="36" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Border Grid.Row="0" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1">
+          <StackPanel Orientation="Horizontal">
+            <ListBox Style="{StaticResource ListBox.Tabs}" ItemsSource="{Binding Tabs}" SelectedItem="{Binding SelectedTab}" />
+            <Button x:Name="AddTabButton" Style="{StaticResource Button.Icon}" Content="&#xE710;" FontSize="12" Margin="4,0,0,0" ToolTip="{l:Loc Tab_OpenFile}" Click="OnAddTab" />
           </StackPanel>
         </Border>
-      </Grid>
-      </Grid>
-    </Border>
+        <Grid Grid.Row="1">
+          <v:SchematicCanvas x:Name="Canvas" DataContext="{Binding Scene}"
+                             Visibility="{Binding DataContext.IsSceneTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
+          <ItemsControl ItemsSource="{Binding Tabs}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <Grid />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.Resources>
+              <DataTemplate DataType="{x:Type vm:SceneTab}" />
+              <DataTemplate DataType="{x:Type vm:CodeDocumentViewModel}">
+                <v:CodeEditor>
+                  <v:CodeEditor.Visibility>
+                    <MultiBinding Converter="{StaticResource SameToVisibility}">
+                      <Binding />
+                      <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=Window}" />
+                    </MultiBinding>
+                  </v:CodeEditor.Visibility>
+                </v:CodeEditor>
+              </DataTemplate>
+            </ItemsControl.Resources>
+          </ItemsControl>
 
-    <GridSplitter Grid.Row="2" HorizontalAlignment="Stretch" Background="{DynamicResource Brush.Border}" ResizeDirection="Rows" />
+          <!-- Banner: crash, busy firmware, toolchain download, runner exit -->
+          <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="16,16,16,0" MaxWidth="720" Padding="16,12"
+                  Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}"
+                  Effect="{StaticResource Shadow}"
+                  Visibility="{Binding Banner, Converter={StaticResource IsHiddenWhen}, ConverterParameter=None}">
+            <StackPanel>
+              <TextBlock Text="{Binding BannerTitle}" FontSize="{DynamicResource FontSize.Title}" FontWeight="SemiBold" Margin="0,0,0,6" />
+              <TextBlock Text="{Binding BannerBody}" TextWrapping="Wrap" Margin="0,0,0,8" />
+              <TextBox Style="{StaticResource TextBox.Output}" Text="{Binding BannerDetails, Mode=OneWay}" MaxHeight="220" Margin="0,0,0,10" TextWrapping="NoWrap"
+                       Visibility="{Binding BannerDetails, Converter={StaticResource NullToVisibility}}" />
+              <StackPanel Orientation="Horizontal">
+                <Button Content="{l:Loc Banner_Rerun}" Command="{Binding RunCommand}" Style="{StaticResource Button.Primary}"
+                        Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Crash}" />
+                <Button Content="{l:Loc Banner_OpenLine}" Command="{Binding OpenCrashLocationCommand}"
+                        Visibility="{Binding HasCrashLocation, Converter={StaticResource BoolToVisibility}}" />
+                <Button Content="{l:Loc Banner_Stop}" Command="{Binding StopCommand}" Style="{StaticResource Button.Primary}"
+                        Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Busy}" />
+                <Button Content="{l:Loc Banner_Download}" Command="{Binding DownloadToolchainCommand}" Style="{StaticResource Button.Primary}"
+                        Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Toolchain}" />
+                <Button Content="{l:Loc Banner_Close}" Command="{Binding CloseBannerCommand}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Grid>
+      <GridSplitter Grid.Column="3" Style="{StaticResource Splitter.Vertical}" IsEnabled="{Binding PropertiesOpen}" DragCompleted="OnSplitterDragCompleted" />
 
-    <!-- Bottom panel -->
-    <TabControl Grid.Row="3" SelectedIndex="{Binding SelectedTab}">
-      <TabItem Header="{l:Loc Tab_Serial}">
-        <DockPanel>
-          <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" LastChildFill="True">
-            <Button DockPanel.Dock="Right" Content="{l:Loc Serial_Send}" Command="{Binding SendSerialCommand}" Margin="8,0,0,0" IsDefault="False" />
-            <ListBox DockPanel.Dock="Right" Style="{StaticResource ListBox.Segmented}" ItemsSource="{Binding LineEndings}" SelectedItem="{Binding SelectedLineEnding}" DisplayMemberPath="Label" Margin="8,0,0,0" />
-            <TextBlock DockPanel.Dock="Right" Text="{l:Loc Serial_LineEnding}" Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" Margin="8,0,0,0" />
-            <TextBox Text="{Binding SerialInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource Font.Mono}" KeyDown="OnSerialInputKeyDown" />
+      <!-- Properties -->
+      <Border Grid.Column="4" Background="{DynamicResource Brush.Surface}">
+        <Grid>
+          <DockPanel Visibility="{Binding PropertiesOpen, Converter={StaticResource BoolToVisibility}}" DataContext="{Binding Properties}">
+            <DockPanel DockPanel.Dock="Top" Height="36" Margin="12,0,4,0">
+              <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE76C;" FontSize="12"
+                      Command="{Binding DataContext.TogglePropertiesCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="{l:Loc Panel_CollapseTip2}" />
+              <TextBlock Style="{StaticResource PanelHeader}" Text="{l:Loc Panel_Properties}" />
+            </DockPanel>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,0,12,12">
+              <StackPanel>
+                <!-- Header: id (editable for a part) and type -->
+                <DockPanel Margin="0,0,0,12">
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding Subtitle}" Style="{StaticResource Caption}" Margin="8,0,0,0" MaxWidth="120" TextTrimming="CharacterEllipsis" />
+                  <Grid>
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding Mode, Converter={StaticResource IsHiddenWhen}, ConverterParameter=Part}" />
+                    <TextBox Text="{Binding IdText, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource Font.Mono}" Height="28" KeyDown="OnIdKeyDown" LostKeyboardFocus="OnIdLostFocus"
+                             IsEnabled="{Binding IsEditable}" ToolTip="{l:Loc Properties_IdTip}"
+                             Visibility="{Binding Mode, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Part}" />
+                  </Grid>
+                </DockPanel>
+                <TextBlock Text="{Binding IdError}" Foreground="{DynamicResource Brush.Error}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,-8,0,8"
+                           Visibility="{Binding IdError, Converter={StaticResource NullToVisibility}}" />
+
+                <!-- Fields -->
+                <ItemsControl ItemsSource="{Binding Fields}" IsEnabled="{Binding IsEditable}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:PropertyField}">
+                      <StackPanel Margin="0,0,0,10">
+                        <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" Margin="0,0,0,4" />
+                        <DockPanel>
+                          <TextBlock DockPanel.Dock="Right" Text="{Binding Unit}" Style="{StaticResource Caption}" Margin="8,0,0,0" />
+                          <Grid>
+                            <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" Height="28" KeyDown="OnFieldKeyDown" LostKeyboardFocus="OnFieldLostFocus"
+                                     Visibility="{Binding Editor, Converter={StaticResource IsVisibleWhen}, ConverterParameter=text}" />
+                            <TextBox Text="{Binding Text, Mode=OneWay}" Height="28" IsReadOnly="True" PreviewKeyDown="OnKeyFieldKeyDown" ToolTip="{l:Loc Properties_KeyTip}"
+                                     Visibility="{Binding Editor, Converter={StaticResource IsVisibleWhen}, ConverterParameter=key}" />
+                            <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption}"
+                                      Visibility="{Binding Editor, Converter={StaticResource IsVisibleWhen}, ConverterParameter=dropdown}">
+                              <ComboBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:OptionItem}">
+                                  <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                              </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <ListBox Style="{StaticResource ListBox.Segmented}" ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption}" HorizontalAlignment="Left"
+                                     Visibility="{Binding Editor, Converter={StaticResource IsVisibleWhen}, ConverterParameter=segmented}">
+                              <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:OptionItem}">
+                                  <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                              </ListBox.ItemTemplate>
+                            </ListBox>
+                            <ListBox Style="{StaticResource ListBox.Swatches}" ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption}"
+                                     Visibility="{Binding Editor, Converter={StaticResource IsVisibleWhen}, ConverterParameter=swatches}" />
+                          </Grid>
+                        </DockPanel>
+                        <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Brush.Error}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Visibility="{Binding Error, Converter={StaticResource NullToVisibility}}" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Wire color -->
+                <StackPanel Visibility="{Binding Mode, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Wire}" Margin="0,0,0,10">
+                  <TextBlock Text="{l:Loc Properties_Color}" Style="{StaticResource Caption}" Margin="0,0,0,4" />
+                  <ListBox Style="{StaticResource ListBox.Swatches}" ItemsSource="{Binding WireColors}" SelectedItem="{Binding WireColor}" IsEnabled="{Binding IsEditable}" />
+                </StackPanel>
+
+                <!-- Pins / wire ends -->
+                <TextBlock Text="{l:Loc Properties_Pins}" Style="{StaticResource Caption}" Margin="0,4,0,4"
+                           Visibility="{Binding Pins.Count, Converter={StaticResource PositiveToVisibility}}" />
+                <ItemsControl ItemsSource="{Binding Pins}" Margin="0,0,0,12">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:PinRow}">
+                      <DockPanel Height="24">
+                        <TextBlock Text="{Binding Pin}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" Width="64" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Connection}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
+                                   Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                      </DockPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Actions -->
+                <WrapPanel IsEnabled="{Binding IsEditable}">
+                  <WrapPanel.Style>
+                    <Style TargetType="WrapPanel">
+                      <Setter Property="Visibility" Value="Visible" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding Mode}" Value="Project">
+                          <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </WrapPanel.Style>
+                  <Button Command="{Binding RotateCommand}" ToolTip="R" Margin="0,0,6,6"
+                          Visibility="{Binding Mode, Converter={StaticResource IsHiddenWhen}, ConverterParameter=Wire}">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE7AD;" Margin="0,0,6,0" />
+                      <TextBlock Text="{l:Loc Menu_Rotate}" />
+                    </StackPanel>
+                  </Button>
+                  <Button Command="{Binding FlipCommand}" ToolTip="F" Margin="0,0,6,6"
+                          Visibility="{Binding Mode, Converter={StaticResource IsHiddenWhen}, ConverterParameter=Wire}">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE8AB;" Margin="0,0,6,0" />
+                      <TextBlock Text="{l:Loc Menu_Flip}" />
+                    </StackPanel>
+                  </Button>
+                  <Button Style="{StaticResource Button.Icon}" Command="{Binding DeleteCommand}" Content="&#xE74D;" ToolTip="{l:Loc Menu_Delete}" Margin="0,0,6,6"
+                          BorderBrush="{DynamicResource Brush.Border}" />
+                </WrapPanel>
+              </StackPanel>
+            </ScrollViewer>
           </DockPanel>
-          <StackPanel DockPanel.Dock="Right" Margin="8,0,0,0" Width="150">
-            <TextBlock Text="{Binding BaudText}" Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,0,8" />
-            <CheckBox Content="{l:Loc Serial_AutoScroll}" IsChecked="{Binding AutoScroll}" Margin="0,0,0,8" />
-            <Button Content="{l:Loc Serial_Clear}" Command="{Binding ClearSerialCommand}" HorizontalAlignment="Left" />
-          </StackPanel>
-          <TextBox x:Name="SerialOutput" Text="{Binding SerialText, Mode=OneWay}" IsReadOnly="True" FontFamily="{DynamicResource Font.Mono}"
-                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextChanged="OnSerialTextChanged" />
-        </DockPanel>
-      </TabItem>
-      <TabItem Header="{l:Loc Tab_Build}">
+          <Button Style="{StaticResource Button.Strip}" Command="{Binding TogglePropertiesCommand}" ToolTip="Ctrl+2"
+                  Visibility="{Binding PropertiesOpen, Converter={StaticResource InvertBoolToVisibility}}">
+            <TextBlock Text="{l:Loc Panel_Properties}">
+              <TextBlock.LayoutTransform>
+                <RotateTransform Angle="90" />
+              </TextBlock.LayoutTransform>
+            </TextBlock>
+          </Button>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- ===== Start view (no project open, docs/UI.md §2.7) ===== -->
+    <ScrollViewer Grid.Row="1" Grid.RowSpan="3" VerticalScrollBarVisibility="Auto" Background="{DynamicResource Brush.Background}"
+                  Visibility="{Binding HasProject, Converter={StaticResource InvertBoolToVisibility}}">
+      <StackPanel MaxWidth="880" Margin="48,56,48,48">
+        <TextBlock Text="ArduSim" FontSize="{DynamicResource FontSize.Display}" FontWeight="SemiBold" />
+        <TextBlock Text="{l:Loc Start_Tagline}" Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,4,0,24" />
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,40">
+          <Button Style="{StaticResource Button.Primary}" Command="{Binding NewProjectCommand}" Height="36" Padding="16,0" Margin="0,0,12,0">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" Margin="0,0,8,0" />
+              <TextBlock Text="{l:Loc Start_New}" />
+            </StackPanel>
+          </Button>
+          <Button Command="{Binding OpenProjectCommand}" Height="36" Padding="16,0">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource Icon}" Text="&#xE838;" Margin="0,0,8,0" />
+              <TextBlock Text="{l:Loc Start_Open}" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
         <Grid>
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="32" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
-          <ListBox Grid.Column="0" ItemsSource="{Binding Diagnostics}" Background="{DynamicResource Brush.Canvas}" BorderBrush="{DynamicResource Brush.Border}"
-                   Foreground="{DynamicResource Brush.Text.Primary}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" />
-          <TextBox Grid.Column="2" Text="{Binding BuildOutput, Mode=OneWay}" IsReadOnly="True" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
-                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
+          <StackPanel Grid.Column="0">
+            <TextBlock Text="{l:Loc Start_Recent}" Style="{StaticResource PanelHeader}" Margin="0,0,0,12" />
+            <TextBlock Text="{l:Loc Start_NoRecent}" Foreground="{DynamicResource Brush.Text.Secondary}"
+                       Visibility="{Binding Recent.Count, Converter={StaticResource IsVisibleWhen}, ConverterParameter=0}" />
+            <ItemsControl ItemsSource="{Binding Recent}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type s:RecentProject}">
+                  <Button Style="{StaticResource Button.Flat}" HorizontalContentAlignment="Stretch" Padding="8,6" Margin="-8,0,0,2"
+                          Command="{Binding DataContext.OpenRecentCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
+                    <StackPanel HorizontalAlignment="Left">
+                      <TextBlock Text="{Binding Name}" />
+                      <TextBlock Text="{Binding Path}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Text="{l:Loc Start_Examples}" Style="{StaticResource PanelHeader}" Margin="0,0,0,12" />
+            <ItemsControl ItemsSource="{Binding Examples}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:ExampleItem}">
+                  <Button Width="132" Height="72" Margin="0,0,12,12" Padding="12,8" HorizontalContentAlignment="Left"
+                          Command="{Binding DataContext.OpenExampleCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
+                    <StackPanel>
+                      <TextBlock Style="{StaticResource Icon}" Text="&#xE945;" HorizontalAlignment="Left" Foreground="{DynamicResource Brush.Accent}" Margin="0,0,0,6" />
+                      <TextBlock Text="{Binding Name}" />
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
         </Grid>
-      </TabItem>
-      <TabItem Header="{l:Loc Tab_Log}">
-        <ListBox ItemsSource="{Binding Log}" Background="{DynamicResource Brush.Canvas}" BorderBrush="{DynamicResource Brush.Border}" HorizontalContentAlignment="Stretch">
-          <ListBox.ItemTemplate>
-            <DataTemplate DataType="{x:Type vm:LogItem}">
-              <DockPanel>
-                <Button DockPanel.Dock="Right" Content="{l:Loc Log_Show}" Padding="8,2" Margin="8,0,0,0"
-                        Command="{Binding DataContext.ShowPartCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding ComponentId}"
-                        Visibility="{Binding ComponentId, Converter={StaticResource NullToVisibility}}" />
-                <TextBlock DockPanel.Dock="Left" Text="{Binding Time}" FontFamily="{DynamicResource Font.Mono}" Foreground="{DynamicResource Brush.Text.Secondary}" Width="90" />
-                <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="{Binding Severity, Converter={StaticResource SeverityToBrush}}" />
-              </DockPanel>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
-      </TabItem>
-    </TabControl>
+      </StackPanel>
+    </ScrollViewer>
 
-    <!-- Status bar -->
-    <Border Grid.Row="4" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0" Padding="12,4">
+    <!-- ===== Bottom panel ===== -->
+    <GridSplitter x:Name="BottomSplitter" Grid.Row="2" Style="{StaticResource Splitter.Horizontal}" IsEnabled="{Binding BottomOpen}" DragCompleted="OnSplitterDragCompleted"
+                  Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}" />
+    <Grid Grid.Row="3" Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}">
+      <TabControl SelectedIndex="{Binding SelectedBottomTab}" Visibility="{Binding BottomOpen, Converter={StaticResource BoolToVisibility}}">
+        <TabControl.Tag>
+          <Button Style="{StaticResource Button.Icon}" Content="&#xE70D;" FontSize="12" Command="{Binding ToggleBottomCommand}" ToolTip="{l:Loc Panel_CollapseTip3}" />
+        </TabControl.Tag>
+        <TabItem Header="{l:Loc Tab_Serial}">
+          <DockPanel>
+            <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" LastChildFill="True">
+              <Button DockPanel.Dock="Right" Content="{l:Loc Serial_Send}" Command="{Binding SendSerialCommand}" Margin="8,0,0,0" />
+              <ListBox DockPanel.Dock="Right" Style="{StaticResource ListBox.Segmented}" ItemsSource="{Binding LineEndings}" SelectedItem="{Binding SelectedLineEnding}" Margin="8,0,0,0">
+                <ListBox.ItemTemplate>
+                  <DataTemplate DataType="{x:Type vm:LineEndingOption}">
+                    <TextBlock Text="{Binding Label}" />
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <TextBlock DockPanel.Dock="Right" Text="{l:Loc Serial_LineEnding}" Style="{StaticResource Caption}" Margin="8,0,0,0" />
+              <TextBox Text="{Binding SerialInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource Font.Mono}" Height="28" KeyDown="OnSerialInputKeyDown" />
+            </DockPanel>
+            <StackPanel DockPanel.Dock="Right" Margin="12,0,0,0" Width="150">
+              <TextBlock Text="{Binding BaudText}" Style="{StaticResource Caption}" Margin="0,0,0,8" />
+              <CheckBox Content="{l:Loc Serial_AutoScroll}" IsChecked="{Binding AutoScroll}" Margin="0,0,0,8" />
+              <Button Content="{l:Loc Serial_Clear}" Command="{Binding ClearSerialCommand}" HorizontalAlignment="Left" />
+            </StackPanel>
+            <TextBox x:Name="SerialOutput" Style="{StaticResource TextBox.Output}" Text="{Binding SerialText, Mode=OneWay}" TextChanged="OnSerialTextChanged" />
+          </DockPanel>
+        </TabItem>
+        <TabItem Header="{l:Loc Tab_Build}">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="8" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ListBox Grid.Column="0" ItemsSource="{Binding Diagnostics}" Background="{DynamicResource Brush.Canvas}" BorderBrush="{DynamicResource Brush.Border}"
+                     Foreground="{DynamicResource Brush.Text.Primary}" HorizontalContentAlignment="Stretch" KeyDown="OnDiagnosticKeyDown">
+              <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:DiagnosticItem}">
+                  <DockPanel Cursor="Hand" MouseLeftButtonUp="OnDiagnosticClick">
+                    <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" FontSize="12" Margin="0,2,8,0" VerticalAlignment="Top"
+                               Foreground="{Binding Severity, Converter={StaticResource SeverityToBrush}}">
+                      <TextBlock.Text>
+                        <Binding Path="Severity">
+                          <Binding.Converter>
+                            <v:SeverityToGlyphConverter />
+                          </Binding.Converter>
+                        </Binding>
+                      </TextBlock.Text>
+                    </TextBlock>
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding Location}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
+                               Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="{DynamicResource FontSize.Small}" />
+                  </DockPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBox Grid.Column="2" Style="{StaticResource TextBox.Output}" Text="{Binding BuildOutput, Mode=OneWay}" />
+          </Grid>
+        </TabItem>
+        <TabItem>
+          <TabItem.Header>
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{l:Loc Tab_Log}" />
+              <Border Style="{StaticResource Badge}" Visibility="{Binding UnseenWarnings, Converter={StaticResource PositiveToVisibility}}">
+                <TextBlock Text="{Binding UnseenWarnings}" FontSize="{DynamicResource FontSize.Caption}" Foreground="{DynamicResource Brush.OnAccent}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" />
+              </Border>
+            </StackPanel>
+          </TabItem.Header>
+          <ListBox ItemsSource="{Binding Log}" Background="{DynamicResource Brush.Canvas}" BorderBrush="{DynamicResource Brush.Border}" HorizontalContentAlignment="Stretch">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:LogItem}">
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Content="{l:Loc Log_Show}" Padding="8,0" MinHeight="22" Margin="8,0,0,0"
+                          Command="{Binding DataContext.ShowPartCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding ComponentId}"
+                          Visibility="{Binding ComponentId, Converter={StaticResource NullToVisibility}}" />
+                  <TextBlock DockPanel.Dock="Left" Text="{Binding Time}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
+                             Foreground="{DynamicResource Brush.Text.Secondary}" Width="90" />
+                  <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="{Binding Severity, Converter={StaticResource SeverityToBrush}}" />
+                </DockPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </TabItem>
+      </TabControl>
+      <!-- Collapsed: a strip with the tab names -->
+      <Border Background="{DynamicResource Brush.Surface}" Visibility="{Binding BottomOpen, Converter={StaticResource InvertBoolToVisibility}}">
+        <DockPanel Margin="8,0">
+          <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE70E;" FontSize="12" Command="{Binding ToggleBottomCommand}" ToolTip="Ctrl+3" />
+          <StackPanel Orientation="Horizontal">
+            <Button Style="{StaticResource Button.Flat}" Content="{l:Loc Tab_Serial}" Click="OnOpenBottomTab" Tag="0" Foreground="{DynamicResource Brush.Text.Secondary}" />
+            <Button Style="{StaticResource Button.Flat}" Content="{l:Loc Tab_Build}" Click="OnOpenBottomTab" Tag="1" Foreground="{DynamicResource Brush.Text.Secondary}" />
+            <Button Style="{StaticResource Button.Flat}" Click="OnOpenBottomTab" Tag="2" Foreground="{DynamicResource Brush.Text.Secondary}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{l:Loc Tab_Log}" />
+                <Border Style="{StaticResource Badge}" Visibility="{Binding UnseenWarnings, Converter={StaticResource PositiveToVisibility}}">
+                  <TextBlock Text="{Binding UnseenWarnings}" FontSize="{DynamicResource FontSize.Caption}" Foreground="{DynamicResource Brush.OnAccent}" HorizontalAlignment="Center" />
+                </Border>
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+    </Grid>
+
+    <!-- Toast (bottom-right, 3 s) -->
+    <Border Grid.Row="1" Grid.RowSpan="3" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,24" Padding="14,8" IsHitTestVisible="False"
+            Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}"
+            Effect="{StaticResource Shadow}" Visibility="{Binding Toast, Converter={StaticResource NullToVisibility}}">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE73E;" Foreground="{DynamicResource Brush.Accent}" Margin="0,0,8,0" />
+        <TextBlock Text="{Binding Toast}" />
+      </StackPanel>
+    </Border>
+
+    <!-- ===== Status bar, 24 px ===== -->
+    <Border Grid.Row="4" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0" Padding="12,0">
       <DockPanel>
-        <TextBlock DockPanel.Dock="Right" Text="{Binding ActualSpeed}" Foreground="{DynamicResource Brush.Text.Secondary}" FontFamily="{DynamicResource Font.Mono}" Margin="12,0,0,0" />
-        <TextBlock DockPanel.Dock="Right" Text="{Binding VirtualTime}" FontFamily="{DynamicResource Font.Mono}" Margin="12,0,0,0" />
-        <TextBlock DockPanel.Dock="Right" Text="{l:Loc Inproc_Badge}" Foreground="{DynamicResource Brush.Warning}" Visibility="{Binding InProcess, Converter={StaticResource BoolToVisibility}}" />
-        <TextBlock Text="{Binding ProjectName}" Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,16,0" />
-        <TextBlock Text="{Binding StatusText}" />
+        <TextBlock DockPanel.Dock="Right" Text="{Binding ActualSpeed}" Style="{StaticResource Caption}" FontFamily="{DynamicResource Font.Mono}" Margin="12,0,0,0" />
+        <TextBlock DockPanel.Dock="Right" Text="{l:Loc Inproc_Badge}" Foreground="{DynamicResource Brush.Warning}" FontSize="{DynamicResource FontSize.Small}" VerticalAlignment="Center"
+                   Visibility="{Binding InProcess, Converter={StaticResource BoolToVisibility}}" />
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="{Binding ProjectDirectory}" Style="{StaticResource Caption}" MaxWidth="420" TextTrimming="CharacterEllipsis" />
+          <TextBlock Text="  ·  " Style="{StaticResource Caption}" Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}" />
+          <TextBlock Text="{Binding SelectedBoard.DisplayName}" Style="{StaticResource Caption}" Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}" />
+          <TextBlock Text="  ·  " Style="{StaticResource Caption}" Visibility="{Binding LastBuild, Converter={StaticResource NullToVisibility}}" />
+          <TextBlock Text="{Binding LastBuild}" Style="{StaticResource Caption}" />
+          <TextBlock Text="  ·  " Style="{StaticResource Caption}" Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}" />
+          <TextBlock Text="{Binding ToolchainText}" Style="{StaticResource Caption}" />
+        </StackPanel>
       </DockPanel>
     </Border>
   </Grid>

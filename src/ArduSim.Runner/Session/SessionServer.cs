@@ -39,7 +39,7 @@ internal sealed class SessionServer
             host.Mcu.Uarts[0].ByteTransmitted += (_, b) => _serial.Add(b);
         }
 
-        host.Engine.Log.Reported += d => _logs.Add(new LogEntry(d.Time, (byte)d.Severity, d.Code, d.Message, d.ComponentId));
+        host.Engine.Log.Reported += d => _logs.Add(new LogEntry(d.Time, (byte)d.Severity, d.Code, d.Message, d.ComponentId, d.Key, d.Args));
         host.Tick = () => Publish(force: false);
         host.RunStateChanged = () => Publish(force: true);
         host.Busy = () =>
@@ -89,7 +89,7 @@ internal sealed class SessionServer
         }
         else
         {
-            _host.Engine.Log.ReportOnce("input-" + input.Component, SimSeverity.Warning, "unknown-input", $"Input for '{input.Component}', which is not in the simulation.");
+            _host.Engine.Log.ReportOnce("input-" + input.Component, SimSeverity.Warning, "unknown-input", $"Input for '{input.Component}', which is not in the simulation.", variant: "missing-part");
         }
     }
 

@@ -7,7 +7,7 @@ ArduSim: a Windows desktop simulator for Arduino sketches (C#/.NET 10, WPF). The
 - Talk to the owner in Russian. Code, identifiers, comments, commit messages and all docs are in English.
 - Brief §3 decisions are final: implement them, record them as ADRs, do not re-argue. Other defaults: pick one, add a line to `docs/DECISIONS.md`. Ask only at expensive forks (file formats, firmware ABI, IPC protocol, UI framework), batched.
 - Work milestone by milestone. Done = clean clone builds, `dotnet test` green, app runs, `docs/CHANGELOG.md` entry, two-line "how to try it".
-- Before M3: write `docs/UI.md` and wait for the owner's OK.
+- The UI follows `docs/UI.md` (approved 2026-11-02); changes to its layout or interaction rules go to the owner first.
 - Never fake behaviour: stubs log a visible warning; unsupported features fail at compile time with a clear message.
 - Nothing from brief §4 "Out of scope" without asking.
 
@@ -29,18 +29,18 @@ Runner options: `--project <folder>` (required), `--run-for <ms>`, `--speed <x|m
 
 ```
 ArduSim.sln, Directory.Build.props, Directory.Packages.props, global.json, .editorconfig
-src/ArduSim.Core       engine: Timing, Circuits (nets), Components (+ Parts), Simulation (engine, Mcu, BoardSimulation, UART, EEPROM, interrupts), Diagnostics, Boards (profile types), Projects
+src/ArduSim.Core       engine: Timing, Circuits (nets), Components (+ Parts), Simulation (engine, Mcu, BoardSimulation, UART, EEPROM, interrupts), Diagnostics, Boards (profile types), Projects (file, template), Editing (SceneModel, SceneEditor)
 src/ArduSim.Boards     board profiles and timing tables (Nano)
 src/ArduSim.Build      Toolchains, Sketches (preprocessor), Libraries (resolver), Compilation (builder, object cache, diagnostics, FirmwareSymbols)
 src/ArduSim.Ipc        Messages (MessagePack), IpcChannel, ISimulationSession, PipeSimulationSession, CrashBlock
 src/ArduSim.Runner     Interop (SimHostApi mirror, callbacks, loader), SimulationHost, Session (SessionServer, PipeServer, InProcessSimulationSession), Headless
-src/ArduSim.App        WPF UI: MainWindow (part templates), ViewModels (Main, Scene), Services (build, environment), Themes, Resources/Strings.resx
+src/ArduSim.App        WPF UI: MainWindow (chrome, panels), Views (SchematicCanvas, CodeEditor, UnsavedDialog, converters), ViewModels (Main, Scene, Palette, Properties, CodeDocument), Services (build, environment, UserState), Themes (Dark, Controls, Parts), Localization (Strings, LogText), Resources/Strings.resx
 firmware/shim          C++ Arduino shim: include/ (Arduino.h, sim_abi.h, avr/, sim/), src/, variants/nano, libraries/EEPROM, test/ (harness)
 libraries/             vendored Arduino libraries (from M4); libraries/compat/ per-library fixes
 examples/              user-facing example projects (Blink, Button, FloatingInput); copied next to the app
 tests/                 ArduSim.Core.Tests, ArduSim.Build.Tests, ArduSim.Integration.Tests (+ Projects/ fixture sketches)
 tools/                 dev-only: toolchain-eval (ADR-002), nano-timing-bench (ADR-005 calibration)
-docs/                  BRIEF (spec), ARCHITECTURE, PLAN, DECISIONS, CHANGELOG, adr/ (UI.md before M3)
+docs/                  BRIEF (spec), ARCHITECTURE, UI, PLAN, DECISIONS, CHANGELOG, adr/
 ```
 
 `firmware/` and `libraries/` are copied next to every executable that builds firmware (content items in `ArduSim.Build.csproj`).
@@ -50,17 +50,18 @@ docs/                  BRIEF (spec), ARCHITECTURE, PLAN, DECISIONS, CHANGELOG, a
 - C#: nullable on, file-scoped namespaces, records for messages, analyzers at `latest-recommended`, `TreatWarningsAsErrors` in Core, Build, Ipc. No logic in code-behind beyond view glue. Pass `CultureInfo.InvariantCulture` for machine-readable text (the owner's locale is ru-RU: decimal comma).
 - Static readonly fields are initialized in textual order: declare what an initializer uses above it.
 - Project boundaries are enforced by `tests/ArduSim.Core.Tests/ProjectBoundaryTests.cs`; update its allow-list only together with `docs/ARCHITECTURE.md`.
-- UI strings only in `src/ArduSim.App/Resources/Strings.resx` (Russian), used via `{l:Loc Key}` / `Strings.Get`.
+- UI strings only in `src/ArduSim.App/Resources/Strings.resx` (Russian), used via `{l:Loc Key}` / `Strings.Get`. Simulation log messages: Core reports interpolated strings with a code (and a variant when the code is shared); add the Russian pattern as `Log_<code>[.<variant>]`.
+- Scene edits go through `SceneEditor` (Core, unit-tested); the canvas only translates gestures. Part art: one `Part.<type>` template in `Themes/Parts.xaml`.
 - NuGet licenses: MIT, BSD, Apache or Microsoft only; list every dependency in `THIRD_PARTY.md`. Versions only in `Directory.Packages.props`.
 - C++ shim: C++17, warning-clean under clang `-Wall -Wextra -Werror` (the harness test enforces it), one `.cpp` per module, `<windows.h>` only in `src/host_bootstrap.cpp`. ABI changes: `sim_abi.h` and `src/ArduSim.Runner/Interop/SimHostApi.cs` together, same field order.
 - Host callbacks never let an exception reach native code (each one catches and ends the run with an internal-error report).
 - Vendored libraries are never patched silently; fixes go to `libraries/compat/`.
 - Conventional commits on `main`.
 
-## Known limitations (current state: M2)
+## Known limitations (current state: M3)
 
-- The scene is fixed (from project.simproj.json); no editor, palette, properties, pan/zoom, pin tooltips or net highlight yet (M3, after docs/UI.md is approved).
-- Simulation log messages come from Core in English; they carry codes for later localization.
+- Not in the UI yet: Settings dialog, the "О точности симуляции" sheet, live levels in the properties pin list, common properties for a multi-selection, the light theme. Only one board exists, so the board picker cannot switch boards.
+- Canvas mouse gestures and palette drag and drop have no automated checks; the automated checks drive the view models and render the window offscreen.
 - I2C and SPI are not simulated and there is no `Wire`/`SPI` library yet (M4/M5): sketches that include them fail to compile.
 - Headless runs print only the shim's one-line crash notice and exit with the NTSTATUS; the symbolized report is the app's.
 - In-process sessions (`--inproc`) cannot unwind a stopped run: its thread stays parked; a sketch crash takes the app down.

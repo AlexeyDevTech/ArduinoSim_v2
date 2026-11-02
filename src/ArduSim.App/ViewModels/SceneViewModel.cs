@@ -3,130 +3,749 @@ using System.Globalization;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
+using ArduSim.App.Localization;
 using ArduSim.Core.Boards;
 using ArduSim.Core.Components;
+using ArduSim.Core.Editing;
 using ArduSim.Core.Projects;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace ArduSim.App.ViewModels;
 
-/// <summary>The project's scene as the canvas shows it: parts with live state and wires (fixed layout until M3).</summary>
-public sealed class SceneViewModel
+/// <summary>
+/// The schematic as the canvas shows and edits it (docs/UI.md §3.6, §4): wraps a
+/// <see cref="SceneEditor"/>, keeps one view model per part and wire, and holds the view-only
+/// state — selection, hover, the wire being drawn, live simulation state.
+/// </summary>
+public sealed partial class SceneViewModel : ObservableObject
 {
-    private const double Margin = 40;
-    private readonly Dictionary<string, PartViewModel> _parts;
+    private readonly Dictionary<string, PartViewModel> _parts = new(StringComparer.Ordinal);
+    private readonly Action<string, string, double> _sendInput;
+    private readonly HashSet<string> _selected = new(StringComparer.Ordinal);
+    private readonly Dictionary<int, (int Kind, int Value)> _boardPins = [];
+    private readonly List<(double X, double Y)> _corners = [];
+    private PinReference? _wireStart;
+    private PinReference? _hoverPin;
+    private string? _hoverWire;
+    private (string WireId, List<(double X, double Y)> Corners, int First, bool Vertical)? _segmentDrag;
 
-    public SceneViewModel(ProjectFile project, BoardProfile board, ComponentRegistry registry, Action<string, string, double> sendInput)
+    public SceneViewModel(SceneEditor editor, BoardProfile board, Action<string, string, double> sendInput)
     {
-        ArgumentNullException.ThrowIfNull(project);
-        ArgumentNullException.ThrowIfNull(registry);
-        List<ComponentDocument> documents = [.. project.Scene.Components];
-        if (!documents.Any(d => d.Type == board.Id))
-        {
-            documents.Insert(0, new ComponentDocument { Id = "board", Type = board.Id });
-        }
-
-        Parts = [.. documents.Select(d => new PartViewModel(d, registry.Find(d.Type), sendInput))];
-        _parts = Parts.ToDictionary(p => p.Id, StringComparer.Ordinal);
-        Wires = [.. project.Scene.Wires.Select(w => WireViewModel.Create(w, _parts)).OfType<WireViewModel>()];
-
-        double left = Parts.Min(p => p.X) - Margin;
-        double top = Parts.Min(p => p.Y) - Margin;
-        double right = Math.Max(Parts.Max(p => p.X + p.Width), Wires.SelectMany(w => w.Points).DefaultIfEmpty().Max(p => p.X)) + Margin;
-        double bottom = Math.Max(Parts.Max(p => p.Y + p.Height), Wires.SelectMany(w => w.Points).DefaultIfEmpty().Max(p => p.Y)) + Margin;
-        Origin = new TranslateTransform(-left, -top);
-        Width = right - left;
-        Height = bottom - top;
+        Editor = editor;
+        Board = board;
+        _sendInput = sendInput;
+        editor.Changed += Sync;
+        Sync();
     }
 
-    public ObservableCollection<PartViewModel> Parts { get; }
+    public event Action? SelectionChanged;
 
-    public ObservableCollection<WireViewModel> Wires { get; }
+    public SceneEditor Editor { get; }
 
-    public double Width { get; }
+    public BoardProfile Board { get; }
 
-    public double Height { get; }
+    public ObservableCollection<PartViewModel> Parts { get; } = [];
 
-    /// <summary>Shifts scene coordinates so the content starts at the canvas origin.</summary>
-    public Transform Origin { get; }
+    public ObservableCollection<WireViewModel> Wires { get; } = [];
+
+    public ObservableCollection<PinMarker> PinMarkers { get; } = [];
+
+    public ObservableCollection<CornerHandle> Corners { get; } = [];
+
+    public IReadOnlyCollection<string> SelectedParts => _selected;
+
+    [ObservableProperty]
+    public partial string? SelectedWire { get; private set; }
+
+    /// <summary>While a run is active the structure is locked; interactive parts stay live (docs/UI.md §4.4).</summary>
+    [ObservableProperty]
+    public partial bool IsLocked { get; set; }
+
+    [ObservableProperty]
+    public partial PointCollection? Ghost { get; private set; }
+
+    public bool IsWiring => _wireStart is not null;
+
+    public bool VerticalFirst { get; set; }
 
     public PartViewModel? Find(string id) => _parts.GetValueOrDefault(id);
 
-    public void ResetState()
+    public PartViewModel? SinglePart => _selected.Count == 1 ? Find(_selected.First()) : null;
+
+    public Rect ContentBounds()
     {
+        if (Parts.Count == 0)
+        {
+            return new Rect(0, 0, 400, 300);
+        }
+
+        Rect bounds = Rect.Empty;
+        foreach (PartViewModel part in Parts)
+        {
+            bounds.Union(part.Bounds);
+        }
+
+        foreach (WireViewModel wire in Wires)
+        {
+            foreach (Point p in wire.Points)
+            {
+                bounds.Union(p);
+            }
+        }
+
+        return bounds;
+    }
+
+    // ---- hit testing (world coordinates) ---------------------------------------------------
+
+    public PartViewModel? PartAt(Point p) => Parts.LastOrDefault(part => part.Bounds.Contains(p));
+
+    public (PinReference Pin, Point Position)? PinAt(Point p, double radius)
+    {
+        foreach (PartViewModel part in Parts.Reverse())
+        {
+            if (part.Definition is not { } definition)
+            {
+                continue;
+            }
+
+            foreach (PinDefinition pin in definition.Pins)
+            {
+                Point position = part.PinPosition(pin);
+                if ((position - p).Length <= radius)
+                {
+                    return (new PinReference(part.Id, pin.Name), position);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public WireViewModel? WireAt(Point p, double tolerance) =>
+        Wires.LastOrDefault(w => Segments(w.Points).Any(s => Distance(p, s.A, s.B) <= tolerance));
+
+    public (WireViewModel Wire, int Segment)? WireSegmentAt(Point p, double tolerance)
+    {
+        foreach (WireViewModel wire in Wires.Reverse())
+        {
+            int index = 0;
+            foreach ((Point a, Point b) in Segments(wire.Points))
+            {
+                if (Distance(p, a, b) <= tolerance)
+                {
+                    return (wire, index);
+                }
+
+                index++;
+            }
+        }
+
+        return null;
+    }
+
+    public CornerHandle? CornerAt(Point p, double radius) => Corners.FirstOrDefault(c => (new Point(c.X, c.Y) - p).Length <= radius);
+
+    // ---- selection ---------------------------------------------------------------------------
+
+    public void Select(string id, bool additive)
+    {
+        if (!additive)
+        {
+            _selected.Clear();
+        }
+
+        if (additive && _selected.Contains(id))
+        {
+            _selected.Remove(id);
+        }
+        else
+        {
+            _selected.Add(id);
+        }
+
+        SelectedWire = null;
+        RefreshSelection();
+    }
+
+    public void SelectWire(string? id)
+    {
+        _selected.Clear();
+        SelectedWire = id;
+        RefreshSelection();
+    }
+
+    public void SelectMany(IEnumerable<string> ids, bool additive)
+    {
+        if (!additive)
+        {
+            _selected.Clear();
+        }
+
+        _selected.UnionWith(ids);
+        SelectedWire = null;
+        RefreshSelection();
+    }
+
+    public void SelectInside(Rect area, bool additive) => SelectMany(Parts.Where(p => area.Contains(p.Bounds)).Select(p => p.Id), additive);
+
+    public void SelectAll() => SelectMany(Parts.Select(p => p.Id), additive: false);
+
+    public void ClearSelection()
+    {
+        _selected.Clear();
+        SelectedWire = null;
+        RefreshSelection();
+    }
+
+    // ---- editing (thin wrappers over SceneEditor) ---------------------------------------------
+
+    public void DeleteSelection()
+    {
+        Editor.Delete([.. _selected], SelectedWire is null ? [] : [SelectedWire]);
+        _selected.RemoveWhere(id => Find(id) is null);
+        SelectedWire = null;
+        RefreshSelection();
+    }
+
+    public void RotateSelection(bool clockwise) => Editor.Rotate([.. _selected], clockwise);
+
+    public void FlipSelection() => Editor.Flip([.. _selected]);
+
+    public void Nudge(double dx, double dy) => Editor.MoveParts([.. _selected], dx, dy);
+
+    public void DuplicateSelection() => SelectMany(Editor.Duplicate([.. _selected]), additive: false);
+
+    public string? CopySelection() => Editor.Copy([.. _selected]);
+
+    public void Paste(string text, Point at)
+    {
+        IReadOnlyList<string> ids = Editor.Paste(text, at.X, at.Y);
+        if (ids.Count > 0)
+        {
+            SelectMany(ids, additive: false);
+        }
+    }
+
+    public PartViewModel? Place(string type, Point at)
+    {
+        ComponentDefinition? definition = Editor.Registry.Find(type);
+        if (definition is null)
+        {
+            return null;
+        }
+
+        PartModel part = Editor.AddPart(type, at.X - (definition.Width / 2), at.Y - (definition.Height / 2));
+        Select(part.Id, additive: false);
+        return Find(part.Id);
+    }
+
+    // ---- wiring ------------------------------------------------------------------------------
+
+    public void StartWire(PinReference pin)
+    {
+        _wireStart = pin;
+        _corners.Clear();
+        ClearSelection();
+        UpdatePinMarkers();
+    }
+
+    public void AddCorner(Point p)
+    {
+        if (_wireStart is null)
+        {
+            return;
+        }
+
+        Point last = _corners.Count > 0 ? new Point(_corners[^1].X, _corners[^1].Y) : PinPoint(_wireStart);
+        Point corner = new(SceneEditor.Snap(p.X), SceneEditor.Snap(p.Y));
+        if (VerticalFirst && last.X != corner.X && last.Y != corner.Y)
+        {
+            _corners.Add((last.X, corner.Y));
+        }
+
+        _corners.Add((corner.X, corner.Y));
+        UpdateGhost(p);
+    }
+
+    public void RemoveLastCorner(Point cursor)
+    {
+        if (_corners.Count > 0)
+        {
+            _corners.RemoveAt(_corners.Count - 1);
+            UpdateGhost(cursor);
+        }
+    }
+
+    public void UpdateGhost(Point cursor)
+    {
+        if (_wireStart is null)
+        {
+            Ghost = null;
+            return;
+        }
+
+        Point start = PinPoint(_wireStart);
+        var end = new Point(SceneEditor.Snap(cursor.X), SceneEditor.Snap(cursor.Y));
+        if (PinAt(cursor, 6) is { } target)
+        {
+            end = target.Position;
+        }
+
+        Ghost = ToPoints(SceneEditor.Route((start.X, start.Y), _corners, (end.X, end.Y), VerticalFirst));
+    }
+
+    /// <summary>Completes the wire at <paramref name="pin"/>; false when it is the start pin (the wire is cancelled).</summary>
+    public bool FinishWire(PinReference pin)
+    {
+        if (_wireStart is not { } start)
+        {
+            return false;
+        }
+
+        if (start == pin)
+        {
+            CancelWire();
+            return false;
+        }
+
+        List<(double X, double Y)> corners = [.. _corners];
+        if (VerticalFirst && corners.Count == 0)
+        {
+            Point a = PinPoint(start);
+            Point b = PinPoint(pin);
+            if (a.X != b.X && a.Y != b.Y)
+            {
+                corners.Add((a.X, b.Y));
+            }
+        }
+
+        CancelWire();
+        if (Editor.AddWire(start, pin, corners) is { } wire)
+        {
+            SelectWire(wire.Id);
+        }
+
+        return true;
+    }
+
+    public void CancelWire()
+    {
+        _wireStart = null;
+        _corners.Clear();
+        Ghost = null;
+        UpdatePinMarkers();
+    }
+
+    // ---- wire editing ------------------------------------------------------------------------
+
+    /// <summary>Moves one waypoint of a wire, snapped to the grid.</summary>
+    public void MoveCorner(string wireId, int index, Point to, bool checkpoint)
+    {
+        if (Editor.Scene.FindWire(wireId) is not { } wire || index < 0 || index >= wire.Waypoints.Count)
+        {
+            return;
+        }
+
+        var corners = wire.Waypoints.ToList();
+        corners[index] = (SceneEditor.Snap(to.X), SceneEditor.Snap(to.Y));
+        Editor.SetWaypoints(wireId, corners, checkpoint);
+    }
+
+    /// <summary>
+    /// Starts dragging segment <paramref name="segment"/> of a wire's route (docs/UI.md §4.3): every bend
+    /// becomes an explicit waypoint, and a segment that ends on a pin gets a waypoint there, so the
+    /// pin stays put while the segment moves away from it. False for a zero-length segment.
+    /// </summary>
+    public bool BeginSegmentDrag(string wireId, int segment)
+    {
+        if (Editor.Scene.FindWire(wireId) is not { } wire)
+        {
+            return false;
+        }
+
+        IReadOnlyList<(double X, double Y)> route = Editor.Route(wire);
+        if (segment < 0 || segment + 1 >= route.Count || route[segment] == route[segment + 1])
+        {
+            return false;
+        }
+
+        List<(double X, double Y)> corners = [.. route.Skip(1).Take(route.Count - 2)];
+        if (segment == 0)
+        {
+            corners.Insert(0, route[0]);
+        }
+
+        if (segment + 1 == route.Count - 1)
+        {
+            corners.Add(route[^1]);
+        }
+
+        _segmentDrag = (wireId, corners, segment == 0 ? 0 : segment - 1, route[segment].X == route[segment + 1].X);
+        return true;
+    }
+
+    /// <summary>Moves the dragged segment perpendicular to itself by the snapped offset from the drag start.</summary>
+    public void DragSegment(Vector offset, bool checkpoint)
+    {
+        if (_segmentDrag is not { } drag)
+        {
+            return;
+        }
+
+        double dx = drag.Vertical ? SceneEditor.Snap(offset.X) : 0;
+        double dy = drag.Vertical ? 0 : SceneEditor.Snap(offset.Y);
+        List<(double X, double Y)> corners = [.. drag.Corners];
+        for (int i = drag.First; i <= drag.First + 1; i++)
+        {
+            corners[i] = (corners[i].X + dx, corners[i].Y + dy);
+        }
+
+        Editor.SetWaypoints(drag.WireId, corners, checkpoint);
+    }
+
+    public void EndSegmentDrag() => _segmentDrag = null;
+
+    public void InsertCorner(string wireId, Point at)
+    {
+        if (Editor.Scene.FindWire(wireId) is not { } wire)
+        {
+            return;
+        }
+
+        var p = (SceneEditor.Snap(at.X), SceneEditor.Snap(at.Y));
+        var corners = wire.Waypoints.ToList();
+        IReadOnlyList<(double X, double Y)> route = Editor.Route(wire);
+        int routeSegment = 0;
+        double best = double.MaxValue;
+        for (int i = 0; i + 1 < route.Count; i++)
+        {
+            double d = Distance(at, new Point(route[i].X, route[i].Y), new Point(route[i + 1].X, route[i + 1].Y));
+            if (d < best)
+            {
+                best = d;
+                routeSegment = i;
+            }
+        }
+
+        // Count the corners that lie on the route before this segment to find the insertion index.
+        int insertAt = corners.Count(c => route.Take(routeSegment + 1).Contains(c));
+        corners.Insert(insertAt, p);
+        Editor.SetWaypoints(wireId, corners);
+    }
+
+    // ---- hover -------------------------------------------------------------------------------
+
+    public void Hover(PinReference? pin, string? wireId)
+    {
+        if (pin == _hoverPin && wireId == _hoverWire)
+        {
+            return;
+        }
+
+        _hoverPin = pin;
+        _hoverWire = wireId;
+        UpdateNetHighlight();
+        UpdatePinMarkers();
+    }
+
+    public string PinTooltip(PinReference pin)
+    {
+        if (Find(pin.Component) is not { } part)
+        {
+            return pin.ToString();
+        }
+
+        string text = pin.Pin;
+        if (part.Type == "board" && Board.FindPin(pin.Pin) is { } boardPin)
+        {
+            string kind = boardPin.Has(PinCapabilities.Pwm) ? Strings.Get("Pin_DigitalPwm")
+                : boardPin.Has(PinCapabilities.Digital) ? Strings.Get("Pin_Digital") : Strings.Get("Pin_Analog");
+            text += " · " + kind;
+            if (_boardPins.TryGetValue(boardPin.Number, out var drive))
+            {
+                text += " · " + drive.Kind switch
+                {
+                    1 => "LOW",
+                    2 => "HIGH",
+                    3 => string.Create(CultureInfo.InvariantCulture, $"PWM {drive.Value * 100 / 255}%"),
+                    4 => string.Create(CultureInfo.InvariantCulture, $"tone {drive.Value} Hz"),
+                    _ => Strings.Get("Pin_Input"),
+                };
+            }
+        }
+        else
+        {
+            text = $"{part.Id}.{pin.Pin}";
+        }
+
+        int connections = Editor.Scene.Wires.Count(w => w.From == pin || w.To == pin);
+        return connections == 0 ? text : text + " · " + Strings.Format("Pin_Wires", connections);
+    }
+
+    // ---- live state --------------------------------------------------------------------------
+
+    public void ApplyComponent(string id, IReadOnlyDictionary<string, double> state) => Find(id)?.Apply(state);
+
+    public void ApplyPins(IEnumerable<(int Pin, int Kind, int Value)> pins)
+    {
+        foreach ((int pin, int kind, int value) in pins)
+        {
+            _boardPins[pin] = (kind, value);
+        }
+    }
+
+    /// <summary>Parts back to rest. Warning badges stay after a run ends and clear when the next one starts (docs/UI.md §4.4).</summary>
+    public void ResetRuntime(bool clearWarnings)
+    {
+        _boardPins.Clear();
         foreach (PartViewModel part in Parts)
         {
             part.Apply(new Dictionary<string, double>(), reset: true);
+            if (clearWarnings)
+            {
+                part.HasWarning = false;
+            }
         }
+    }
+
+    public void Input(string id, string name, double value) => _sendInput(id, name, value);
+
+    // ---- sync with the editor ----------------------------------------------------------------
+
+    private void Sync()
+    {
+        var alive = new HashSet<string>(StringComparer.Ordinal);
+        foreach (PartModel model in Editor.Scene.Parts)
+        {
+            alive.Add(model.Id);
+            if (_parts.TryGetValue(model.Id, out PartViewModel? existing) && existing.Model.Type == model.Type)
+            {
+                existing.Rebind(model);
+            }
+            else
+            {
+                var created = new PartViewModel(model, Editor.Definition(model), this);
+                _parts[model.Id] = created;
+                Parts.Add(created);
+            }
+        }
+
+        foreach (PartViewModel stale in Parts.Where(p => !alive.Contains(p.Id) || _parts[p.Id] != p).ToList())
+        {
+            Parts.Remove(stale);
+        }
+
+        foreach (string id in _parts.Keys.Where(id => !alive.Contains(id)).ToList())
+        {
+            _parts.Remove(id);
+        }
+
+        _selected.IntersectWith(alive);
+        RebuildWires();
+        RefreshSelection();
+    }
+
+    private void RebuildWires()
+    {
+        Wires.Clear();
+        foreach (IReadOnlyList<WireModel> net in Editor.WireNets())
+        {
+            NetKind kind = SceneEditor.KindOf(net);
+            foreach (WireModel wire in net)
+            {
+                Wires.Add(new WireViewModel(wire.Id, ToPoints(Editor.Route(wire)), WirePalette.Brush(wire.Color, kind), net.Select(w => w.Id).ToArray()));
+            }
+        }
+
+        if (SelectedWire is not null && Editor.Scene.FindWire(SelectedWire) is null)
+        {
+            SelectedWire = null;
+        }
+
+        UpdateNetHighlight();
+    }
+
+    private void RefreshSelection()
+    {
+        foreach (PartViewModel part in Parts)
+        {
+            part.IsSelected = _selected.Contains(part.Id);
+        }
+
+        foreach (WireViewModel wire in Wires)
+        {
+            wire.IsSelected = wire.Id == SelectedWire;
+        }
+
+        Corners.Clear();
+        if (SelectedWire is not null && Editor.Scene.FindWire(SelectedWire) is { } selected)
+        {
+            for (int i = 0; i < selected.Waypoints.Count; i++)
+            {
+                Corners.Add(new CornerHandle(selected.Id, i, selected.Waypoints[i].X, selected.Waypoints[i].Y));
+            }
+        }
+
+        UpdatePinMarkers();
+        SelectionChanged?.Invoke();
+    }
+
+    private void UpdateNetHighlight()
+    {
+        string[]? net = null;
+        if (_hoverWire is not null)
+        {
+            net = Wires.FirstOrDefault(w => w.Id == _hoverWire)?.Net;
+        }
+        else if (_hoverPin is { } pin)
+        {
+            WireModel? touching = Editor.Scene.Wires.FirstOrDefault(w => w.From == pin || w.To == pin);
+            net = touching is null ? null : Wires.FirstOrDefault(w => w.Id == touching.Id)?.Net;
+        }
+
+        foreach (WireViewModel wire in Wires)
+        {
+            wire.Dimmed = net is not null && !net.Contains(wire.Id);
+        }
+    }
+
+    private void UpdatePinMarkers()
+    {
+        PinMarkers.Clear();
+        IEnumerable<PartViewModel> parts = IsWiring || IsLocked ? Parts.Where(p => IsWiring) : Parts.Where(p => p.IsSelected || (_hoverPin?.Component == p.Id));
+        foreach (PartViewModel part in parts.Where(p => p.Type != "board"))
+        {
+            foreach (PinDefinition pin in part.Definition?.Pins ?? [])
+            {
+                Point at = part.PinPosition(pin);
+                PinMarkers.Add(new PinMarker(at.X, at.Y, _hoverPin == new PinReference(part.Id, pin.Name)));
+            }
+        }
+
+        if (_hoverPin is { } hovered && Find(hovered.Component) is { Type: "board" } board && board.Definition?.FindPin(hovered.Pin) is { } boardPin)
+        {
+            Point at = board.PinPosition(boardPin);
+            PinMarkers.Add(new PinMarker(at.X, at.Y, true));
+        }
+    }
+
+    private Point PinPoint(PinReference pin) =>
+        Editor.PinPosition(pin) is { } p ? new Point(p.X, p.Y) : default;
+
+    private static PointCollection ToPoints(IEnumerable<(double X, double Y)> points)
+    {
+        var collection = new PointCollection(points.Select(p => new Point(p.X, p.Y)));
+        collection.Freeze();
+        return collection;
+    }
+
+    private static IEnumerable<(Point A, Point B)> Segments(PointCollection points)
+    {
+        for (int i = 0; i + 1 < points.Count; i++)
+        {
+            yield return (points[i], points[i + 1]);
+        }
+    }
+
+    private static double Distance(Point p, Point a, Point b)
+    {
+        Vector ab = b - a;
+        double t = ab.LengthSquared == 0 ? 0 : Math.Clamp(Vector.Multiply(p - a, ab) / ab.LengthSquared, 0, 1);
+        return (p - (a + (t * ab))).Length;
     }
 }
 
 /// <summary>One part on the canvas. The view picks its template by <see cref="Type"/>.</summary>
 public sealed partial class PartViewModel : ObservableObject
 {
-    private readonly Action<string, string, double> _sendInput;
-    private readonly ComponentDocument _document;
+    private readonly SceneViewModel _scene;
     private bool _applying;
 
-    public PartViewModel(ComponentDocument document, ComponentDefinition? definition, Action<string, string, double> sendInput)
+    public PartViewModel(PartModel model, ComponentDefinition? definition, SceneViewModel scene)
     {
-        ArgumentNullException.ThrowIfNull(document);
-        _document = document;
-        _sendInput = sendInput;
+        Model = model;
+        _scene = scene;
         Definition = definition;
-        Width = definition?.Width ?? 60;
-        Height = definition?.Height ?? 40;
         _applying = true;
         Value = Number("value", 0.5);
         SwitchRight = Number("position", 0) != 0;
         _applying = false;
     }
 
+    public PartModel Model { get; private set; }
+
     public ComponentDefinition? Definition { get; }
 
-    public string Id => _document.Id;
+    public string Id => Model.Id;
 
     /// <summary>Template key; boards share one ("board") and unknown types show a placeholder.</summary>
-    public string Type => Definition is null ? "unknown" : Definition.Category == "board" ? "board" : _document.Type;
+    public string Type => Definition is null ? "unknown" : Definition.Category == "board" ? "board" : Model.Type;
 
-    public double X => _document.X;
+    public string DisplayName => Definition is null ? Model.Type : Strings.Get(Definition.NameKey);
 
-    public double Y => _document.Y;
+    public double X => Model.X;
 
-    public double Width { get; }
+    public double Y => Model.Y;
 
-    public double Height { get; }
+    public double Width => Definition?.Width ?? 60;
 
-    public double Rotation => _document.Rotation;
+    public double Height => Definition?.Height ?? 40;
 
-    public double FlipScale => _document.Flip ? -1 : 1;
+    public double Rotation => Model.Rotation;
+
+    public double FlipScale => Model.Flip ? -1 : 1;
+
+    public Rect Bounds
+    {
+        get
+        {
+            (double left, double top, double right, double bottom) = _scene.Editor.Bounds(Model);
+            return new Rect(left, top, right - left, bottom - top);
+        }
+    }
+
+    public double BoundsLeft => Bounds.Left;
+
+    public double BoundsTop => Bounds.Top;
+
+    public double BoundsWidth => Bounds.Width;
+
+    public double BoundsHeight => Bounds.Height;
+
+    public double OutlineWidth => Bounds.Width + 6;
+
+    public double OutlineHeight => Bounds.Height + 6;
+
+    public double BadgeLeft => Bounds.Width - 6;
 
     public string Key => Text("key", "");
 
-    public Color LedColor => Text("color", "red") switch
-    {
-        "green" => Color.FromRgb(0x3A, 0xE0, 0x6A),
-        "blue" => Color.FromRgb(0x3E, 0x8B, 0xFF),
-        "yellow" => Color.FromRgb(0xFF, 0xD8, 0x3A),
-        "orange" => Color.FromRgb(0xFF, 0x96, 0x2E),
-        "white" => Color.FromRgb(0xF2, 0xF4, 0xFF),
-        "black" => Color.FromRgb(0x30, 0x30, 0x34),
-        _ => Color.FromRgb(0xFF, 0x3B, 0x3B),
-    };
+    public string KeyLabel => Key.Length == 0 ? "" : Key == "Space" ? Strings.Get("Key_Space") : Key;
+
+    public Color LedColor => WirePalette.PartColor(Text("color", "red"));
 
     public string ResistanceText
     {
         get
         {
             double ohms = Number("resistance", 220);
-            return ohms >= 1e6 ? (ohms / 1e6).ToString("0.##", CultureInfo.InvariantCulture) + " МΩ"
-                : ohms >= 1e3 ? (ohms / 1e3).ToString("0.##", CultureInfo.InvariantCulture) + " кΩ"
-                : ohms.ToString("0.##", CultureInfo.InvariantCulture) + " Ω";
+            return ohms >= 1e6 ? (ohms / 1e6).ToString("0.##", CultureInfo.CurrentCulture) + " МΩ"
+                : ohms >= 1e3 ? (ohms / 1e3).ToString("0.##", CultureInfo.CurrentCulture) + " кΩ"
+                : ohms.ToString("0.##", CultureInfo.CurrentCulture) + " Ω";
         }
     }
 
-    /// <summary>Board pins with their positions, for the header drawing.</summary>
     public IEnumerable<PinViewModel> Pins => Definition?.Pins.Select(p => new PinViewModel(p.Name, p.X, p.Y)) ?? [];
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasWarning { get; set; }
+
+    [ObservableProperty]
+    public partial bool Highlighted { get; set; }
 
     [ObservableProperty]
     public partial double Brightness { get; set; }
@@ -152,10 +771,28 @@ public sealed partial class PartViewModel : ObservableObject
     [ObservableProperty]
     public partial double Value { get; set; }
 
-    [ObservableProperty]
-    public partial bool Highlighted { get; set; }
-
     public double KnobAngle => -135 + (270 * Value);
+
+    public Point PinPosition(PinDefinition pin)
+    {
+        (double x, double y) = ComponentGeometry.PinPosition(Definition!, pin, Model.X, Model.Y, Model.Rotation, Model.Flip);
+        return new Point(x, y);
+    }
+
+    public string Text(string name, string fallback) =>
+        Model.Properties.TryGetValue(name, out JsonElement e)
+            ? e.ValueKind == JsonValueKind.String ? e.GetString() ?? fallback : e.GetRawText()
+            : Definition?.Properties.FirstOrDefault(d => d.Name == name)?.Default ?? fallback;
+
+    public double Number(string name, double fallback) =>
+        double.TryParse(Text(name, fallback.ToString(CultureInfo.InvariantCulture)), NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : fallback;
+
+    /// <summary>The editor replaced or changed the model (move, property, undo): refresh everything derived from it.</summary>
+    public void Rebind(PartModel model)
+    {
+        Model = model;
+        OnPropertyChanged(string.Empty);
+    }
 
     public void Apply(IReadOnlyDictionary<string, double> state, bool reset = false)
     {
@@ -180,7 +817,7 @@ public sealed partial class PartViewModel : ObservableObject
             Set("value", Number("value", 0.5), v => Value = v);
             if (state.ContainsKey("r") || state.ContainsKey("g") || state.ContainsKey("b") || reset)
             {
-                double r = Get("r", 0), g = Get("g", 0), b = Get("b", 0);
+                double r = Math.Max(0, Get("r", 0)), g = Math.Max(0, Get("g", 0)), b = Math.Max(0, Get("b", 0));
                 r = double.IsNaN(r) ? 0 : r;
                 g = double.IsNaN(g) ? 0 : g;
                 b = double.IsNaN(b) ? 0 : b;
@@ -198,7 +835,7 @@ public sealed partial class PartViewModel : ObservableObject
     public void Press()
     {
         Pressed = true;
-        _sendInput(Id, "pressed", 1);
+        _scene.Input(Id, "pressed", 1);
     }
 
     public void Release()
@@ -206,14 +843,14 @@ public sealed partial class PartViewModel : ObservableObject
         if (Pressed)
         {
             Pressed = false;
-            _sendInput(Id, "pressed", 0);
+            _scene.Input(Id, "pressed", 0);
         }
     }
 
     public void Toggle()
     {
         SwitchRight = !SwitchRight;
-        _sendInput(Id, "position", SwitchRight ? 1 : 0);
+        _scene.Input(Id, "position", SwitchRight ? 1 : 0);
     }
 
     partial void OnValueChanged(double value)
@@ -221,17 +858,9 @@ public sealed partial class PartViewModel : ObservableObject
         OnPropertyChanged(nameof(KnobAngle));
         if (!_applying)
         {
-            _sendInput(Id, "value", value);
+            _scene.Input(Id, "value", value);
         }
     }
-
-    private string Text(string name, string fallback) =>
-        _document.Properties is { } p && p.TryGetValue(name, out JsonElement e)
-            ? e.ValueKind == JsonValueKind.String ? e.GetString() ?? fallback : e.GetRawText()
-            : Definition?.Properties.FirstOrDefault(d => d.Name == name)?.Default ?? fallback;
-
-    private double Number(string name, double fallback) =>
-        double.TryParse(Text(name, fallback.ToString(CultureInfo.InvariantCulture)), NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : fallback;
 }
 
 public sealed record PinViewModel(string Name, double X, double Y)
@@ -243,66 +872,72 @@ public sealed record PinViewModel(string Name, double X, double Y)
     public double LabelOffset => Y < 35 ? 4 : -10;
 }
 
-/// <summary>A wire as an orthogonal polyline through its waypoints, colored by what it carries.</summary>
-public sealed class WireViewModel
+public sealed record PinMarker(double X, double Y, bool IsHot);
+
+public sealed record CornerHandle(string WireId, int Index, double X, double Y);
+
+/// <summary>A wire's polyline, color and live view state.</summary>
+public sealed partial class WireViewModel(string id, PointCollection points, Brush stroke, string[] net) : ObservableObject
 {
-    private WireViewModel(PointCollection points, Brush stroke)
+    public string Id { get; } = id;
+
+    public PointCollection Points { get; } = points;
+
+    public Brush Stroke { get; } = stroke;
+
+    /// <summary>Ids of every wire in the same net.</summary>
+    public string[] Net { get; } = net;
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+
+    [ObservableProperty]
+    public partial bool Dimmed { get; set; }
+}
+
+/// <summary>Wire and part colors (docs/UI.md §3.1).</summary>
+public static class WirePalette
+{
+    public static readonly IReadOnlyList<string> Swatches = ["auto", "green", "blue", "yellow", "orange", "purple", "pink", "white", "grey"];
+
+    public static Brush Brush(string color, NetKind kind)
     {
-        Points = points;
-        Stroke = stroke;
-    }
-
-    public PointCollection Points { get; }
-
-    public Brush Stroke { get; }
-
-    public static WireViewModel? Create(WireDocument wire, IReadOnlyDictionary<string, PartViewModel> parts)
-    {
-        ArgumentNullException.ThrowIfNull(wire);
-        if (PinPosition(wire.From, parts) is not { } from || PinPosition(wire.To, parts) is not { } to)
+        Color c = color switch
         {
-            return null;
-        }
-
-        var corners = new List<Point> { from };
-        corners.AddRange(wire.Waypoints.Where(w => w.Count >= 2).Select(w => new Point(w[0], w[1])));
-        corners.Add(to);
-        var points = new PointCollection { corners[0] };
-        for (int i = 1; i < corners.Count; i++)
-        {
-            Point previous = corners[i - 1];
-            Point next = corners[i];
-            if (previous.X != next.X && previous.Y != next.Y)
+            "green" => Rgb(0x3BB273),
+            "blue" => Rgb(0x3E8BFF),
+            "yellow" => Rgb(0xF2C94C),
+            "orange" => Rgb(0xFF962E),
+            "purple" => Rgb(0xA66CFF),
+            "pink" => Rgb(0xFF6FAE),
+            "white" => Rgb(0xE7E9EE),
+            "grey" => Rgb(0x8A93A6),
+            _ => kind switch
             {
-                points.Add(new Point(next.X, previous.Y));
-            }
-
-            points.Add(next);
-        }
-
-        points.Freeze();
-        return new WireViewModel(points, StrokeFor(wire));
-    }
-
-    private static Point? PinPosition(PinReference end, IReadOnlyDictionary<string, PartViewModel> parts)
-    {
-        if (!parts.TryGetValue(end.Component, out PartViewModel? part) || part.Definition?.FindPin(end.Pin) is not { } pin)
-        {
-            return null;
-        }
-
-        (double x, double y) = ComponentGeometry.PinPosition(part.Definition, pin, part.X, part.Y, (int)part.Rotation, part.FlipScale < 0);
-        return new Point(x, y);
-    }
-
-    private static SolidColorBrush StrokeFor(WireDocument wire)
-    {
-        string[] pins = [wire.From.Pin, wire.To.Pin];
-        Color color = pins.Any(p => p.StartsWith("GND", StringComparison.Ordinal)) ? Color.FromRgb(0x5A, 0x60, 0x6E)
-            : pins.Any(p => p is "5V" or "3V3" or "VIN") ? Color.FromRgb(0xE5, 0x48, 0x48)
-            : Color.FromRgb(0x2B, 0xC4, 0xA9);
-        var brush = new SolidColorBrush(color);
+                NetKind.Power => Rgb(0xE54848),
+                NetKind.Ground => Rgb(0x5A606E),
+                NetKind.I2cData => Rgb(0x3E8BFF),
+                NetKind.I2cClock => Rgb(0xF2C94C),
+                _ => Rgb(0x3BB273),
+            },
+        };
+        var brush = new SolidColorBrush(c);
         brush.Freeze();
         return brush;
     }
+
+    public static Color PartColor(string color) => color switch
+    {
+        "green" => Rgb(0x3AE06A),
+        "blue" => Rgb(0x3E8BFF),
+        "yellow" => Rgb(0xFFD83A),
+        "orange" => Rgb(0xFF962E),
+        "white" => Rgb(0xF2F4FF),
+        "black" => Rgb(0x303034),
+        _ => Rgb(0xFF3B3B),
+    };
+
+    public static Color SwatchColor(string swatch) => swatch == "auto" ? Rgb(0x3BB273) : ((SolidColorBrush)Brush(swatch, NetKind.Signal)).Color;
+
+    private static Color Rgb(int rgb) => Color.FromRgb((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
 }

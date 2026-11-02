@@ -1,0 +1,35 @@
+<UserControl x:Class="ArduSim.App.Views.CodeEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ae="http://icsharpcode.net/sharpdevelop/avalonedit"
+             xmlns:l="clr-namespace:ArduSim.App.Localization"
+             xmlns:vm="clr-namespace:ArduSim.App.ViewModels"
+             xmlns:v="clr-namespace:ArduSim.App.Views"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:CodeDocumentViewModel}">
+  <UserControl.Resources>
+    <v:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+  </UserControl.Resources>
+  <DockPanel Background="{DynamicResource Brush.Canvas}">
+    <!-- Conflict bar: only when the file changed on disk and in the editor (docs/UI.md §2.5). -->
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0"
+            Padding="12,6" Visibility="{Binding HasConflict, Converter={StaticResource BoolToVisibility}}">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Content="{l:Loc Editor_KeepMine}" Command="{Binding KeepMineCommand}" Margin="0" />
+        <Button DockPanel.Dock="Right" Content="{l:Loc Editor_Reload}" Command="{Binding ReloadFromDiskCommand}" Style="{StaticResource Button.Primary}" />
+        <TextBlock Style="{StaticResource Icon}" Text="&#xE7BA;" Foreground="{DynamicResource Brush.Warning}" Margin="0,0,8,0" />
+        <TextBlock Text="{l:Loc Editor_Conflict}" VerticalAlignment="Center" />
+      </DockPanel>
+    </Border>
+    <ae:TextEditor x:Name="Editor"
+                   Document="{Binding Document}"
+                   FontFamily="{DynamicResource Font.Mono}" FontSize="13"
+                   ShowLineNumbers="True" WordWrap="False"
+                   Background="{DynamicResource Brush.Canvas}" Foreground="{DynamicResource Brush.Text.Primary}"
+                   LineNumbersForeground="{DynamicResource Brush.Text.Disabled}"
+                   HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                   Padding="4,6,0,0" />
+  </DockPanel>
+</UserControl>

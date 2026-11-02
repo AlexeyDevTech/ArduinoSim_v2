@@ -59,6 +59,14 @@ public sealed class SeverityToBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
 }
 
+/// <summary>Severity (1 warning, 2 error) to its icon-font glyph.</summary>
+public sealed class SeverityToGlyphConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value is 2 ? "" : "";
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
 /// <summary>Buzzer frequency as text, empty when silent.</summary>
 public sealed class FrequencyConverter : IValueConverter
 {
@@ -75,6 +83,31 @@ public sealed class PartTemplateSelector : DataTemplateSelector
         item is PartViewModel part && container is FrameworkElement element
             ? (element.TryFindResource("Part." + part.Type) ?? element.TryFindResource("Part.unknown")) as DataTemplate
             : null;
+}
+
+/// <summary>Visible when both values are the same object (a tab's view and the selected tab).</summary>
+public sealed class SameToVisibilityConverter : IMultiValueConverter
+{
+    public object Convert(object?[] values, Type targetType, object? parameter, CultureInfo culture) =>
+        values.Length == 2 && values[0] is not null && ReferenceEquals(values[0], values[1]) ? Visibility.Visible : Visibility.Collapsed;
+
+    public object[] ConvertBack(object? value, Type[] targetTypes, object? parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
+/// <summary>Visible when the number is above zero (badges).</summary>
+public sealed class PositiveToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is int n && n > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
+public sealed class InvertBoolConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value is not true;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => value is not true;
 }
 
 /// <summary>Converts a color to a frozen brush.</summary>

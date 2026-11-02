@@ -1,6 +1,6 @@
 # ArduSim UI
 
-- Status: **Draft for the owner's approval** (brief §1: approved before M3 starts).
+- Status: Approved by the owner on 2026-11-02, including the five proposals in §6.
 - Date: 2026-11-02
 - Scope: the M3 schematic editor and the shell it lives in. Items marked *(M4)* / *(M5)* are placed now so the layout does not change later, and built in those milestones.
 - Fixed by the brief and ADR-004: WPF, our own theme (dark default, light variant), flat surfaces, one accent color, 8 px rhythm, Segoe UI, subtle motion only on state changes, Russian strings from `.resx`, custom split layout (no docking library), Wokwi as the UX reference for canvas and wiring.
@@ -321,9 +321,9 @@ Everything that changes the project is undoable (Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z):
 - Windows text scaling and per-monitor DPI respected (PerMonitorV2, layout in device-independent pixels).
 - All strings in `Resources/Strings.resx` (Russian neutral). Simulation log messages get resource keys by their code in M3 (today they arrive in English from Core).
 
-## 6. Decisions to confirm
+## 6. Decisions confirmed
 
-Each has a proposal; the rest of this document follows it.
+The owner accepted every proposal on 2026-11-02; the alternatives are kept for the record.
 
 1. **Wheel zooms** (Wokwi), Space/middle-drag pans. Alternative: wheel pans and Ctrl+wheel zooms (Figma, VS Code).
 2. **Scene locked while running**, interactive parts stay live. Alternative: any edit stops the run automatically.

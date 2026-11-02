@@ -1,10 +1,11 @@
-﻿<Project>
+<Project>
   <!-- Central package versions. Licenses must be MIT, BSD, Apache or Microsoft (see THIRD_PARTY.md). -->
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
     <!-- App -->
+    <PackageVersion Include="AvalonEdit" Version="6.3.1.120" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
     <PackageVersion Include="Serilog" Version="4.4.0" />

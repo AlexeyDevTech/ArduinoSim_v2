@@ -40,13 +40,17 @@ public sealed record PinUpdate([property: Key(0)] int Pin, [property: Key(1)] by
 public sealed record ComponentUpdate([property: Key(0)] string Id, [property: Key(1)] IReadOnlyDictionary<string, double> State);
 
 /// <param name="Severity">0 info, 1 warning, 2 error.</param>
+/// <param name="Message">English text; the UI shows its own translation of <paramref name="Key"/> with <paramref name="Args"/> when it has one.</param>
+/// <param name="Key">Resource key of the message: the code, or <c>code.variant</c>.</param>
 [MessagePackObject]
 public sealed record LogEntry(
     [property: Key(0)] ulong TimeNs,
     [property: Key(1)] byte Severity,
     [property: Key(2)] string Code,
     [property: Key(3)] string Message,
-    [property: Key(4)] string? ComponentId);
+    [property: Key(4)] string? ComponentId,
+    [property: Key(5)] string? Key = null,
+    [property: Key(6)] IReadOnlyList<string>? Args = null);
 
 /// <summary>
 /// Runner → UI, at most 60 per second: what changed since the previous snapshot. The first

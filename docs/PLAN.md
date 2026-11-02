@@ -35,17 +35,20 @@ Done when Blink blinks on screen, the Button example toggles an LED, and a float
 - [x] App: shell with the fixed layout, the project's scene rendered live, toolbar (examples, open folder, Build, Run, Pause/Resume, Stop, Step loop/1/10/100 ms, speed, virtual time), Serial Monitor, Build output, Simulation log with "show part", crash/busy/toolchain banners, first-run toolchain download.
 - [x] Examples Button and FloatingInput; Blink gains an external LED; headless `--input` for tests.
 - Not yet: simulation log messages come from Core in English (they carry codes; localization with the rest of the UI work), pin tooltips and net highlighting (M3), Serial Plotter (M5).
-## M3 — Schematic editor
+
+## M3 — Schematic editor ✅
 
 Starts only after `docs/UI.md` is approved. Done when the Blink+button scene can be built from scratch, saved, reopened and run.
 
-1. `docs/UI.md`: wireframe, visual language, interaction rules → owner approval.
-2. Theme: tokens, control templates (buttons, tabs, inputs, lists, scrollbars, menus, tooltips), dark theme complete.
-3. Canvas: infinite, pan (middle drag / Space), zoom to cursor, grid and snap, place/move/rotate/flip/delete, multi-select, copy/paste, undo/redo for everything.
-4. Wires: pin-to-pin, orthogonal routing with manual waypoints, net-type colors, whole-net hover highlight, pin tooltips with live level.
-5. Palette (search, categories, drag to canvas) and properties panel (pins, I2C address, colors, sizes).
-6. Project save/load (ADR-008), autosave on Run, recent projects, examples open as copies.
-7. Code editor: AvalonEdit tabs, C/C++ highlighting, line numbers, build error markers, go-to-error, Ctrl+B, FileSystemWatcher reload with conflict warning.
+- [x] `docs/UI.md`: wireframe, visual language, interaction rules → approved 2026-11-02.
+- [x] Theme: tokens, control templates (buttons, tabs, inputs, lists, scrollbars, menus, tooltips), dark theme complete.
+- [x] Canvas: infinite, pan (middle drag / Space), zoom to cursor, grid and snap, place/move/rotate/flip/delete, multi-select, copy/paste, undo/redo for everything.
+- [x] Wires: pin-to-pin, orthogonal routing with manual waypoints, segment and corner drag, net-type colors, whole-net hover highlight, pin tooltips with live level.
+- [x] Palette (search, categories, drag to canvas) and properties panel (id, colors, numbers with units, choices, key capture, pins; I2C address and sizes come with the parts that have them, M4/M5).
+- [x] Project save/load (ADR-008), autosave on Run, recent projects, examples open as copies; new project, unsaved-changes prompt, start view.
+- [x] Code editor: AvalonEdit tabs, C/C++ highlighting, line numbers, build error markers, go-to-error, Ctrl+B, FileSystemWatcher reload with conflict warning.
+- [x] Simulation log messages translated by key (Core keeps English text plus arguments).
+- Not yet: Settings dialog and the "О точности симуляции" sheet (M5 polish), live levels in the properties pin list (the canvas tooltip has them), common properties for a multi-selection, board switching (one board exists), the light theme.
 
 ## M4 — LCD
 

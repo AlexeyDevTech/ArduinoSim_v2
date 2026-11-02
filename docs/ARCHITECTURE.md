@@ -81,12 +81,17 @@ firmware/shim/
 - Buses: `I2cBus` (address routing over SDA/SCL nets), `SpiBus` (CS gating; byte path and edge path), parallel sampling helpers.
 - Components: definitions + behaviors (ADR-007); display controllers (HD44780, PCF8574, SSD1306, SH1106) as pure state machines over byte streams.
 - `BoardRuntime`: applies a board profile to the engine — maps Arduino pin numbers to board pins and nets, models pin modes, PWM state, ADC, UART ring buffers, EEPROM image.
+- `Editing`: the scene as the editor changes it, UI-free and unit-tested. `SceneModel` (mutable parts and wires, to and from `SceneDocument`), `SceneEditor` (every edit: place with ids, move, rotate about the selection keeping pins on the 0.1" grid, flip, delete, wires with waypoints, properties, rename, copy/paste as JSON; snapshot undo/redo; pin positions, bounds, orthogonal routes, nets and their kind for coloring).
+- `Diagnostics.SimulationLog`: messages are interpolated strings; each entry keeps the English text, a key (`code` or `code.variant`) and the formatted arguments, so the App shows its own translation.
+- `Projects`: `ProjectFile` (load, atomic save that keeps unknown members) and `ProjectTemplate` (a new project: the board and an empty sketch).
 
 ## UI (`ArduSim.App`)
 
-- Panels per ADR-004; `docs/UI.md` defines the look before M3.
+- Layout, visual language and interaction rules: `docs/UI.md` (approved 2026-11-02). One window with custom chrome: a 48 px title bar that is also the toolbar, palette, center tabs (the schematic first, then one AvalonEdit tab per sketch file), properties, bottom tabs, status bar; a start view when no project is open.
+- `MainViewModel` owns the project (open, new, save, recent, dirty state, FileSystemWatcher on the sketch folder), builds and runs; `SceneViewModel` wraps a `SceneEditor` with view state (selection, hover, the wire being drawn, live part state); `PaletteViewModel`, `PropertiesViewModel`, `CodeDocumentViewModel`.
+- `Views.SchematicCanvas` draws the scene in world units (0.01 inch, 2 px at 100 %) under one transform and turns gestures into view-model calls; hit testing uses view-model geometry, not WPF hit testing. Part art is a XAML template per type in `Themes/Parts.xaml`.
 - Display rendering converts framebuffer snapshots into `WriteableBitmap`s with nearest-neighbor scaling and the glow/dot-grid styling; only displays whose framebuffer version changed are redrawn.
-- All strings come from `Resources/Strings.resx` (Russian neutral).
+- All strings come from `Resources/Strings.resx` (Russian neutral); simulation log entries are translated by key (`Log_<key>`), falling back to Core's English text.
 
 ## Storage
 
@@ -95,7 +100,7 @@ firmware/shim/
 | Toolchain | `%LOCALAPPDATA%\ArduSim\toolchain\<version>` |
 | Object cache | `%LOCALAPPDATA%\ArduSim\cache` |
 | Logs | `%LOCALAPPDATA%\ArduSim\logs` |
-| Recent projects, settings | `%LOCALAPPDATA%\ArduSim\*.json` |
+| Recent projects, panel layout | `%LOCALAPPDATA%\ArduSim\ui-state.json` |
 | Project | its folder: `project.simproj.json`, `sketch/`, `eeprom.bin` (ADR-008) |
 
 ## Testing

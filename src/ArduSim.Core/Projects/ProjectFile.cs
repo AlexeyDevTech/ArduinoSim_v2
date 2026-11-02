@@ -19,6 +19,8 @@ public sealed record ProjectFile
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
+    internal static JsonSerializerOptions JsonOptions => Options;
+
     public int SchemaVersion { get; init; }
 
     public string Board { get; init; } = "";
@@ -74,6 +76,16 @@ public sealed record ProjectFile
         return project;
     }
 
+    /// <summary>Writes the project file (indented JSON, unknown members kept), replacing the old one atomically.</summary>
+    public void Save(string projectDirectory)
+    {
+        Directory.CreateDirectory(projectDirectory);
+        string path = Path.Combine(projectDirectory, FileName);
+        string temp = path + ".tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(this with { SchemaVersion = CurrentSchemaVersion }, Options) + "\n");
+        File.Move(temp, path, overwrite: true);
+    }
+
     public string SketchDirectory(string projectDirectory) => Path.GetFullPath(Path.Combine(projectDirectory, SketchPath));
 
     public IEnumerable<string> LibraryDirectories(string projectDirectory) =>
@@ -85,6 +97,8 @@ public sealed record SceneDocument
     public IReadOnlyList<ComponentDocument> Components { get; init; } = [];
 
     public IReadOnlyList<WireDocument> Wires { get; init; } = [];
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? Unknown { get; init; }
 }
 
 /// <param name="X">Canvas units of 0.01 inch.</param>
@@ -103,6 +117,8 @@ public sealed record ComponentDocument
     public bool Flip { get; init; }
 
     public IReadOnlyDictionary<string, JsonElement>? Properties { get; init; }
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? Unknown { get; init; }
 }
 
 public sealed record PinReference(string Component, string Pin);
@@ -118,6 +134,8 @@ public sealed record WireDocument
     public IReadOnlyList<IReadOnlyList<double>> Waypoints { get; init; } = [];
 
     public string Color { get; init; } = "auto";
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? Unknown { get; init; }
 }
 
 public sealed record ProjectSettings
@@ -127,6 +145,8 @@ public sealed record ProjectSettings
     public SerialSettings Serial { get; init; } = new();
 
     public IReadOnlyList<string> LibraryPaths { get; init; } = [];
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? Unknown { get; init; }
 }
 
 public sealed record SerialSettings

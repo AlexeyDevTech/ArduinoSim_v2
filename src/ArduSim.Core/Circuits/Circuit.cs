@@ -408,7 +408,7 @@ public sealed class Circuit
                 _dirtySet.Remove(group);
                 if (++rounds > SettleLimit)
                 {
-                    _log.ReportOnce("circuit-settle", SimSeverity.Error, "circuit-unstable", "The circuit does not settle (components keep changing each other); resolution was stopped.");
+                    _log.ReportOnce("circuit-settle", SimSeverity.Error, "circuit-unstable", $"The circuit does not settle (components keep changing each other); resolution was stopped.");
                     _dirty.Clear();
                     _dirtySet.Clear();
                     break;
@@ -547,13 +547,12 @@ public sealed class Circuit
 
     private void ReportShort(Net net, Driver a, Driver b)
     {
-        string Level(Driver d) => d.Drive.Voltage.ToString("0.#", CultureInfo.InvariantCulture) + " V";
         string component = a.Owner != b.Owner ? b.Owner : a.Owner;
         _log.ReportOnce(
             "short-" + net.Pins[0],
             SimSeverity.Warning,
             "short-circuit",
-            $"Short circuit on net {net.Name}: {a.Owner} drives {Level(a)} while {b.Owner} drives {Level(b)}.",
+            $"Short circuit on net {net.Name}: {a.Owner} drives {a.Drive.Voltage:0.#} V while {b.Owner} drives {b.Drive.Voltage:0.#} V.",
             component);
     }
 }

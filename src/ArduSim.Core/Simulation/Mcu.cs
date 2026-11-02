@@ -159,7 +159,7 @@ public sealed class Mcu
         PinState? state = Find(pin);
         if (state is null || !state.Info.Has(PinCapabilities.Analog))
         {
-            Log.ReportOnce($"analog-pin-{pin}", SimSeverity.Warning, "invalid-pin", $"analogRead({Board.PinName(pin)}): not an analog input on {Board.DisplayName}; it reads 0.");
+            Log.ReportOnce($"analog-pin-{pin}", SimSeverity.Warning, "invalid-pin", $"analogRead({Board.PinName(pin)}): not an analog input on {Board.DisplayName}; it reads 0.", variant: "analog");
         }
         else
         {
@@ -171,7 +171,7 @@ public sealed class Mcu
             }
             else
             {
-                ReportFloating(state, "analogRead returns noise");
+                ReportFloating(state, analog: true);
                 value = _noise.Next(Board.AdcMax + 1);
             }
         }
@@ -390,7 +390,7 @@ public sealed class Mcu
 
         if (net.Condition == NetCondition.Floating)
         {
-            ReportFloating(state, "it reads random values");
+            ReportFloating(state, analog: false);
         }
         else if (net.Condition != NetCondition.Conflict)
         {
@@ -398,20 +398,26 @@ public sealed class Mcu
                 $"undefined-{state.Info.Number}",
                 SimSeverity.Warning,
                 "undefined-level",
-                string.Create(CultureInfo.InvariantCulture, $"{state.Info.Name} is at {net.Voltage:0.0#} V, between the LOW ({Board.InputLowVoltage:0.#} V) and HIGH ({Board.InputHighVoltage:0.#} V) thresholds, so it reads random values."),
+                $"{state.Info.Name} is at {net.Voltage:0.0#} V, between the LOW ({Board.InputLowVoltage:0.#} V) and HIGH ({Board.InputHighVoltage:0.#} V) thresholds, so it reads random values.",
                 PointAt(state));
         }
 
         return _noise.Next(2);
     }
 
-    private void ReportFloating(PinState state, string consequence) =>
-        Log.ReportOnce(
-            $"floating-{state.Info.Number}",
-            SimSeverity.Warning,
-            "floating-input",
-            $"{state.Info.Name} is floating: nothing drives or pulls its net ({_circuit.NetOf(state.Reference).Name}), so {consequence}.",
-            PointAt(state));
+    private void ReportFloating(PinState state, bool analog)
+    {
+        string name = state.Info.Name;
+        string net = _circuit.NetOf(state.Reference).Name;
+        if (analog)
+        {
+            Log.ReportOnce($"floating-{state.Info.Number}", SimSeverity.Warning, "floating-input", $"{name} is floating: nothing drives or pulls its net ({net}), so analogRead returns noise.", PointAt(state), "analog");
+        }
+        else
+        {
+            Log.ReportOnce($"floating-{state.Info.Number}", SimSeverity.Warning, "floating-input", $"{name} is floating: nothing drives or pulls its net ({net}), so it reads random values.", PointAt(state));
+        }
+    }
 
     // Warnings point at the part wired to the pin, or at the board when nothing is.
     private string PointAt(PinState state) =>
@@ -445,7 +451,7 @@ public sealed class Mcu
                 return aref.Voltage;
             }
 
-            Log.ReportOnce("aref", SimSeverity.Warning, "floating-input", "analogReference(EXTERNAL) is set but AREF is not connected; using Vcc.", _boardId);
+            Log.ReportOnce("aref", SimSeverity.Warning, "floating-input", $"analogReference(EXTERNAL) is set but AREF is not connected; using Vcc.", _boardId, "aref");
         }
 
         return Board.LogicVoltage;

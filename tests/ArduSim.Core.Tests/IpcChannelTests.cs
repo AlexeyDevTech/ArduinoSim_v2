@@ -16,7 +16,7 @@ public sealed class IpcChannelTests
             [new PinUpdate(13, 2, 0)],
             [new ComponentUpdate("led1", new Dictionary<string, double> { ["brightness"] = 0.5 })],
             "hi"u8.ToArray(),
-            [new LogEntry(7, 1, "floating-input", "D2 is floating", "btn1")]);
+            [new LogEntry(7, 1, "floating-input", "D2 is floating", "btn1", "floating-input.analog", ["D2", "N1"])]);
 
         await channel.WriteAsync(new Hello(IpcProtocol.Version, "test"), TestContext.Current.CancellationToken);
         await channel.WriteAsync(snapshot, TestContext.Current.CancellationToken);
@@ -30,7 +30,9 @@ public sealed class IpcChannelTests
         Assert.Equal(new PinUpdate(13, 2, 0), Assert.Single(read.Pins));
         Assert.Equal(0.5, Assert.Single(read.Components).State["brightness"]);
         Assert.Equal("hi"u8.ToArray(), read.Serial);
-        Assert.Equal("btn1", Assert.Single(read.Logs).ComponentId);
+        LogEntry log = Assert.Single(read.Logs);
+        Assert.Equal(("btn1", "floating-input.analog"), (log.ComponentId, log.Key));
+        Assert.Equal(["D2", "N1"], log.Args!);
         Assert.Equal(new StepRun(StepKind.Time, 42), await channel.ReadAsync(TestContext.Current.CancellationToken));
         Assert.IsType<StopRun>(await channel.ReadAsync(TestContext.Current.CancellationToken));
         Assert.Null(await channel.ReadAsync(TestContext.Current.CancellationToken));

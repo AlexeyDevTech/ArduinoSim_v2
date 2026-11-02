@@ -9,7 +9,10 @@ public static class Strings
     private static readonly ResourceManager Manager = new("ArduSim.App.Resources.Strings", typeof(Strings).Assembly);
 
     /// <summary>Returns the localized string, or <c>!key!</c> so a missing key is visible on screen.</summary>
-    public static string Get(string key) => Manager.GetString(key, CultureInfo.CurrentUICulture) ?? $"!{key}!";
+    public static string Get(string key) => TryGet(key) ?? $"!{key}!";
+
+    /// <summary>Returns the localized string, or null when there is none (callers have a fallback).</summary>
+    public static string? TryGet(string key) => Manager.GetString(key, CultureInfo.CurrentUICulture);
 
     /// <summary>Formats a localized pattern with the current culture.</summary>
 #pragma warning disable CA1863 // patterns come from resources, one call site per message
