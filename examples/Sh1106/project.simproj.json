@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 0, "y": 0, "rotation": 0, "flip": false },
+      { "id": "oled1", "type": "oled", "x": 240, "y": 140, "rotation": 0, "flip": false, "properties": { "controller": "sh1106", "interface": "spi" } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "board", "pin": "GND" }, "to": { "component": "oled1", "pin": "GND" }, "waypoints": [[150, 80], [280, 80]], "color": "auto" },
+      { "id": "w2", "from": { "component": "board", "pin": "5V" }, "to": { "component": "oled1", "pin": "VCC" }, "waypoints": [[130, 90], [290, 90]], "color": "auto" },
+      { "id": "w3", "from": { "component": "board", "pin": "D13" }, "to": { "component": "oled1", "pin": "D0" }, "waypoints": [[20, 100], [300, 100]], "color": "auto" },
+      { "id": "w4", "from": { "component": "board", "pin": "D11" }, "to": { "component": "oled1", "pin": "D1" }, "waypoints": [[30, -40], [310, -40]], "color": "auto" },
+      { "id": "w5", "from": { "component": "board", "pin": "D8" }, "to": { "component": "oled1", "pin": "RES" }, "waypoints": [[60, -30], [320, -30]], "color": "auto" },
+      { "id": "w6", "from": { "component": "board", "pin": "D9" }, "to": { "component": "oled1", "pin": "DC" }, "waypoints": [[50, -20], [330, -20]], "color": "auto" },
+      { "id": "w7", "from": { "component": "board", "pin": "D10" }, "to": { "component": "oled1", "pin": "CS" }, "waypoints": [[40, -10], [340, -10]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

@@ -91,6 +91,12 @@
   <data name="Preset_Lcd2004I2c" xml:space="preserve"><value>LCD 2004 I2C</value></data>
   <data name="Preset_Lcd1602Parallel" xml:space="preserve"><value>LCD 1602 (параллельный)</value></data>
   <data name="Preset_Lcd2004Parallel" xml:space="preserve"><value>LCD 2004 (параллельный)</value></data>
+  <data name="Part_Oled" xml:space="preserve"><value>OLED-дисплей</value></data>
+  <data name="Preset_Oled12864I2c" xml:space="preserve"><value>OLED 0.96" 128x64 I2C (SSD1306)</value></data>
+  <data name="Preset_Oled12832I2c" xml:space="preserve"><value>OLED 0.91" 128x32 I2C (SSD1306)</value></data>
+  <data name="Preset_Oled12864Spi" xml:space="preserve"><value>OLED 0.96" 128x64 SPI (SSD1306)</value></data>
+  <data name="Preset_Sh1106I2c" xml:space="preserve"><value>OLED 1.3" 128x64 I2C (SH1106)</value></data>
+  <data name="Preset_Sh1106Spi" xml:space="preserve"><value>OLED 1.3" 128x64 SPI (SH1106)</value></data>
   <data name="Category_board" xml:space="preserve"><value>Платы</value></data>
   <data name="Category_output" xml:space="preserve"><value>Вывод</value></data>
   <data name="Category_input" xml:space="preserve"><value>Ввод</value></data>
@@ -129,6 +135,14 @@
   <data name="Property_backlight" xml:space="preserve"><value>Подсветка</value></data>
   <data name="Property_contrast" xml:space="preserve"><value>Контраст (0…1, если V0 не подключён)</value></data>
   <data name="Option_interface_i2c" xml:space="preserve"><value>I2C</value></data>
+  <data name="Option_interface_spi" xml:space="preserve"><value>SPI</value></data>
+  <data name="Property_controller" xml:space="preserve"><value>Контроллер</value></data>
+  <data name="Property_panel" xml:space="preserve"><value>Цвет свечения</value></data>
+  <data name="Option_controller_ssd1306" xml:space="preserve"><value>SSD1306</value></data>
+  <data name="Option_controller_sh1106" xml:space="preserve"><value>SH1106</value></data>
+  <data name="Option_panel_white" xml:space="preserve"><value>Белый</value></data>
+  <data name="Option_panel_blue" xml:space="preserve"><value>Синий</value></data>
+  <data name="Option_panel_yellow-blue" xml:space="preserve"><value>Жёлто-синий</value></data>
   <data name="Option_interface_parallel-4" xml:space="preserve"><value>4 бита</value></data>
   <data name="Option_interface_parallel-8" xml:space="preserve"><value>8 бит</value></data>
   <data name="Option_backpack_standard" xml:space="preserve"><value>Стандартная</value></data>
@@ -193,6 +207,9 @@
 
   <!-- Bottom tabs -->
   <data name="Tab_Serial" xml:space="preserve"><value>Монитор порта</value></data>
+  <data name="Tab_Plotter" xml:space="preserve"><value>Плоттер</value></data>
+  <data name="Plotter_Hint" xml:space="preserve"><value>Числа из строк Serial: через пробел, табуляцию или запятую, можно с метками «имя:значение».</value></data>
+  <data name="Plotter_Empty" xml:space="preserve"><value>Пока нет чисел: выведите значения через Serial.println().</value></data>
   <data name="Tab_Build" xml:space="preserve"><value>Сборка</value></data>
   <data name="Tab_Log" xml:space="preserve"><value>Журнал</value></data>
   <data name="Serial_Send" xml:space="preserve"><value>Отправить</value></data>
@@ -244,7 +261,6 @@
   <data name="Log_invalid-pin" xml:space="preserve"><value>{0}({1}): у {2} нет вывода {3}, вызов пропущен.</value></data>
   <data name="Log_invalid-pin.analog" xml:space="preserve"><value>analogRead({0}): на {1} это не аналоговый вход, результат 0.</value></data>
   <data name="Log_analog-only-pin" xml:space="preserve"><value>{0}({1}): {2} на {3} только аналоговый, вызов пропущен.</value></data>
-  <data name="Log_not-simulated" xml:space="preserve"><value>{0} пока не симулируется: устройства на шине не видны.</value></data>
   <data name="Log_invalid-interrupt" xml:space="preserve"><value>attachInterrupt({0}): у {1} нет внешнего прерывания {2}.</value></data>
   <data name="Log_undefined-level" xml:space="preserve"><value>{0} под напряжением {1} В — между порогами LOW ({2} В) и HIGH ({3} В), поэтому читается случайное значение.</value></data>
   <data name="Log_floating-input" xml:space="preserve"><value>{0} ни к чему не подключён: цепь {1} никто не задаёт и не подтягивает, поэтому читается случайное значение.</value></data>
@@ -261,6 +277,14 @@
   <data name="Log_i2c-unavailable" xml:space="preserve"><value>У {0} нет аппаратного I2C: передачи Wire не видят устройств.</value></data>
   <data name="Log_i2c-unavailable.display" xml:space="preserve"><value>{0} — дисплей с I2C, но у платы нет аппаратного I2C.</value></data>
   <data name="Log_i2c-not-begun" xml:space="preserve"><value>Wire используется до Wire.begin(): настоящая плата здесь зависла бы, симуляция продолжает работу.</value></data>
+  <data name="Log_spi-conflict" xml:space="preserve"><value>CS в LOW сразу у нескольких устройств SPI ({0}); используется только {1}, настоящие устройства мешали бы друг другу на MISO.</value></data>
+  <data name="Log_spi-mode" xml:space="preserve"><value>С {1} используется режим SPI {0}, а оно читает MOSI по переднему фронту (режимы 0 и 3); настоящее устройство получило бы сдвинутые биты.</value></data>
+  <data name="Log_spi-unavailable" xml:space="preserve"><value>У {0} нет аппаратного SPI: передачи читают 0xFF.</value></data>
+  <data name="Log_spi-not-begun" xml:space="preserve"><value>SPI.transfer() вызывается до SPI.begin(): настоящая плата здесь зависла бы, симуляция продолжает работу.</value></data>
+  <data name="Log_oled-command" xml:space="preserve"><value>{0} ({1}) получил команду 0x{2}, которой у него нет; она пропущена (скетч настроен на другой контроллер?).</value></data>
+  <data name="Log_oled-supply" xml:space="preserve"><value>{0}: дисплей включён, но подкачка заряда выключена (не отправлено 0x8D 0x14); модуль без внешнего питания панели остаётся тёмным.</value></data>
+  <data name="Log_oled-supply.sh1106" xml:space="preserve"><value>{0}: дисплей включён, но преобразователь DC-DC выключен (не отправлено 0xAD 0x8B); модуль без внешнего питания панели остаётся тёмным.</value></data>
+  <data name="Log_oled-power" xml:space="preserve"><value>У {0} нет питания: подключите VCC к 5V (или 3V3) и GND к GND.</value></data>
   <data name="Log_lcd-busy" xml:space="preserve"><value>{0} получил команду, пока HD44780 ещё выполнял предыдущую; настоящий дисплей может её пропустить (скетч ждёт между командами слишком мало).</value></data>
   <data name="Log_lcd-rw" xml:space="preserve"><value>{0}: вывод RW не подключён, подтяжка HD44780 держит его в режиме чтения, и запись не работает. Подключите RW к GND.</value></data>
   <data name="Log_lcd-power" xml:space="preserve"><value>У {0} нет питания: подключите {1} к 5V и {2} к GND.</value></data>
@@ -269,4 +293,33 @@
   <data name="Log_scene.wrong-board" xml:space="preserve"><value>Плата {0} — не плата проекта ({1}), она исключена.</value></data>
   <data name="Log_scene.missing-part" xml:space="preserve"><value>Провод {0} ведёт к детали «{1}», которой нет на схеме: провод исключён.</value></data>
   <data name="Log_scene.missing-pin" xml:space="preserve"><value>Провод {0} ведёт к {1}.{2}, но у {3} нет вывода {4}: провод исключён.</value></data>
+  <data name="Menu_Settings" xml:space="preserve"><value>Параметры…</value></data>
+  <data name="Menu_Accuracy" xml:space="preserve"><value>О точности симуляции</value></data>
+  <data name="Dialog_Close" xml:space="preserve"><value>Закрыть</value></data>
+  <data name="Settings_Title" xml:space="preserve"><value>Параметры</value></data>
+  <data name="Settings_Theme" xml:space="preserve"><value>Оформление</value></data>
+  <data name="Theme_Dark" xml:space="preserve"><value>Тёмная</value></data>
+  <data name="Theme_Light" xml:space="preserve"><value>Светлая</value></data>
+  <data name="Accuracy_Title" xml:space="preserve"><value>О точности симуляции</value></data>
+  <data name="Accuracy_Intro" xml:space="preserve"><value>ArduSim не эмулирует процессор: скетч компилируется в программу для Windows, а вызовы Arduino API (digitalWrite, millis, Serial, Wire, SPI…) попадают в модель платы и схемы. Поведение совпадает с платой на уровне API, но не на уровне тактов и регистров.</value></data>
+  <data name="Accuracy_1_Title" xml:space="preserve"><value>Типы данных</value></data>
+  <data name="Accuracy_1_Body" xml:space="preserve"><value>int — 32 бита, double — 64 бита (на AVR — 16 и 32). long остаётся 32-битным, поэтому millis() переполняется так же, как на плате. Код, который рассчитывает на переполнение int после 32767, поведёт себя иначе; EEPROM.put записывает поле int четырьмя байтами. Указатели — 64-битные. sprintf печатает %f (avr-libc выводит «?»), round() возвращает double.</value></data>
+  <data name="Accuracy_2_Title" xml:space="preserve"><value>Время</value></data>
+  <data name="Accuracy_2_Body" xml:space="preserve"><value>Потактовой точности нет. Каждый вызов API стоит времени по таблице задержек Nano (digitalWrite ≈ 4 мкс, analogRead ≈ 112 мкс, байт I2C — 9 бит на частоте шины, байт Serial — 10 бит на скорости порта); вычисления между вызовами виртуального времени не занимают. Часть таблицы — оценки, ещё не сверенные с настоящей платой.</value></data>
+  <data name="Accuracy_3_Title" xml:space="preserve"><value>Прерывания</value></data>
+  <data name="Accuracy_3_Body" xml:space="preserve"><value>Обработчики attachInterrupt не вытесняют loop(): они запускаются в ближайшей точке планирования (при следующем вызове API или в конце loop()) и никогда — при noInterrupts() или внутри другого обработчика.</value></data>
+  <data name="Accuracy_4_Title" xml:space="preserve"><value>Регистры</value></data>
+  <data name="Accuracy_4_Body" xml:space="preserve"><value>Таймеры, АЦП и USART на уровне регистров (TCCRx, OCRx, ADCSRA…) не моделируются: первая запись даёт одно предупреждение, чтение возвращает 0. Порты DDRx, PORTx и PINx работают через функции выводов, 4 мкс на бит.</value></data>
+  <data name="Accuracy_5_Title" xml:space="preserve"><value>Ошибки в скетче</value></data>
+  <data name="Accuracy_5_Body" xml:space="preserve"><value>Деление целого на ноль и обращение по нулевому указателю останавливают запуск с указанием строки (на AVR они молча дают мусор). Бесконечный цикл без вызовов API останавливается кнопкой «Стоп».</value></data>
+  <data name="Accuracy_6_Title" xml:space="preserve"><value>Память</value></data>
+  <data name="Accuracy_6_Body" xml:space="preserve"><value>Объём ОЗУ (2 КБ) и флеш-памяти (32 КБ) не проверяется: скетч, который не поместился бы в Nano, здесь запустится. EEPROM — 1 КБ, сохраняется в проекте.</value></data>
+  <data name="Accuracy_7_Title" xml:space="preserve"><value>Шины</value></data>
+  <data name="Accuracy_7_Body" xml:space="preserve"><value>I2C и SPI работают только в режиме ведущего. Программный (bit-bang) I2C не моделируется, программный SPI — моделируется. В SPI-режимах 1 и 2 выдаётся предупреждение: модели устройств читают данные по фронту, как в режимах 0 и 3.</value></data>
+  <data name="Accuracy_8_Title" xml:space="preserve"><value>Схема</value></data>
+  <data name="Accuracy_8_Body" xml:space="preserve"><value>Электрическая модель упрощённая: у каждой цепи есть уровень (выход, питание, подтяжка, делитель), короткое замыкание или «плавающее» состояние; ёмкостей, переходных процессов и токов нет. ШИМ — это доля времени во включённом состоянии, а не форма сигнала.</value></data>
+  <data name="Accuracy_9_Title" xml:space="preserve"><value>Дисплеи</value></data>
+  <data name="Accuracy_9_Body" xml:space="preserve"><value>LCD: знакогенератор A00, шрифт 5×8 (режим 5×10 рисуется как 5×8). OLED: SSD1306 (128×64, 128×32, 64×48, 96×16) и SH1106; прокрутка идёт с кадровой частотой контроллера.</value></data>
+  <data name="Accuracy_10_Title" xml:space="preserve"><value>Сон и сторожевой таймер</value></data>
+  <data name="Accuracy_10_Body" xml:space="preserve"><value>Режимы сна и сторожевой таймер не моделируются: sleep_cpu() сразу возвращается, wdt_enable() не перезагружает плату; каждый вызов выдаёт предупреждение.</value></data>
 </root>

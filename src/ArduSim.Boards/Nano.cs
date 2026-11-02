@@ -54,7 +54,8 @@ public static class Nano
         Height: 70,
         Timing: Timing,
         I2cSda: 18,
-        I2cScl: 19);
+        I2cScl: 19,
+        Spi: new SpiPins(Mosi: 11, Miso: 12, Sck: 13, Ss: 10));
 
     private static (double X, double Y) Position(string name)
     {

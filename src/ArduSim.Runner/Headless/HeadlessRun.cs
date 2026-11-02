@@ -8,6 +8,7 @@ using ArduSim.Build.Toolchains;
 using ArduSim.Core.Boards;
 using ArduSim.Core.Components;
 using ArduSim.Core.Diagnostics;
+using ArduSim.Core.Displays;
 using ArduSim.Core.Projects;
 using ArduSim.Core.Simulation;
 using ArduSim.Core.Timing;
@@ -155,9 +156,34 @@ internal static class HeadlessRun
         }
     }
 
-    /// <summary>A display's rows as <c>"row 0" "row 1"</c>, escaped as in <see cref="Hd44780.RowText"/>.</summary>
-    private static string Rows(SimComponent component) =>
-        string.Join(" ", (component.Display?.Text ?? []).Select(row => "\"" + row + "\""));
+    /// <summary>
+    /// What a display shows, as one line: LCD rows as <c>"row 0" "row 1"</c> (escaped as in
+    /// <c>Hd44780.RowText</c>), an OLED as the number of lit pixels.
+    /// </summary>
+    private static string Rows(SimComponent component) => component.Display switch
+    {
+        { Kind: DisplayKind.Oled } frame => string.Create(CultureInfo.InvariantCulture, $"{frame.Dots.ToArray().Sum(b => System.Numerics.BitOperations.PopCount(b))} px on"),
+        { } frame => string.Join(" ", frame.Text.Select(row => "\"" + row + "\"")),
+        null => "",
+    };
+
+    /// <summary>--dump-display: one PNG per display at the end of the run.</summary>
+    private static void DumpDisplays(SimulationHost host, string path, TextWriter output)
+    {
+        List<SimComponent> displays = [.. host.Simulation.Components.Where(c => c.Display is not null)];
+        if (displays.Count == 0)
+        {
+            output.WriteLine("--dump-display: the scene has no display.");
+            return;
+        }
+
+        foreach (SimComponent display in displays)
+        {
+            string file = displays.Count == 1 ? path : Path.Combine(Path.GetDirectoryName(path) ?? "", $"{Path.GetFileNameWithoutExtension(path)}-{display.Id}{Path.GetExtension(path)}");
+            PngWriter.Write(file, DisplayImage.From(display.Display!));
+            output.WriteLine($"display {display.Id} written to {file}");
+        }
+    }
 
     private static void Attach(SimulationHost host, HeadlessOptions options, TextWriter output)
     {
@@ -250,6 +276,11 @@ internal static class HeadlessRun
             foreach (Action flush in displays)
             {
                 flush();
+            }
+
+            if (options.DumpDisplay is { } dumpPath)
+            {
+                DumpDisplays(host, dumpPath, output);
             }
 
             double wall = host.WallTime.TotalSeconds;

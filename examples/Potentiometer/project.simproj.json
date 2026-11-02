@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 100, "y": 300, "rotation": 0, "flip": false },
+      { "id": "pot1", "type": "potentiometer", "x": 120, "y": 420, "rotation": 180, "flip": true },
+      { "id": "led1", "type": "led", "x": 140, "y": 170, "rotation": 0, "flip": false, "properties": { "color": "yellow" } },
+      { "id": "r1", "type": "resistor", "x": 170, "y": 250, "rotation": 0, "flip": false, "properties": { "resistance": 220 } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "board", "pin": "A0" }, "to": { "component": "pot1", "pin": "W" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "pot1", "pin": "2" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[170, 390], [230, 390]], "color": "auto" },
+      { "id": "w3", "from": { "component": "pot1", "pin": "1" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[130, 400], [100, 400], [100, 500], [250, 500]], "color": "auto" },
+      { "id": "w4", "from": { "component": "board", "pin": "D9" }, "to": { "component": "led1", "pin": "A" }, "waypoints": [], "color": "auto" },
+      { "id": "w5", "from": { "component": "led1", "pin": "C" }, "to": { "component": "r1", "pin": "1" }, "waypoints": [], "color": "auto" },
+      { "id": "w6", "from": { "component": "r1", "pin": "2" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 115200, "lineEnding": "LF" }, "libraryPaths": [] }
+}

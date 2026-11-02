@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
 using ArduSim.App.Localization;
+using ArduSim.App.Services;
 using ArduSim.Core.Boards;
 using ArduSim.Core.Components;
 using ArduSim.Core.Editing;
@@ -588,15 +589,34 @@ public sealed partial class SceneViewModel : ObservableObject
         RefreshSelection();
     }
 
+    /// <summary>Redraws the wires in the current theme's colors (the scene itself is unchanged).</summary>
+    public void RecolorWires() => RebuildWires();
+
     private void RebuildWires()
     {
-        Wires.Clear();
+        var wires = new List<(WireModel Wire, Brush Stroke, string[] Net)>();
         foreach (IReadOnlyList<WireModel> net in Editor.WireNets())
         {
             NetKind kind = SceneEditor.KindOf(net);
-            foreach (WireModel wire in net)
+            string[] ids = [.. net.Select(w => w.Id)];
+            wires.AddRange(net.Select(wire => (wire, WirePalette.Brush(wire.Color, kind), ids)));
+        }
+
+        // Dragging changes routes, not the set of wires: update the existing views in place then,
+        // so the canvas redraws only the wires that moved instead of regenerating all of them.
+        if (wires.Count == Wires.Count && wires.Select(w => w.Wire.Id).SequenceEqual(Wires.Select(w => w.Id), StringComparer.Ordinal))
+        {
+            for (int i = 0; i < wires.Count; i++)
             {
-                Wires.Add(new WireViewModel(wire.Id, ToPoints(Editor.Route(wire)), WirePalette.Brush(wire.Color, kind), net.Select(w => w.Id).ToArray()));
+                Wires[i].Update(Editor.Route(wires[i].Wire), wires[i].Stroke, wires[i].Net);
+            }
+        }
+        else
+        {
+            Wires.Clear();
+            foreach ((WireModel wire, Brush stroke, string[] net) in wires)
+            {
+                Wires.Add(new WireViewModel(wire.Id, ToPoints(Editor.Route(wire)), stroke, net));
             }
         }
 
@@ -705,6 +725,7 @@ public sealed partial class PartViewModel : ObservableObject
     private bool _applying;
     private DisplayData? _display;
     private Views.LcdScreen? _screen;
+    private Views.OledScreen? _oled;
 
     public PartViewModel(PartModel model, ComponentDefinition? definition, SceneViewModel scene)
     {
@@ -874,22 +895,65 @@ public sealed partial class PartViewModel : ObservableObject
         RenderScreen();
     }
 
+    // ---- OLED ----------------------------------------------------------------------------------
+
+    public bool IsSh1106 => Text("controller", "ssd1306") == "sh1106";
+
+    /// <summary>Panel pixels and pixel pitch in canvas units, per module (0.96", 0.91", 0.66", 0.69", 1.3").</summary>
+    private (int Columns, int Rows, double Pitch) OledGeometry => IsSh1106 ? (128, 64, 0.9) : Text("size", "128x64") switch
+    {
+        "128x32" => (128, 32, 0.69),
+        "64x48" => (64, 48, 0.82),
+        "96x16" => (96, 16, 0.65),
+        _ => (128, 64, 0.67),
+    };
+
+    /// <summary>The black glass of the module, in part units.</summary>
+    public Rect Glass => IsSh1106 ? new Rect(8, 24, 124, 86) : Text("size", "128x64") switch
+    {
+        "128x32" => new Rect(10, 16, 130, 36),
+        "64x48" => new Rect(15, 20, 70, 58),
+        "96x16" => new Rect(15, 20, 100, 26),
+        _ => new Rect(5, 22, 100, 70),
+    };
+
+    public double GlassLeft => Glass.Left;
+
+    public double GlassTop => Glass.Top;
+
+    public double GlassWidth => Glass.Width;
+
+    public double GlassHeight => Glass.Height;
+
+    /// <summary>The color of the pixels' glow.</summary>
+    public Color GlowColor => Text("panel", "white") == "white" ? Color.FromRgb(0xF0, 0xF5, 0xFF) : Color.FromRgb(0x48, 0xAE, 0xFF);
+
     /// <summary>Redraws the glass for the current frame, style and zoom.</summary>
     public void RenderScreen()
     {
-        if (Type != "lcd")
+        if (Type == "lcd")
         {
-            return;
-        }
+            _screen ??= new Views.LcdScreen();
+            if (_screen.Render(_display, LcdColumns, LcdRows, Text("backlight", "blue"), _scene.PixelsPerUnit))
+            {
+                Screen = _screen.Source;
+            }
 
-        _screen ??= new Views.LcdScreen();
-        if (_screen.Render(_display, LcdColumns, LcdRows, Text("backlight", "blue"), _scene.PixelsPerUnit))
+            ScreenWidth = _screen.Width;
+            ScreenHeight = _screen.Height;
+        }
+        else if (Type == "oled")
         {
-            Screen = _screen.Source;
-        }
+            _oled ??= new Views.OledScreen();
+            (int columns, int rows, double pitch) = OledGeometry;
+            if (_oled.Render(_display, columns, rows, Text("panel", "white"), _scene.PixelsPerUnit, pitch))
+            {
+                Screen = _oled.Source;
+            }
 
-        ScreenWidth = _screen.Width;
-        ScreenHeight = _screen.Height;
+            ScreenWidth = _oled.Width;
+            ScreenHeight = _oled.Height;
+        }
     }
 
     public Point PinPosition(PinDefinition pin)
@@ -1001,12 +1065,28 @@ public sealed partial class WireViewModel(string id, PointCollection points, Bru
 {
     public string Id { get; } = id;
 
-    public PointCollection Points { get; } = points;
+    [ObservableProperty]
+    public partial PointCollection Points { get; private set; } = points;
 
-    public Brush Stroke { get; } = stroke;
+    [ObservableProperty]
+    public partial Brush Stroke { get; private set; } = stroke;
 
     /// <summary>Ids of every wire in the same net.</summary>
-    public string[] Net { get; } = net;
+    public string[] Net { get; private set; } = net;
+
+    /// <summary>Takes a new route, color and net; unchanged values do not notify.</summary>
+    public void Update(IReadOnlyList<(double X, double Y)> route, Brush stroke, string[] net)
+    {
+        if (route.Count != Points.Count || route.Where((p, i) => p.X != Points[i].X || p.Y != Points[i].Y).Any())
+        {
+            var points = new PointCollection(route.Select(p => new Point(p.X, p.Y)));
+            points.Freeze();
+            Points = points;
+        }
+
+        Stroke = stroke;
+        Net = net;
+    }
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
@@ -1019,6 +1099,9 @@ public sealed partial class WireViewModel(string id, PointCollection points, Bru
 public static class WirePalette
 {
     public static readonly IReadOnlyList<string> Swatches = ["auto", "green", "blue", "yellow", "orange", "purple", "pink", "white", "grey"];
+
+    // One frozen brush per color, so unchanged wires keep the same instance (no redraw).
+    private static readonly Dictionary<Color, SolidColorBrush> Brushes = [];
 
     public static Brush Brush(string color, NetKind kind)
     {
@@ -1035,14 +1118,19 @@ public static class WirePalette
             _ => kind switch
             {
                 NetKind.Power => Rgb(0xE54848),
-                NetKind.Ground => Rgb(0x5A606E),
+                NetKind.Ground => Theme.IsLight ? Rgb(0x2D3138) : Rgb(0x5A606E),
                 NetKind.I2cData => Rgb(0x3E8BFF),
                 NetKind.I2cClock => Rgb(0xF2C94C),
                 _ => Rgb(0x3BB273),
             },
         };
-        var brush = new SolidColorBrush(c);
-        brush.Freeze();
+        if (!Brushes.TryGetValue(c, out SolidColorBrush? brush))
+        {
+            brush = new SolidColorBrush(c);
+            brush.Freeze();
+            Brushes[c] = brush;
+        }
+
         return brush;
     }
 

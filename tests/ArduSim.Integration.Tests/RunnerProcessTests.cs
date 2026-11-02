@@ -14,7 +14,7 @@ public sealed class RunnerProcessTests
     [Theory]
     [InlineData("--bogus")]
     [InlineData("--run-for", "100")]
-    [InlineData("--project", "x", "--dump-display", "out.png")]
+    [InlineData("--project", "x", "--speed", "fast")]
     public async Task Runner_rejects_bad_command_lines_with_usage(params string[] args)
     {
         RunResult result = await RunnerProcess.RunAsync(args);

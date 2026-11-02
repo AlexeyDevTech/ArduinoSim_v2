@@ -85,6 +85,8 @@
 
 typedef bool boolean;
 typedef uint8_t byte;
+/* ArduinoCore-API names the bit order type; portable library code (Adafruit BusIO) uses it. */
+typedef uint8_t BitOrder;
 typedef uint16_t word; /* 16 bits as on AVR, although int is 32 bits here */
 
 #ifdef __cplusplus

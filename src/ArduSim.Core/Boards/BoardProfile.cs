@@ -43,12 +43,17 @@ public sealed record TimingTable(
     ulong ShortCall,
     ulong EepromProgramming);
 
+/// <summary>Pin numbers of the hardware SPI (Nano: MOSI 11, MISO 12, SCK 13, SS 10).</summary>
+public sealed record SpiPins(int Mosi, int Miso, int Sck, int Ss);
+
 /// <summary>Everything the simulator and the build need to know about a board (ADR-007).</summary>
 /// <param name="Variant">Folder under <c>firmware/shim/variants</c>.</param>
 /// <param name="Defines">Compiler macros for the sketch.</param>
 /// <param name="ExternalInterrupts">Interrupt number → pin.</param>
 /// <param name="Width">Size of the board drawing in canvas units.</param>
 /// <param name="I2cSda">Pin number of the hardware I2C data line (Nano: A4); null when the board has no I2C.</param>
+/// <param name="Spi">Hardware SPI pins; null when the board has no SPI.</param>
+/// <param name="CpuHz">CPU clock; peripheral clocks (SPI) are divided from it.</param>
 public sealed record BoardProfile(
     string Id,
     string DisplayName,
@@ -66,7 +71,9 @@ public sealed record BoardProfile(
     double Height,
     TimingTable Timing,
     int? I2cSda = null,
-    int? I2cScl = null)
+    int? I2cScl = null,
+    SpiPins? Spi = null,
+    int CpuHz = 16_000_000)
 {
     public BoardPin? FindPin(int number) => Pins.FirstOrDefault(p => p.Number == number);
 

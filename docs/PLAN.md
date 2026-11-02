@@ -60,16 +60,17 @@ Done when HelloWorld shows on a 1602 over I2C and on a 2004 in 4-bit mode, and `
 - [x] LiquidCrystal 1.0.7 and LiquidCrystal_I2C 1.1.2 vendored; examples LcdHello (2004, 4-bit), LcdI2c (1602), LcdCustomChars (createChar, scrollDisplayLeft); integration tests, including the libraries' own HelloWorld, Scroll and CustomCharacter examples unmodified.
 - Not yet: HD44780 5x10 font mode (rendered as 5x8), the A02 ROM (later list), bit-banged (software) I2C, I2C slave mode in Wire.
 
-## M5 — OLED and polish (MVP)
+## M5 — OLED and polish (MVP) ✅ on the dev machine
 
-Done when every item of brief §7 passes.
+Done when every item of brief §7 passes. All of them pass on the development machine; the pass on a clean Windows VM is still open.
 
-1. SPI bus (hardware byte path, bit-level edge path, CS gating) and SPI shim; tests.
-2. SSD1306 (all addressing modes, remap/scan, multiplex, contrast, invert, scroll per the answer to Q4, variants) and SH1106 models; golden tests.
-3. OLED component and renderer (glow, white/blue/yellow-blue two-tone, contrast, display off).
-4. Vendor Adafruit_GFX, Adafruit_BusIO, Adafruit_SSD1306, Adafruit_SH110X, U8g2, GyverOLED; compat shims where a library has no portable path; examples OLED Adafruit, OLED U8g2, OLED GyverOLED, SH1106; integration tests (no NACKs, non-empty framebuffer at frame N).
-5. Serial Plotter, light theme, examples gallery, "About simulation accuracy" panel, README.
-6. Acceptance pass on a clean Windows VM; performance checks (canvas 60 fps with 50 parts/200 wires, ≥ 2 M host calls/s, ≤ 300 MB working set).
+- [x] SPI bus (hardware byte path, bit-level edge path, CS gating) and SPI shim; tests.
+- [x] SSD1306 (all addressing modes, remap/scan, multiplex, contrast, invert, the full scroll set per Q4, variants 128x64/128x32/64x48/96x16) and SH1106 models; golden tests against the Adafruit init streams.
+- [x] OLED component (I2C or SPI, the pins following the choice; address; panel colors; power and reset) and renderer (glow, white/blue/yellow-blue two-tone, contrast, display off); palette presets.
+- [x] Vendored Adafruit_GFX, Adafruit_BusIO, Adafruit_SSD1306, Adafruit_SH110X, U8g2, GyverOLED (no compat shims were needed); examples OledAdafruit, OledU8g2, OledGyver, Sh1106; integration tests check exact pixels for U8g2 and GyverOLED on SSD1306 and SH1106 over I2C and hardware SPI, the Adafruit software-SPI example, and the Adafruit I2C example with no NACKs.
+- [x] Serial Plotter, light theme (Параметры), examples gallery with scene thumbnails, the "О точности симуляции" sheet, README; the Potentiometer example for the plotter and `analogWrite`.
+- [x] Performance: ≥ 2 M host calls/s (4 M measured, in `dotnet test`), canvas 60 fps zooming and dragging with 50 parts/200 wires, ≤ 300 MB working set (234–278 MB) — see DECISIONS.
+- Not yet: the acceptance pass on a clean Windows VM (no VM here); first-launch toolchain download on a machine that never had it was last exercised in M1; canvas mouse gestures are still checked by hand only.
 
 ## Risks
 

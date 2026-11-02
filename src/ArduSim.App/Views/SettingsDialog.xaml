@@ -1,0 +1,26 @@
+<Window x:Class="ArduSim.App.Views.SettingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:ArduSim.App.Localization"
+        xmlns:vm="clr-namespace:ArduSim.App.ViewModels"
+        Title="ArduSim" Width="400" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Foreground="{DynamicResource Brush.Text.Primary}" FontFamily="{DynamicResource Font.Ui}" FontSize="{DynamicResource FontSize.Body}">
+  <Border Margin="0,0,12,12" Padding="20,16" Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1"
+          CornerRadius="{StaticResource Radius.Floating}" Effect="{DynamicResource Shadow}">
+    <StackPanel>
+      <TextBlock Text="{l:Loc Settings_Title}" FontSize="{DynamicResource FontSize.Title}" FontWeight="SemiBold" Margin="0,0,0,16" />
+      <DockPanel Margin="0,0,0,24">
+        <TextBlock Text="{l:Loc Settings_Theme}" Style="{StaticResource Caption}" Width="120" />
+        <ListBox Style="{StaticResource ListBox.Segmented}" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme}" HorizontalAlignment="Left">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:OptionItem}">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+      <Button Content="{l:Loc Dialog_Close}" IsDefault="True" IsCancel="True" Click="OnClose" Padding="14,0" Margin="0" HorizontalAlignment="Right" />
+    </StackPanel>
+  </Border>
+</Window>

@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Media;
 using System.Xml;
+using ArduSim.App.Services;
 using ArduSim.Build.Compilation;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Editing;
@@ -11,14 +12,15 @@ using ICSharpCode.AvalonEdit.Rendering;
 
 namespace ArduSim.App.Views;
 
-/// <summary>AvalonEdit's C++ highlighting with colors that read on the dark editor background.</summary>
+/// <summary>AvalonEdit's C++ highlighting recolored for the current theme's editor background.</summary>
 internal static class CppHighlighting
 {
-    private static readonly Lazy<IHighlightingDefinition?> Dark = new(Load);
+    private static readonly Lazy<IHighlightingDefinition?> Dark = new(() => Load(light: false));
+    private static readonly Lazy<IHighlightingDefinition?> Light = new(() => Load(light: true));
 
-    public static IHighlightingDefinition? Definition => Dark.Value;
+    public static IHighlightingDefinition? Definition => Theme.IsLight ? Light.Value : Dark.Value;
 
-    private static IHighlightingDefinition? Load()
+    private static IHighlightingDefinition? Load(bool light)
     {
         Assembly assembly = typeof(HighlightingManager).Assembly;
         string? name = assembly.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("CPP-Mode.xshd", StringComparison.OrdinalIgnoreCase));
@@ -33,7 +35,7 @@ internal static class CppHighlighting
             XshdSyntaxDefinition xshd = HighlightingLoader.LoadXshd(reader);
             foreach (XshdColor color in xshd.Elements.OfType<XshdColor>())
             {
-                color.Foreground = new SimpleHighlightingBrush(ColorFor(color.Name ?? ""));
+                color.Foreground = new SimpleHighlightingBrush(light ? LightColorFor(color.Name ?? "") : ColorFor(color.Name ?? ""));
                 color.FontWeight = null;
                 color.FontStyle = null;
             }
@@ -52,6 +54,19 @@ internal static class CppHighlighting
         _ when name.Contains("Type", StringComparison.OrdinalIgnoreCase) => Rgb(0x4EC9B0),
         _ when name.Contains("Punctuation", StringComparison.OrdinalIgnoreCase) || name.Contains("Operator", StringComparison.OrdinalIgnoreCase) => Rgb(0xC5CAD3),
         _ => Rgb(0x6CA6E8),
+    };
+
+    // Same roles, at least 4.5:1 on the light editor background.
+    private static Color LightColorFor(string name) => name switch
+    {
+        _ when name.Contains("Comment", StringComparison.OrdinalIgnoreCase) => Rgb(0x6E7781),
+        _ when name.Contains("String", StringComparison.OrdinalIgnoreCase) || name.Contains("Char", StringComparison.OrdinalIgnoreCase) => Rgb(0xA0420B),
+        _ when name.Contains("Preprocessor", StringComparison.OrdinalIgnoreCase) => Rgb(0x8250DF),
+        _ when name.Contains("Digit", StringComparison.OrdinalIgnoreCase) || name.Contains("Number", StringComparison.OrdinalIgnoreCase) => Rgb(0x116329),
+        _ when name.Contains("Method", StringComparison.OrdinalIgnoreCase) => Rgb(0x795E26),
+        _ when name.Contains("Type", StringComparison.OrdinalIgnoreCase) => Rgb(0x0B6E5F),
+        _ when name.Contains("Punctuation", StringComparison.OrdinalIgnoreCase) || name.Contains("Operator", StringComparison.OrdinalIgnoreCase) => Rgb(0x3B4252),
+        _ => Rgb(0x0550AE),
     };
 
     private static Color Rgb(int rgb) => Color.FromRgb((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
@@ -282,15 +297,37 @@ internal sealed class BracketRenderer : IBackgroundRenderer
     }
 }
 
+/// <summary>Editor marker colors for the current theme (the tokens of docs/UI.md §3.1).</summary>
 internal static class CodeEditorBrushes
 {
-    public static readonly Brush Error = Frozen(Color.FromRgb(0xF0, 0x60, 0x5A));
-    public static readonly Brush Warning = Frozen(Color.FromRgb(0xF0, 0xB4, 0x4C));
-    public static readonly Brush OnMarker = Frozen(Color.FromRgb(0x14, 0x16, 0x1B));
-    public static readonly Brush Bracket = Frozen(Color.FromArgb(0x40, 0x2B, 0xC4, 0xA9));
-    public static readonly Pen BracketPen = FrozenPen(Color.FromArgb(0xA0, 0x2B, 0xC4, 0xA9));
-    public static readonly Brush CurrentLine = Frozen(Color.FromRgb(0x1A, 0x1D, 0x24));
-    public static readonly Brush Selection = Frozen(Color.FromArgb(0x60, 0x2B, 0xC4, 0xA9));
+    private static readonly Brush DarkError = Frozen(Color.FromRgb(0xF0, 0x60, 0x5A));
+    private static readonly Brush DarkWarning = Frozen(Color.FromRgb(0xF0, 0xB4, 0x4C));
+    private static readonly Brush DarkOnMarker = Frozen(Color.FromRgb(0x14, 0x16, 0x1B));
+    private static readonly Brush DarkBracket = Frozen(Color.FromArgb(0x40, 0x2B, 0xC4, 0xA9));
+    private static readonly Pen DarkBracketPen = FrozenPen(Color.FromArgb(0xA0, 0x2B, 0xC4, 0xA9));
+    private static readonly Brush DarkCurrentLine = Frozen(Color.FromRgb(0x1A, 0x1D, 0x24));
+    private static readonly Brush DarkSelection = Frozen(Color.FromArgb(0x60, 0x2B, 0xC4, 0xA9));
+    private static readonly Brush LightError = Frozen(Color.FromRgb(0xC5, 0x30, 0x30));
+    private static readonly Brush LightWarning = Frozen(Color.FromRgb(0x94, 0x62, 0x00));
+    private static readonly Brush LightOnMarker = Frozen(Colors.White);
+    private static readonly Brush LightBracket = Frozen(Color.FromArgb(0x30, 0x0B, 0x7A, 0x69));
+    private static readonly Pen LightBracketPen = FrozenPen(Color.FromArgb(0xA0, 0x0B, 0x7A, 0x69));
+    private static readonly Brush LightCurrentLine = Frozen(Color.FromRgb(0xF0, 0xF2, 0xF5));
+    private static readonly Brush LightSelection = Frozen(Color.FromArgb(0x40, 0x0B, 0x7A, 0x69));
+
+    public static Brush Error => Theme.IsLight ? LightError : DarkError;
+
+    public static Brush Warning => Theme.IsLight ? LightWarning : DarkWarning;
+
+    public static Brush OnMarker => Theme.IsLight ? LightOnMarker : DarkOnMarker;
+
+    public static Brush Bracket => Theme.IsLight ? LightBracket : DarkBracket;
+
+    public static Pen BracketPen => Theme.IsLight ? LightBracketPen : DarkBracketPen;
+
+    public static Brush CurrentLine => Theme.IsLight ? LightCurrentLine : DarkCurrentLine;
+
+    public static Brush Selection => Theme.IsLight ? LightSelection : DarkSelection;
 
     private static SolidColorBrush Frozen(Color color)
     {

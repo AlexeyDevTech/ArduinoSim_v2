@@ -45,19 +45,6 @@ public sealed class NullToVisibilityConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
 }
 
-/// <summary>Log severity (0 info, 1 warning, 2 error) to a theme brush.</summary>
-public sealed class SeverityToBrushConverter : IValueConverter
-{
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        Application.Current.TryFindResource(value switch
-        {
-            2 => "Brush.Error",
-            1 => "Brush.Warning",
-            _ => "Brush.Text.Secondary",
-        });
-
-    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
-}
 
 /// <summary>Severity (1 warning, 2 error) to its icon-font glyph.</summary>
 public sealed class SeverityToGlyphConverter : IValueConverter

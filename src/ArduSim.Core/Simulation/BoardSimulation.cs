@@ -84,7 +84,10 @@ public sealed class BoardSimulation
         I2cBus? i2c = board.I2cSda is { } sda && board.I2cScl is { } scl
             ? new I2cBus(circuit, log, boardComponent.Pin(board.PinName(sda)), boardComponent.Pin(board.PinName(scl)))
             : null;
-        var context = new ComponentContext(circuit, engine, i2c);
+        SpiBus? spi = board.Spi is { } pins
+            ? new SpiBus(circuit, log, boardComponent.Pin(board.PinName(pins.Sck)), boardComponent.Pin(board.PinName(pins.Mosi)), boardComponent.Pin(board.PinName(pins.Miso)))
+            : null;
+        var context = new ComponentContext(circuit, engine, i2c, spi);
         foreach (SimComponent component in components)
         {
             component.Attach(context);
@@ -99,7 +102,7 @@ public sealed class BoardSimulation
             }
         }
 
-        var mcu = new Mcu(board, engine, eeprom, seed, circuit, boardComponent.Id, i2c);
+        var mcu = new Mcu(board, engine, eeprom, seed, circuit, boardComponent.Id, i2c, spi);
         circuit.Build();
         foreach (SimComponent component in components)
         {

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
+using ArduSim.App.Services;
 using ArduSim.App.ViewModels;
 using ArduSim.Build.Compilation;
 using ICSharpCode.AvalonEdit;
@@ -33,11 +34,8 @@ public partial class CodeEditor : UserControl
         options.EnableHyperlinks = false;
         options.EnableEmailHyperlinks = false;
         options.EnableRectangularSelection = true;
-        Editor.SyntaxHighlighting = CppHighlighting.Definition;
         Editor.TextArea.IndentationStrategy = new CSharpIndentationStrategy(options);
-        Editor.TextArea.TextView.CurrentLineBackground = CodeEditorBrushes.CurrentLine;
         Editor.TextArea.TextView.CurrentLineBorder = null;
-        Editor.TextArea.SelectionBrush = CodeEditorBrushes.Selection;
         Editor.TextArea.SelectionBorder = null;
         Editor.TextArea.SelectionForeground = null;
         Editor.TextArea.TextView.BackgroundRenderers.Add(_squiggles);
@@ -52,6 +50,9 @@ public partial class CodeEditor : UserControl
         };
         Editor.MouseHover += OnMouseHover;
         Editor.MouseHoverStopped += (_, _) => _tip.IsOpen = false;
+        ApplyTheme();
+        Loaded += (_, _) => Theme.Changed += ApplyTheme;
+        Unloaded += (_, _) => Theme.Changed -= ApplyTheme;
         DataContextChanged += (_, e) => Attach(e.NewValue as CodeDocumentViewModel);
         IsVisibleChanged += (_, _) =>
         {
@@ -63,6 +64,15 @@ public partial class CodeEditor : UserControl
     }
 
     private IReadOnlyList<BuildDiagnostic> Diagnostics() => _document?.Diagnostics ?? [];
+
+    private void ApplyTheme()
+    {
+        Editor.SyntaxHighlighting = CppHighlighting.Definition;
+        Editor.TextArea.TextView.CurrentLineBackground = CodeEditorBrushes.CurrentLine;
+        Editor.TextArea.SelectionBrush = CodeEditorBrushes.Selection;
+        Editor.TextArea.TextView.Redraw();
+        _margin.InvalidateVisual();
+    }
 
     private void Attach(CodeDocumentViewModel? document)
     {

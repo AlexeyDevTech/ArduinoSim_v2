@@ -6,7 +6,7 @@
         WindowStartupLocation="CenterOwner" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Foreground="{DynamicResource Brush.Text.Primary}" FontFamily="{DynamicResource Font.Ui}" FontSize="{DynamicResource FontSize.Body}">
   <Border Margin="0,0,12,12" Padding="20,16" Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1"
-          CornerRadius="{StaticResource Radius.Floating}" Effect="{StaticResource Shadow}">
+          CornerRadius="{StaticResource Radius.Floating}" Effect="{DynamicResource Shadow}">
     <StackPanel>
       <TextBlock x:Name="Heading" FontSize="{DynamicResource FontSize.Title}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
       <TextBlock Text="{l:Loc Dialog_UnsavedBody}" Foreground="{DynamicResource Brush.Text.Secondary}" TextWrapping="Wrap" Margin="0,0,0,20" />

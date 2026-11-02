@@ -1,5 +1,19 @@
 # Changelog
 
+## M5 — OLED and polish, MVP (2026-11-02)
+
+- SPI: the board's SCK/MOSI nets form a bus; a byte reaches the device whose CS is LOW, at 8 bit times of the SPI clock (F_CPU/2 to /128). Nobody selected reads 0xFF, two selected is a conflict warning, modes 1 and 2 warn. SPI library in the shim with the AVR constants, `SPISettings` and transactions. Bit-banged SPI works on any pins.
+- OLED controllers: SSD1306 with the datasheet command set (page, horizontal and vertical addressing, column and page ranges, start line, remap, scan direction, COM pins, multiplex, offset, contrast, invert, entire-on, charge pump, all scroll commands stepping with the frame clock) and SH1106 (132 columns, page mode, DC-DC and pump commands). Golden tests replay the Adafruit init streams.
+- OLED part: SSD1306 128x64, 128x32, 64x48 or 96x16 and SH1106 1.3", over I2C (0x3C/0x3D) or 4-wire SPI with D/C, RES and CS; white, blue or yellow-blue panels; it needs VCC and GND and resets when RES is low. Palette presets for the five usual modules. Pixels are drawn at whole device pixels with a soft glow, sharp at every zoom.
+- Bundled libraries Adafruit_GFX 1.13.0, Adafruit_BusIO 1.17.4, Adafruit_SSD1306 2.5.17, Adafruit_SH110X 2.1.15, U8g2 2.37.1 and GyverOLED 1.6.4; examples OledAdafruit (the library's `ssd1306_128x64_i2c` unchanged), OledU8g2, OledGyver and Sh1106. U8g2 and GyverOLED draw pixel-exact on SSD1306 and SH1106 over I2C and SPI in the tests; the Adafruit software-SPI example works too.
+- Serial Plotter tab: numbers from Serial lines (space, tab or comma separated, optionally `label:value`), one colored line per value with a legend, auto-scaled axis, pause and clear. New example Potentiometer: the knob in the plotter and an LED dimmed with `analogWrite`.
+- Light theme, chosen in project menu → Параметры and remembered; the canvas, code editor, plotter and wires follow it.
+- The start view shows a thumbnail of each example's scene.
+- Project menu → "О точности симуляции": a side sheet with the fidelity limits; README lists the same.
+- The headless Runner prints OLED changes (`oled1: 1024 px on`) and `--dump-display screen.png` saves every display as a PNG.
+- Faster dragging in big scenes: wires that did not move are no longer redrawn (60 fps with 50 parts and 200 wires). A performance test checks at least 2 M host calls per second.
+- Fixed: the status bar's actual speed lagged after a speed change (it was the average since the start of the run).
+
 ## M4 — LCD (2026-11-02)
 
 - I2C: the board's SDA/SCL nets form a bus; a transfer reaches the device with that address on those nets, at 9 bit times per byte at the Wire clock. Nobody at an address is a NACK, as on hardware, with one warning that names the address and what is on the bus, or that the SDA/SCL wires of a device with that address are swapped or not on A4/A5. A note when the bus has only the MCU's weak pull-ups.

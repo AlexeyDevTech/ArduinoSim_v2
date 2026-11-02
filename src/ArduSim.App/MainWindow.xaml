@@ -48,7 +48,6 @@
     <v:BoolToVisibilityConverter x:Key="InvertBoolToVisibility" Invert="True" />
     <v:NullToVisibilityConverter x:Key="NullToVisibility" />
     <v:NullToVisibilityConverter x:Key="VisibleWhenNull" Invert="True" />
-    <v:SeverityToBrushConverter x:Key="SeverityToBrush" />
     <v:SameToVisibilityConverter x:Key="SameToVisibility" />
     <v:PositiveToVisibilityConverter x:Key="PositiveToVisibility" />
     <v:InvertBoolConverter x:Key="InvertBool" />
@@ -96,6 +95,9 @@
       <MenuItem Header="{l:Loc Menu_Save}" InputGestureText="Ctrl+S" Command="{Binding SaveCommand}" IsEnabled="{Binding HasProject}" />
       <MenuItem Header="{l:Loc Menu_Reveal}" Command="{Binding RevealProjectCommand}" IsEnabled="{Binding HasProject}" />
       <MenuItem Header="{l:Loc Menu_CloseProject}" Command="{Binding CloseProjectCommand}" IsEnabled="{Binding HasProject}" />
+      <Separator />
+      <MenuItem Header="{l:Loc Menu_Settings}" Click="OnSettings" />
+      <MenuItem Header="{l:Loc Menu_Accuracy}" Click="OnAccuracy" />
     </ContextMenu>
   </Window.Resources>
 
@@ -336,7 +338,7 @@
           <!-- Banner: crash, busy firmware, toolchain download, runner exit -->
           <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="16,16,16,0" MaxWidth="720" Padding="16,12"
                   Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}"
-                  Effect="{StaticResource Shadow}"
+                  Effect="{DynamicResource Shadow}"
                   Visibility="{Binding Banner, Converter={StaticResource IsHiddenWhen}, ConverterParameter=None}">
             <StackPanel>
               <TextBlock Text="{Binding BannerTitle}" FontSize="{DynamicResource FontSize.Title}" FontWeight="SemiBold" Margin="0,0,0,6" />
@@ -512,9 +514,9 @@
         </StackPanel>
         <Grid>
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="2*" />
             <ColumnDefinition Width="32" />
-            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="3*" />
           </Grid.ColumnDefinitions>
           <StackPanel Grid.Column="0">
             <TextBlock Text="{l:Loc Start_Recent}" Style="{StaticResource PanelHeader}" Margin="0,0,0,12" />
@@ -544,11 +546,18 @@
               </ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="{x:Type vm:ExampleItem}">
-                  <Button Width="132" Height="72" Margin="0,0,12,12" Padding="12,8" HorizontalContentAlignment="Left"
+                  <Button Width="156" Margin="0,0,12,12" Padding="0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
                           Command="{Binding DataContext.OpenExampleCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
                     <StackPanel>
-                      <TextBlock Style="{StaticResource Icon}" Text="&#xE945;" HorizontalAlignment="Left" Foreground="{DynamicResource Brush.Accent}" Margin="0,0,0,6" />
-                      <TextBlock Text="{Binding Name}" />
+                      <!-- Thumbnail of the example's scene (rendered at idle); the icon shows until it arrives. -->
+                      <Border Height="{x:Static v:ExampleThumbnails.Height}" Margin="1,1,1,0" CornerRadius="5,5,0,0" Background="{DynamicResource Brush.Canvas}"
+                              BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" ClipToBounds="True">
+                        <Grid>
+                          <TextBlock Style="{StaticResource Icon}" Text="&#xE945;" Foreground="{DynamicResource Brush.Accent}" />
+                          <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                        </Grid>
+                      </Border>
+                      <TextBlock Text="{Binding Name}" Margin="10,6,10,8" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                   </Button>
                 </DataTemplate>
@@ -589,6 +598,23 @@
             <TextBox x:Name="SerialOutput" Style="{StaticResource TextBox.Output}" Text="{Binding SerialText, Mode=OneWay}" TextChanged="OnSerialTextChanged" />
           </DockPanel>
         </TabItem>
+        <TabItem Header="{l:Loc Tab_Plotter}">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Right" Margin="12,0,0,0" Width="150">
+              <TextBlock Text="{l:Loc Plotter_Hint}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
+              <Button Command="{Binding Plotter.TogglePauseCommand}" HorizontalAlignment="Left" Margin="0,0,0,8">
+                <Grid>
+                  <TextBlock Text="{l:Loc Toolbar_Pause}" Visibility="{Binding Plotter.Paused, Converter={StaticResource InvertBoolToVisibility}}" />
+                  <TextBlock Text="{l:Loc Toolbar_Resume}" Visibility="{Binding Plotter.Paused, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+              </Button>
+              <Button Content="{l:Loc Serial_Clear}" Command="{Binding Plotter.ClearCommand}" HorizontalAlignment="Left" />
+            </StackPanel>
+            <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" ClipToBounds="True">
+              <v:PlotterView Plotter="{Binding Plotter}" Version="{Binding Plotter.Version}" />
+            </Border>
+          </DockPanel>
+        </TabItem>
         <TabItem Header="{l:Loc Tab_Build}">
           <Grid>
             <Grid.ColumnDefinitions>
@@ -601,8 +627,8 @@
               <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type vm:DiagnosticItem}">
                   <DockPanel Cursor="Hand" MouseLeftButtonUp="OnDiagnosticClick">
-                    <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" FontSize="12" Margin="0,2,8,0" VerticalAlignment="Top"
-                               Foreground="{Binding Severity, Converter={StaticResource SeverityToBrush}}">
+                    <TextBlock DockPanel.Dock="Left" FontFamily="{DynamicResource Font.Icons}" FontSize="12" Margin="0,2,8,0" VerticalAlignment="Top"
+                               Style="{StaticResource Text.Severity}">
                       <TextBlock.Text>
                         <Binding Path="Severity">
                           <Binding.Converter>
@@ -640,7 +666,7 @@
                           Visibility="{Binding ComponentId, Converter={StaticResource NullToVisibility}}" />
                   <TextBlock DockPanel.Dock="Left" Text="{Binding Time}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
                              Foreground="{DynamicResource Brush.Text.Secondary}" Width="90" />
-                  <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="{Binding Severity, Converter={StaticResource SeverityToBrush}}" />
+                  <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Style="{StaticResource Text.Severity}" />
                 </DockPanel>
               </DataTemplate>
             </ListBox.ItemTemplate>
@@ -653,8 +679,9 @@
           <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE70E;" FontSize="12" Command="{Binding ToggleBottomCommand}" ToolTip="Ctrl+3" />
           <StackPanel Orientation="Horizontal">
             <Button Style="{StaticResource Button.Flat}" Content="{l:Loc Tab_Serial}" Click="OnOpenBottomTab" Tag="0" Foreground="{DynamicResource Brush.Text.Secondary}" />
-            <Button Style="{StaticResource Button.Flat}" Content="{l:Loc Tab_Build}" Click="OnOpenBottomTab" Tag="1" Foreground="{DynamicResource Brush.Text.Secondary}" />
-            <Button Style="{StaticResource Button.Flat}" Click="OnOpenBottomTab" Tag="2" Foreground="{DynamicResource Brush.Text.Secondary}">
+            <Button Style="{StaticResource Button.Flat}" Content="{l:Loc Tab_Plotter}" Click="OnOpenBottomTab" Tag="1" Foreground="{DynamicResource Brush.Text.Secondary}" />
+            <Button Style="{StaticResource Button.Flat}" Content="{l:Loc Tab_Build}" Click="OnOpenBottomTab" Tag="2" Foreground="{DynamicResource Brush.Text.Secondary}" />
+            <Button Style="{StaticResource Button.Flat}" Click="OnOpenBottomTab" Tag="3" Foreground="{DynamicResource Brush.Text.Secondary}">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Text="{l:Loc Tab_Log}" />
                 <Border Style="{StaticResource Badge}" Visibility="{Binding UnseenWarnings, Converter={StaticResource PositiveToVisibility}}">
@@ -670,7 +697,7 @@
     <!-- Toast (bottom-right, 3 s) -->
     <Border Grid.Row="1" Grid.RowSpan="3" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,24" Padding="14,8" IsHitTestVisible="False"
             Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}"
-            Effect="{StaticResource Shadow}" Visibility="{Binding Toast, Converter={StaticResource NullToVisibility}}">
+            Effect="{DynamicResource Shadow}" Visibility="{Binding Toast, Converter={StaticResource NullToVisibility}}">
       <StackPanel Orientation="Horizontal">
         <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE73E;" Foreground="{DynamicResource Brush.Accent}" Margin="0,0,8,0" />
         <TextBlock Text="{Binding Toast}" />

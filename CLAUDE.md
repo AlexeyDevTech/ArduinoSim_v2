@@ -23,22 +23,22 @@ powershell -ExecutionPolicy Bypass -File tools/toolchain-eval/Measure-Toolchains
 
 Requires the .NET 10 SDK. The first build of any sketch (or the first `dotnet test`) downloads the pinned llvm-mingw (182 MiB) into `%LOCALAPPDATA%\ArduSim\toolchain`; that takes a few minutes once. No Arduino IDE, no arduino-cli.
 
-Runner options: `--project <folder>` (required), `--run-for <ms>`, `--speed <x|max>` (default max), `--dump-serial <file>`, `--seed <n>`, `--input <ms>:<part>:<name>=<value>` (repeatable), `--quiet`, `--build-dir <folder>`. Output lines are `[   1000.008 ms] D13 LOW`, `[ ... ms] led1 brightness=1`, `[ ... ms] Serial: text`, `[ ... ms] lcd1: "row 0" "row 1"` (display text 20 ms after a change; CGRAM glyphs as `\0`-`\7`), `[ ... ms] warning: ...`. Exit codes are in `src/ArduSim.Runner/ProcessExit.cs`. `--ipc ...` is the mode the app uses (PipeSimulationSession passes the arguments).
+Runner options: `--project <folder>` (required), `--run-for <ms>`, `--speed <x|max>` (default max), `--dump-serial <file>`, `--dump-display <file.png>` (displays at the end; several → `<file>-<id>.png`), `--seed <n>`, `--input <ms>:<part>:<name>=<value>` (repeatable), `--quiet`, `--build-dir <folder>`. Output lines are `[   1000.008 ms] D13 LOW`, `[ ... ms] led1 brightness=1`, `[ ... ms] Serial: text`, `[ ... ms] lcd1: "row 0" "row 1"` (display text 20 ms after a change; CGRAM glyphs as `\0`-`\7`), `[ ... ms] oled1: 1024 px on`, `[ ... ms] warning: ...`. Exit codes are in `src/ArduSim.Runner/ProcessExit.cs`. `--ipc ...` is the mode the app uses (PipeSimulationSession passes the arguments).
 
 ## Repository map
 
 ```
 ArduSim.sln, Directory.Build.props, Directory.Packages.props, global.json, .editorconfig
-src/ArduSim.Core       engine: Timing, Circuits (nets), Components (+ Parts), Simulation (engine, Mcu, BoardSimulation, UART, EEPROM, interrupts), Diagnostics, Boards (profile types), Projects (file, template), Editing (SceneModel, SceneEditor), Buses (I2cBus), Displays (HD44780, PCF8574, frames)
+src/ArduSim.Core       engine: Timing, Circuits (nets), Components (+ Parts), Simulation (engine, Mcu, BoardSimulation, UART, EEPROM, interrupts), Diagnostics, Boards (profile types), Projects (file, template), Editing (SceneModel, SceneEditor), Buses (I2cBus, SpiBus), Displays (HD44780, PCF8574, OledController, frames, DisplayImage)
 src/ArduSim.Boards     board profiles and timing tables (Nano)
 src/ArduSim.Build      Toolchains, Sketches (preprocessor), Libraries (resolver), Compilation (builder, object cache, diagnostics, FirmwareSymbols)
 src/ArduSim.Ipc        Messages (MessagePack), IpcChannel, ISimulationSession, PipeSimulationSession, CrashBlock
-src/ArduSim.Runner     Interop (SimHostApi mirror, callbacks, loader), SimulationHost, Session (SessionServer, PipeServer, InProcessSimulationSession), Headless
-src/ArduSim.App        WPF UI: MainWindow (chrome, panels), Views (SchematicCanvas, CodeEditor, UnsavedDialog, converters), ViewModels (Main, Scene, Palette, Properties, CodeDocument), Services (build, environment, UserState), Themes (Dark, Controls, Parts), Localization (Strings, LogText), Resources/Strings.resx
-firmware/shim          C++ Arduino shim: include/ (Arduino.h, sim_abi.h, avr/, sim/), src/, variants/nano, libraries/EEPROM and Wire, test/ (harness)
-libraries/             vendored Arduino libraries (LiquidCrystal, LiquidCrystal_I2C), unmodified; libraries/compat/ per-library fixes
-examples/              user-facing example projects (Blink, Button, FloatingInput, LcdHello, LcdI2c, LcdCustomChars); copied next to the app
-tests/                 ArduSim.Core.Tests, ArduSim.Build.Tests, ArduSim.Integration.Tests (+ Projects/ fixture sketches)
+src/ArduSim.Runner     Interop (SimHostApi mirror, callbacks, loader), SimulationHost, Session (SessionServer, PipeServer, InProcessSimulationSession), Headless (+ PngWriter)
+src/ArduSim.App        WPF UI: MainWindow (chrome, panels), Views (SchematicCanvas, CodeEditor, LcdScreen, OledScreen, PlotterView, ExampleThumbnails, UnsavedDialog, SettingsDialog, AccuracySheet, converters), ViewModels (Main, Scene, Palette, Properties, CodeDocument, Plotter), Services (build, environment, UserState, Theme), Themes (Dark, Light, Controls, Parts), Localization (Strings, LogText), Resources/Strings.resx
+firmware/shim          C++ Arduino shim: include/ (Arduino.h, sim_abi.h, avr/, sim/), src/, variants/nano, libraries/EEPROM, Wire and SPI, test/ (harness)
+libraries/             vendored Arduino libraries (LiquidCrystal, LiquidCrystal_I2C, Adafruit_GFX, Adafruit_BusIO, Adafruit_SSD1306, Adafruit_SH110X, U8g2, GyverOLED), unmodified; libraries/compat/ per-library fixes (none needed yet)
+examples/              user-facing example projects (Blink, Button, FloatingInput, Potentiometer, LcdHello, LcdI2c, LcdCustomChars, OledAdafruit, OledU8g2, OledGyver, Sh1106); copied next to the app
+tests/                 ArduSim.Core.Tests, ArduSim.Build.Tests, ArduSim.App.Tests (view models, no window), ArduSim.Integration.Tests (+ Projects/ fixture sketches; PerformanceTests run alone)
 tools/                 dev-only: toolchain-eval (ADR-002), nano-timing-bench (ADR-005 calibration)
 docs/                  BRIEF (spec), ARCHITECTURE, UI, PLAN, DECISIONS, CHANGELOG, adr/
 ```
@@ -52,18 +52,20 @@ docs/                  BRIEF (spec), ARCHITECTURE, UI, PLAN, DECISIONS, CHANGELO
 - Project boundaries are enforced by `tests/ArduSim.Core.Tests/ProjectBoundaryTests.cs`; update its allow-list only together with `docs/ARCHITECTURE.md`.
 - UI strings only in `src/ArduSim.App/Resources/Strings.resx` (Russian), used via `{l:Loc Key}` / `Strings.Get`. Simulation log messages: Core reports interpolated strings with a code (and a variant when the code is shared); add the Russian pattern as `Log_<code>[.<variant>]`.
 - Scene edits go through `SceneEditor` (Core, unit-tested); the canvas only translates gestures. Part art: one `Part.<type>` template in `Themes/Parts.xaml`. Ask `SceneEditor.Definition(part)` for a part's size and pins (they can depend on its properties), not the registry.
-- Bus devices implement `II2cDevice` and register on `ComponentContext.I2c` in `OnAttach`; displays expose `SimComponent.Display` and call `NotifyDisplayChanged()`.
+- Bus devices implement `II2cDevice` / `ISpiDevice` and register on `ComponentContext.I2c` / `.Spi` in `OnAttach`; displays expose `SimComponent.Display` and call `NotifyDisplayChanged()`.
+- Colors: XAML uses `DynamicResource` tokens (both themes have the same keys); a color picked in code follows `Services.Theme` (`IsLight`, `Changed`).
 - NuGet licenses: MIT, BSD, Apache or Microsoft only; list every dependency in `THIRD_PARTY.md`. Versions only in `Directory.Packages.props`.
 - C++ shim: C++17, warning-clean under clang `-Wall -Wextra -Werror` (the harness test enforces it), one `.cpp` per module, `<windows.h>` only in `src/host_bootstrap.cpp`. ABI changes: `sim_abi.h` and `src/ArduSim.Runner/Interop/SimHostApi.cs` together, same field order.
 - Host callbacks never let an exception reach native code (each one catches and ends the run with an internal-error report).
 - Vendored libraries are never patched silently; fixes go to `libraries/compat/`.
 - Conventional commits on `main`.
 
-## Known limitations (current state: M4)
+## Known limitations (current state: M5, MVP)
 
-- Not in the UI yet: Settings dialog, the "О точности симуляции" sheet, live levels in the properties pin list, common properties for a multi-selection, the light theme. Only one board exists, so the board picker cannot switch boards.
-- Canvas mouse gestures and palette drag and drop have no automated checks; the automated checks drive the view models and render the window offscreen.
-- SPI is not simulated and there is no `SPI` library yet (M5): sketches that include it fail to compile. I2C is master-only and hardware-only (no bit-banged I2C, no slave mode).
+- The brief §7 acceptance pass on a clean Windows VM has not been done (everything was checked on the dev machine only).
+- Not in the UI yet: live levels in the properties pin list, common properties for a multi-selection. Параметры holds only the theme. Only one board exists, so the board picker cannot switch boards.
+- Canvas mouse gestures and palette drag and drop have no automated checks; the automated checks drive the view models and render the window offscreen. Canvas fps and App memory are measured by offscreen scenario runs, not in `dotnet test`.
+- I2C and SPI are master-only; I2C is hardware-only (no bit-banged I2C, no slave mode). SPI modes 1 and 2 warn (device models sample on the rising edge).
 - HD44780: no 5x10 font (drawn as 5x8), no A02 ROM. LiquidCrystal_I2C has no license of its own (bundled on the owner's decision; see THIRD_PARTY.md).
 - Headless runs print only the shim's one-line crash notice and exit with the NTSTATUS; the symbolized report is the app's.
 - In-process sessions (`--inproc`) cannot unwind a stopped run: its thread stays parked; a sketch crash takes the app down.

@@ -241,21 +241,32 @@ internal static unsafe class HostCallbacks
         catch (Exception e) { _host.InternalError(e); }
     }
 
-    // SPI arrives with the OLED milestone (M5): until then it warns and sees no device.
     [UnmanagedCallersOnly]
-    private static void SpiBegin() => NotSimulated("SPI");
+    private static void SpiBegin()
+    {
+        try { _host.Enter(HostCall.Spi).SpiBegin(); }
+        catch (Exception e) { _host.InternalError(e); }
+    }
 
     [UnmanagedCallersOnly]
-    private static void SpiEnd() => NotSimulated("SPI");
+    private static void SpiEnd()
+    {
+        try { _host.Enter(HostCall.Spi).SpiEnd(); }
+        catch (Exception e) { _host.InternalError(e); }
+    }
 
     [UnmanagedCallersOnly]
-    private static void SpiSettings(uint clock, int bitOrder, int mode) => NotSimulated("SPI");
+    private static void SpiSettings(uint clock, int bitOrder, int mode)
+    {
+        try { _host.Enter(HostCall.Spi, (int)Math.Min(clock, int.MaxValue), mode).SpiSettings(clock, bitOrder, mode); }
+        catch (Exception e) { _host.InternalError(e); }
+    }
 
     [UnmanagedCallersOnly]
     private static byte SpiTransfer(byte value)
     {
-        NotSimulated("SPI");
-        return 0xFF;
+        try { return _host.Enter(HostCall.Spi, value).SpiTransfer(value); }
+        catch (Exception e) { _host.InternalError(e); return 0xFF; }
     }
 
     [UnmanagedCallersOnly]
@@ -304,12 +315,6 @@ internal static unsafe class HostCallbacks
     private static void Fatal(byte* message)
     {
         try { _host.FirmwareFatal(Marshal.PtrToStringUTF8((nint)message) ?? ""); }
-        catch (Exception e) { _host.InternalError(e); }
-    }
-
-    private static void NotSimulated(string bus)
-    {
-        try { _host.Enter(HostCall.Spi).BusNotSimulated(bus); }
         catch (Exception e) { _host.InternalError(e); }
     }
 }

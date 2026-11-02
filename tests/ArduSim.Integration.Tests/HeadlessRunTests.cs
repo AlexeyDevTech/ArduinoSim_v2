@@ -69,6 +69,21 @@ public sealed class HeadlessRunTests(ToolchainFixture toolchain)
     }
 
     [Fact]
+    public async Task Potentiometer_example_follows_the_knob_in_serial_and_led_brightness()
+    {
+        string project = RunnerProcess.CopyProject("examples/Potentiometer");
+
+        RunResult result = await RunnerProcess.RunProjectAsync(project, "--run-for", "1000", "--input", "500:pot1:value=0.2");
+
+        Assert.True(result.ExitCode == 0, result.ToString());
+        Assert.Equal("pot:512 led:128", result.SerialLines.First());
+        Assert.Equal("pot:205 led:51", result.SerialLines.Last());
+        Assert.Contains(result.Timeline, e => e.Text == "led1 brightness=0.502");
+        Assert.Contains(result.Timeline, e => e.Text == "led1 brightness=0.2" && e.Milliseconds > 500);
+        Assert.DoesNotContain("warning", result.Stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Serial_output_is_paced_at_the_baud_rate()
     {
         string project = RunnerProcess.CopyProject("tests/ArduSim.Integration.Tests/Projects/SerialTiming");

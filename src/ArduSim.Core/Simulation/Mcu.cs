@@ -54,6 +54,7 @@ public sealed class Mcu
     private const double InternalPullUp = 35_000;
     private const double InternalReference = 1.1;
     private const uint DefaultI2cClock = 100_000;
+    private const uint DefaultSpiClock = 4_000_000;
 
     private readonly SimulationEngine _engine;
     private readonly TimingTable _timing;
@@ -64,10 +65,15 @@ public sealed class Mcu
     private ulong _eepromReadyAt;
     private ulong _i2cBitTime = VirtualTime.Second / DefaultI2cClock;
     private bool _i2cEnabled;
+    private uint _spiClock = DefaultSpiClock;
+    private bool _spiLsbFirst;
+    private int _spiMode;
+    private bool _spiEnabled;
 
     /// <summary>Registers the MCU's pin drivers; build <paramref name="circuit"/> afterwards.</summary>
     /// <param name="i2c">The board's I2C bus (null when the board has none); devices registered on it answer the Wire calls.</param>
-    public Mcu(BoardProfile board, SimulationEngine engine, EepromMemory eeprom, int seed, Circuit circuit, string boardId, I2cBus? i2c = null)
+    /// <param name="spi">The board's hardware SPI bus (null when the board has none).</param>
+    public Mcu(BoardProfile board, SimulationEngine engine, EepromMemory eeprom, int seed, Circuit circuit, string boardId, I2cBus? i2c = null, SpiBus? spi = null)
     {
         ArgumentNullException.ThrowIfNull(board);
         ArgumentNullException.ThrowIfNull(engine);
@@ -79,6 +85,7 @@ public sealed class Mcu
         _boardId = boardId;
         Eeprom = eeprom;
         I2c = i2c;
+        Spi = spi;
 #pragma warning disable CA5394 // a simulation needs a reproducible generator, not a secure one
         _noise = new Random(seed);
 #pragma warning restore CA5394
@@ -106,6 +113,11 @@ public sealed class Mcu
     public InterruptController Interrupts { get; }
 
     public I2cBus? I2c { get; }
+
+    public SpiBus? Spi { get; }
+
+    /// <summary>The SPI clock the hardware uses: the fastest F_CPU / 2..128 not above the request.</summary>
+    public uint SpiClock => _spiClock;
 
     /// <summary>The Wire clock; a byte costs 9 bit times, START and STOP one each (ADR-005).</summary>
     public uint I2cClock => (uint)(VirtualTime.Second / _i2cBitTime);
@@ -387,11 +399,86 @@ public sealed class Mcu
         _engine.Finish(_i2cBitTime);
     }
 
-    public void BusNotSimulated(string bus)
+    /// <summary>SPI.begin(): as the AVR core, SS becomes an output (HIGH if it was an input), SCK and MOSI outputs.</summary>
+    public void SpiBegin()
     {
-        Log.ReportOnce("bus-" + bus, SimSeverity.Warning, "not-simulated", $"{bus} is not simulated yet; transfers see no device.");
+        if (Board.Spi is { } pins)
+        {
+            if (Find(pins.Ss) is { } ss && ss.Mode != Simulation.PinMode.Output)
+            {
+                ss.PortBit = true;
+                ss.Mode = Simulation.PinMode.Output;
+                Update(ss);
+            }
+
+            foreach (int pin in new[] { pins.Sck, pins.Mosi })
+            {
+                if (Find(pin) is { } state)
+                {
+                    state.Mode = Simulation.PinMode.Output;
+                    state.PwmDuty = 0;
+                    Update(state);
+                }
+            }
+
+            _spiEnabled = true;
+        }
+
         _engine.Finish(_timing.ShortCall);
     }
+
+    public void SpiEnd()
+    {
+        _spiEnabled = false;
+        _engine.Finish(_timing.ShortCall);
+    }
+
+    /// <param name="bitOrder">0 = LSB first, 1 = MSB first.</param>
+    /// <param name="mode">SPI mode 0-3.</param>
+    public void SpiSettings(uint clockHz, int bitOrder, int mode)
+    {
+        _spiClock = HardwareSpiClock(clockHz);
+        _spiLsbFirst = bitOrder == 0;
+        _spiMode = mode & 3;
+        _engine.Finish(_timing.ShortCall);
+    }
+
+    /// <summary>One full-duplex byte; 8 bit times at the SPI clock.</summary>
+    public byte SpiTransfer(byte value)
+    {
+        byte answer = 0xFF;
+        if (Spi is null)
+        {
+            Log.ReportOnce("spi-none", SimSeverity.Warning, "spi-unavailable", $"{Board.DisplayName} has no hardware SPI; transfers read 0xFF.");
+        }
+        else
+        {
+            if (!_spiEnabled)
+            {
+                Log.ReportOnce("spi-begin", SimSeverity.Warning, "spi-not-begun", $"SPI.transfer() is used before SPI.begin(); a real board would hang here, the simulation carries on.");
+            }
+
+            answer = Spi.Transfer(value, _spiLsbFirst, _spiMode);
+        }
+
+        _engine.Finish(8 * VirtualTime.Second / _spiClock);
+        return answer;
+    }
+
+    private uint HardwareSpiClock(uint requested)
+    {
+        foreach (int divider in new[] { 2, 4, 8, 16, 32, 64, 128 })
+        {
+            uint clock = (uint)(Board.CpuHz / divider);
+            if (clock <= requested)
+            {
+                return clock;
+            }
+        }
+
+        return (uint)(Board.CpuHz / 128);
+    }
+
 
     public byte EepromRead(int address)
     {

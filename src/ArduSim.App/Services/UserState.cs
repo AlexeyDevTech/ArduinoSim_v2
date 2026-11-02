@@ -26,7 +26,7 @@ public sealed record PanelLayout
 }
 
 /// <summary>
-/// Per-user app state that is not part of any project: recent projects and the panel layout,
+/// Per-user app state that is not part of any project: recent projects, the panel layout and the theme,
 /// in <c>%LOCALAPPDATA%\ArduSim\ui-state.json</c>. A missing or unreadable file means defaults.
 /// </summary>
 public sealed partial class UserState
@@ -64,6 +64,17 @@ public sealed partial class UserState
         set
         {
             _data = _data with { Layout = value };
+            Save();
+        }
+    }
+
+    /// <summary>The color theme, <c>dark</c> (default) or <c>light</c>.</summary>
+    public string Theme
+    {
+        get => _data.Theme;
+        set
+        {
+            _data = _data with { Theme = value };
             Save();
         }
     }
@@ -120,5 +131,7 @@ public sealed partial class UserState
         public IReadOnlyList<RecentProject> Recent { get; init; } = [];
 
         public PanelLayout Layout { get; init; } = new();
+
+        public string Theme { get; init; } = "dark";
     }
 }

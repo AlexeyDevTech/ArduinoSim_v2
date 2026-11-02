@@ -37,6 +37,7 @@ public sealed partial class SceneEditor
         ["potentiometer"] = "pot",
         ["buzzer"] = "bz",
         ["lcd"] = "lcd",
+        ["oled"] = "oled",
     };
 
     private readonly ComponentRegistry _registry;

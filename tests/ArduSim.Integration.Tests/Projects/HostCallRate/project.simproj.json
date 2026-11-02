@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 0, "y": 0, "rotation": 0, "flip": false }
+    ],
+    "wires": []
+  },
+  "settings": { "speed": 1000, "serial": { "baud": 115200, "lineEnding": "LF" }, "libraryPaths": [] }
+}

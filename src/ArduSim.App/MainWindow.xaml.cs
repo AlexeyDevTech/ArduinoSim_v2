@@ -54,6 +54,8 @@ public partial class MainWindow : Window
         viewModel.PropertyChanged += OnViewModelChanged;
         StateChanged += (_, _) => OnStateChanged();
         SourceInitialized += (_, _) => HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(WndProc);
+        Loaded += (_, _) => ExampleThumbnails.Render(this, viewModel);
+        Theme.Changed += () => ExampleThumbnails.Render(this, viewModel);
     }
 
     protected override async void OnClosing(CancelEventArgs e)
@@ -135,6 +137,10 @@ public partial class MainWindow : Window
         Point local = MaxButton.PointFromScreen(screen);
         return local.X >= 0 && local.Y >= 0 && local.X < MaxButton.ActualWidth && local.Y < MaxButton.ActualHeight;
     }
+
+    private void OnSettings(object sender, RoutedEventArgs e) => SettingsDialog.Open(this, _viewModel);
+
+    private void OnAccuracy(object sender, RoutedEventArgs e) => AccuracySheet.Open(this);
 
     private void OnProjectMenu(object sender, RoutedEventArgs e)
     {

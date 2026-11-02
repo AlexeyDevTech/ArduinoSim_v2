@@ -34,6 +34,19 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
+  <!-- Text colored by its item's Severity (0 info, 1 warning, 2 error); follows the theme. -->
+  <Style x:Key="Text.Severity" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding Severity}" Value="1">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Warning}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding Severity}" Value="2">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Error}" />
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
+
   <!-- Buttons -->
   <Style TargetType="Button">
     <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
@@ -629,7 +642,7 @@
             <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
               <Border Margin="0,4,8,8" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="{TemplateBinding MaxDropDownHeight}"
                       Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1"
-                      CornerRadius="{StaticResource Radius.Floating}" Padding="4" Effect="{StaticResource Shadow}">
+                      CornerRadius="{StaticResource Radius.Floating}" Padding="4" Effect="{DynamicResource Shadow}">
                 <ScrollViewer>
                   <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
                 </ScrollViewer>
@@ -657,7 +670,7 @@
       <Setter.Value>
         <ControlTemplate TargetType="ContextMenu">
           <Border Margin="0,0,8,8" MinWidth="200" Padding="4" Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}"
-                  BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}" Effect="{StaticResource Shadow}">
+                  BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}" Effect="{DynamicResource Shadow}">
             <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
           </Border>
         </ControlTemplate>
@@ -699,7 +712,7 @@
             <Popup x:Name="PART_Popup" Placement="Right" HorizontalOffset="4" VerticalOffset="-5" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade"
                    IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}">
               <Border Margin="0,0,8,8" MinWidth="200" Padding="4" Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}"
-                      BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}" Effect="{StaticResource Shadow}">
+                      BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}" Effect="{DynamicResource Shadow}">
                 <ScrollViewer MaxHeight="480" VerticalScrollBarVisibility="Auto">
                   <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
                 </ScrollViewer>
@@ -807,7 +820,7 @@
       <Setter.Value>
         <ControlTemplate TargetType="ToolTip">
           <Border Margin="0,0,8,8" MaxWidth="420" Padding="8,5" Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}"
-                  BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Effect="{StaticResource Shadow}">
+                  BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Effect="{DynamicResource Shadow}">
             <ContentPresenter>
               <ContentPresenter.Resources>
                 <Style TargetType="TextBlock">

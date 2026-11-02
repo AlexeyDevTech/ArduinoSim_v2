@@ -176,7 +176,7 @@
       </Border>
     </Canvas>
 
-    <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12" Padding="4" CornerRadius="6"
+    <Border x:Name="ZoomBar" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12" Padding="4" CornerRadius="6"
             Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
       <StackPanel Orientation="Horizontal">
         <Button x:Name="ZoomButton" Click="OnZoomReset" Padding="8,2" Margin="0,0,4,0" ToolTip="Ctrl+9" />

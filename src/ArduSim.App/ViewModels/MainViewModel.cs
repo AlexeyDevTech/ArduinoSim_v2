@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Windows.Media;
 using System.Windows.Threading;
 using ArduSim.App.Localization;
 using ArduSim.App.Services;
@@ -41,7 +42,16 @@ public enum UnsavedChoice
     Cancel,
 }
 
-public sealed record ExampleItem(string Name, string Path);
+/// <summary>A bundled example; the window renders its scene into <see cref="Thumbnail"/> for the start view.</summary>
+public sealed partial class ExampleItem(string name, string path) : ObservableObject
+{
+    public string Name { get; } = name;
+
+    public string Path { get; } = path;
+
+    [ObservableProperty]
+    public partial ImageSource? Thumbnail { get; set; }
+}
 
 public sealed record SpeedOption(string Label, double Value);
 
@@ -67,8 +77,9 @@ public sealed record DiagnosticItem(BuildDiagnostic Diagnostic)
 public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 {
     public const int SerialTab = 0;
-    public const int BuildTab = 1;
-    public const int LogTab = 2;
+    public const int PlotterTab = 1;
+    public const int BuildTab = 2;
+    public const int LogTab = 3;
 
     private const int SerialLimit = 200_000;
     private static readonly string[] SourceExtensions = [".ino", ".h", ".hpp", ".c", ".cpp"];
@@ -94,6 +105,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private bool _settingsDirty;
     private bool _loading;
     private ulong _timeNs;
+    private (double Wall, ulong TimeNs)? _speedSample;
     private int _diagnosticIndex = -1;
     private SourceLocation? _crashLocation;
 
@@ -112,6 +124,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         SelectedSpeed = Speeds[2];
         SelectedLineEnding = LineEndings[1];
         SelectedBoard = Boards[0];
+        Themes = [new("dark", Strings.Get("Theme_Dark"), null), new("light", Strings.Get("Theme_Light"), null)];
+        SelectedTheme = Themes.FirstOrDefault(t => t.Value == state.Theme) ?? Themes[0];
         PanelLayout layout = state.Layout;
         PaletteOpen = layout.PaletteOpen;
         PropertiesOpen = layout.PropertiesOpen;
@@ -137,11 +151,16 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     public PaletteViewModel Palette { get; }
 
+    public PlotterViewModel Plotter { get; } = new();
+
     public IReadOnlyList<BoardProfile> Boards { get; } = BoardCatalog.All;
 
     public IReadOnlyList<SpeedOption> Speeds { get; }
 
     public IReadOnlyList<LineEndingOption> LineEndings { get; }
+
+    /// <summary>Тёмная / Светлая (Параметры, docs/UI.md §3.1).</summary>
+    public IReadOnlyList<OptionItem> Themes { get; }
 
     /// <summary>The schematic tab first, then one tab per open sketch file.</summary>
     public ObservableCollection<object> Tabs { get; } = [];
@@ -170,6 +189,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     [ObservableProperty]
     public partial LineEndingOption SelectedLineEnding { get; set; }
+
+    [ObservableProperty]
+    public partial OptionItem SelectedTheme { get; set; }
 
     [ObservableProperty]
     public partial BoardProfile SelectedBoard { get; set; }
@@ -442,6 +464,23 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    /// <summary>The example's scene, not editable or runnable, for a gallery thumbnail; null when it cannot be read.</summary>
+    public SceneViewModel? PreviewScene(ExampleItem example)
+    {
+        ArgumentNullException.ThrowIfNull(example);
+        try
+        {
+            ProjectFile project = ProjectFile.Load(example.Path);
+            return BoardCatalog.Find(project.Board) is { } board
+                ? new SceneViewModel(new SceneEditor(SceneModel.FromDocument(project.Scene), _registry), board, (_, _, _) => { })
+                : null;
+        }
+        catch (Exception e) when (e is ProjectFormatException or IOException)
+        {
+            return null;
+        }
+    }
+
     private async Task<bool> OpenProjectAsync(string directory)
     {
         await StopSessionAsync();
@@ -633,6 +672,16 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         if (!_loading && HasProject && value.Setting != _settings.Serial.LineEnding)
         {
             UpdateSettings(_settings with { Serial = _settings.Serial with { LineEnding = value.Setting } });
+        }
+    }
+
+    partial void OnSelectedThemeChanged(OptionItem value)
+    {
+        Theme.Apply(value.Value == "light");
+        Scene?.RecolorWires();
+        if (_state.Theme != value.Value)
+        {
+            _state.Theme = value.Value;
         }
     }
 
@@ -1040,7 +1089,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         UnseenWarnings = 0;
         _serial.Clear();
         SerialText = "";
+        Plotter.Clear();
         _timeNs = 0;
+        _speedSample = null;
         UpdateClock();
         ActualSpeed = "";
     }
@@ -1080,9 +1131,16 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         _timeNs = snapshot.TimeNs;
         UpdateClock();
-        if (snapshot.WallSeconds > 0.5 && snapshot.State == RunState.Running)
+        // The actual speed over the last second of wall time, so a speed change shows within a second.
+        if (snapshot.State != RunState.Running || _speedSample is null)
         {
-            ActualSpeed = (snapshot.TimeNs / 1e9 / snapshot.WallSeconds).ToString("0.0", CultureInfo.CurrentCulture) + "×";
+            _speedSample = snapshot.State == RunState.Running ? (snapshot.WallSeconds, snapshot.TimeNs) : null;
+        }
+        else if (snapshot.WallSeconds - _speedSample.Value.Wall >= 1)
+        {
+            double rate = (snapshot.TimeNs - _speedSample.Value.TimeNs) / 1e9 / (snapshot.WallSeconds - _speedSample.Value.Wall);
+            ActualSpeed = rate.ToString("0.0", CultureInfo.CurrentCulture) + "×";
+            _speedSample = (snapshot.WallSeconds, snapshot.TimeNs);
         }
 
         if (Status != SimStatus.Busy || snapshot.State == RunState.Paused)
@@ -1098,7 +1156,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         if (snapshot.Serial.Length > 0)
         {
-            _serial.Append(Encoding.UTF8.GetString(snapshot.Serial).Replace("\r\n", "\n", StringComparison.Ordinal));
+            string text = Encoding.UTF8.GetString(snapshot.Serial).Replace("\r\n", "\n", StringComparison.Ordinal);
+            Plotter.Append(text);
+            _serial.Append(text);
             if (_serial.Length > SerialLimit)
             {
                 _serial.Remove(0, _serial.Length - SerialLimit);

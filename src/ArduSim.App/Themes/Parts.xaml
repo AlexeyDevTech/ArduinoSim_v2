@@ -56,6 +56,45 @@
     </Canvas>
   </DataTemplate>
 
+  <!-- OLED module: blue PCB, black glass, the picture as a nearest-neighbor bitmap with a soft glow; pins on the top edge. -->
+  <DataTemplate x:Key="Part.oled" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="{Binding Width}" Height="{Binding Height}">
+      <Rectangle Width="{Binding Width}" Height="{Binding Height}" RadiusX="3" RadiusY="3" Fill="#FF1B4C9C" Stroke="#FF133A78" />
+      <Ellipse Canvas.Left="3" Canvas.Top="3" Width="6" Height="6" Fill="#FF0E1A30" Stroke="#FFC9A33A" StrokeThickness="0.8" />
+      <Ellipse Canvas.Left="{Binding HoleRight}" Canvas.Top="3" Width="6" Height="6" Fill="#FF0E1A30" Stroke="#FFC9A33A" StrokeThickness="0.8" />
+      <Border Canvas.Left="{Binding GlassLeft}" Canvas.Top="{Binding GlassTop}" Width="{Binding GlassWidth}" Height="{Binding GlassHeight}"
+              Background="#FF0A0B0F" BorderBrush="#FF2A2D35" BorderThickness="0.6" CornerRadius="1.5">
+        <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill"
+               HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="NearestNeighbor">
+          <Image.Effect>
+            <DropShadowEffect ShadowDepth="0" BlurRadius="4" Opacity="0.65" Color="{Binding GlowColor}" />
+          </Image.Effect>
+        </Image>
+      </Border>
+      <ItemsControl ItemsSource="{Binding Pins}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:PinViewModel}">
+            <Canvas>
+              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+            </Canvas>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Canvas>
+  </DataTemplate>
+
   <DataTemplate x:Key="Part.board" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="180" Height="70">
       <Rectangle Width="180" Height="70" RadiusX="3" RadiusY="3" Fill="#FF1D5AA8" Stroke="#FF143F78" />

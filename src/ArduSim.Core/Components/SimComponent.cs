@@ -8,13 +8,16 @@ namespace ArduSim.Core.Components;
 
 /// <summary>What a part needs while it attaches to the circuit.</summary>
 /// <param name="i2c">The board's I2C bus, when it has one; devices register on it.</param>
-public sealed class ComponentContext(Circuit circuit, SimulationEngine engine, I2cBus? i2c = null)
+/// <param name="spi">The board's hardware SPI bus, when it has one.</param>
+public sealed class ComponentContext(Circuit circuit, SimulationEngine engine, I2cBus? i2c = null, SpiBus? spi = null)
 {
     public Circuit Circuit { get; } = circuit;
 
     public SimulationEngine Engine { get; } = engine;
 
     public I2cBus? I2c { get; } = i2c;
+
+    public SpiBus? Spi { get; } = spi;
 
     public SimulationLog Log => Engine.Log;
 }

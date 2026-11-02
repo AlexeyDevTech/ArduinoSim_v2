@@ -3,8 +3,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using ArduSim.App.Localization;
+using ArduSim.App.Services;
 using ArduSim.App.ViewModels;
 using ArduSim.Core.Editing;
 using ArduSim.Core.Projects;
@@ -28,6 +30,7 @@ public partial class SchematicCanvas : UserControl
     private const double WireTolerancePx = 6;
 
     private readonly DrawingBrush _gridBrush;
+    private readonly GeometryDrawing _gridDotDrawing;
     private readonly EllipseGeometry _gridDot = new(new Point(0, 0), 1, 1);
     private readonly DispatcherTimer _hintTimer = new() { Interval = TimeSpan.FromSeconds(1.6) };
     private double _scale = PixelsPerUnitAt100;
@@ -46,9 +49,9 @@ public partial class SchematicCanvas : UserControl
     public SchematicCanvas()
     {
         InitializeComponent();
-        var dot = new GeometryDrawing(new SolidColorBrush(Color.FromRgb(0x26, 0x2A, 0x33)), null, _gridDot);
+        _gridDotDrawing = new GeometryDrawing(null, null, _gridDot);
         var cell = new GeometryDrawing(Brushes.Transparent, null, new RectangleGeometry(new Rect(0, 0, 10, 10)));
-        _gridBrush = new DrawingBrush(new DrawingGroup { Children = { cell, dot } })
+        _gridBrush = new DrawingBrush(new DrawingGroup { Children = { cell, _gridDotDrawing } })
         {
             TileMode = TileMode.Tile,
             Viewport = new Rect(0, 0, 10, 10),
@@ -58,6 +61,9 @@ public partial class SchematicCanvas : UserControl
             AlignmentY = AlignmentY.Top,
         };
         GridLayer.Fill = _gridBrush;
+        ApplyTheme();
+        Loaded += (_, _) => Theme.Changed += ApplyTheme;
+        Unloaded += (_, _) => Theme.Changed -= ApplyTheme;
         _hintTimer.Tick += (_, _) =>
         {
             Hint.Visibility = Visibility.Collapsed;
@@ -93,7 +99,10 @@ public partial class SchematicCanvas : UserControl
 
     private SceneViewModel? Scene => DataContext as SceneViewModel;
 
-    public void Fit()
+    public void Fit() => Fit(MinScale, 40);
+
+    /// <summary>Fits the content with <paramref name="margin"/> canvas units around it, zooming out no further than <paramref name="minScale"/>.</summary>
+    private void Fit(double minScale, double margin)
     {
         if (Scene is null || ActualWidth < 10 || ActualHeight < 10)
         {
@@ -102,12 +111,27 @@ public partial class SchematicCanvas : UserControl
 
         _fitPending = false;
         Rect bounds = Scene.ContentBounds();
-        bounds.Inflate(40, 40);
-        _scale = Math.Clamp(Math.Min(ActualWidth / bounds.Width, ActualHeight / bounds.Height), MinScale, 3 * PixelsPerUnitAt100);
+        bounds.Inflate(margin, margin);
+        _scale = Math.Clamp(Math.Min(ActualWidth / bounds.Width, ActualHeight / bounds.Height), minScale, 3 * PixelsPerUnitAt100);
         _offset = new Vector(
             (ActualWidth - (bounds.Width * _scale)) / 2 - (bounds.Left * _scale),
             (ActualHeight - (bounds.Height * _scale)) / 2 - (bounds.Top * _scale));
         ApplyTransform();
+    }
+
+    /// <summary>Renders a scene, fitted, without the zoom controls (the examples gallery thumbnails).</summary>
+    public static BitmapSource Snapshot(SceneViewModel scene, double width, double height, double dpiScale)
+    {
+        var canvas = new SchematicCanvas { DataContext = scene, Width = width, Height = height };
+        canvas.ZoomBar.Visibility = Visibility.Collapsed;
+        canvas.Measure(new Size(width, height));
+        canvas.Arrange(new Rect(0, 0, width, height));
+        canvas.Fit(0.01, 12);
+        canvas.UpdateLayout();
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(width * dpiScale), (int)Math.Ceiling(height * dpiScale), 96 * dpiScale, 96 * dpiScale, PixelFormats.Pbgra32);
+        bitmap.Render(canvas);
+        bitmap.Freeze();
+        return bitmap;
     }
 
     public void ZoomTo100()
@@ -117,6 +141,9 @@ public partial class SchematicCanvas : UserControl
     }
 
     public void ZoomStep(int steps) => ZoomAt(new Point(ActualWidth / 2, ActualHeight / 2), Math.Pow(1.2, steps));
+
+    private void ApplyTheme() =>
+        _gridDotDrawing.Brush = new SolidColorBrush(TryFindResource("Color.CanvasGrid") is Color grid ? grid : Color.FromRgb(0x26, 0x2A, 0x33));
 
     private Point ToWorld(Point screen) => new((screen.X - _offset.X) / _scale, (screen.Y - _offset.Y) / _scale);
 

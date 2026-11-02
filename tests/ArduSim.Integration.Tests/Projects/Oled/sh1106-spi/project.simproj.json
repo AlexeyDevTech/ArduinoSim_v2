@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 0, "y": 0 },
+      { "id": "oled1", "type": "oled", "x": 260, "y": 120, "properties": { "controller": "sh1106", "interface": "spi" } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "board", "pin": "5V" }, "to": { "component": "oled1", "pin": "VCC" } },
+      { "id": "w2", "from": { "component": "board", "pin": "GND" }, "to": { "component": "oled1", "pin": "GND" } },
+      { "id": "w3", "from": { "component": "board", "pin": "D13" }, "to": { "component": "oled1", "pin": "D0" } },
+      { "id": "w4", "from": { "component": "board", "pin": "D11" }, "to": { "component": "oled1", "pin": "D1" } },
+      { "id": "w5", "from": { "component": "board", "pin": "D10" }, "to": { "component": "oled1", "pin": "CS" } },
+      { "id": "w6", "from": { "component": "board", "pin": "D9" }, "to": { "component": "oled1", "pin": "DC" } },
+      { "id": "w7", "from": { "component": "board", "pin": "D8" }, "to": { "component": "oled1", "pin": "RES" } }
+    ]
+  }
+}
