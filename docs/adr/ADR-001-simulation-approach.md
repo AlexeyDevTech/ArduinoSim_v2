@@ -1,6 +1,6 @@
 # ADR-001: API-level simulation with host-compiled firmware
 
-- Status: Accepted (fixed by the brief, §3.1). The ABI details in "Decision → ABI v1" are **proposed** and wait for confirmation in M0.
+- Status: Accepted (fixed by the brief, §3.1; ABI v1 details confirmed by the owner on 2026-11-02).
 - Date: 2026-11-02
 
 ## Context
@@ -21,13 +21,13 @@ The sketch is compiled by a host C++ compiler (ADR-002) together with our Arduin
 | `void sim_fw_loop(void)` | Calls the sketch's `loop()` once. Returning is a scheduling point. |
 | `void sim_fw_dispatch_interrupt(int32_t id)` | Runs the ISR attached to external interrupt `id`. |
 
-### ABI v1 (proposed)
+### ABI v1
 
 `SimHostApi` starts with `struct_size` and `abi_version`; the host refuses firmware with a different major version, and a minor bump only appends functions. All pins use Arduino board numbering (Nano: D0–D13 = 0–13, A0–A7 = 14–21). Strings are UTF-8.
 
 Functions from the brief, unchanged: `pin_mode`, `digital_write`, `digital_read`, `analog_read`, `analog_write`, `tone`, `no_tone`, `now_us`, `delay_us`, `yield`, `serial_write`, `serial_read`, `serial_available`, `i2c_start`, `i2c_write`, `i2c_read`, `i2c_stop`, `spi_begin`, `spi_transfer`, `spi_settings`, `eeprom_read`, `eeprom_write`, `attach_interrupt`, `detach_interrupt`, `log`.
 
-Additions I propose, each needed by a shim feature in the brief:
+Additions to the brief's list, each needed by a shim feature in the brief:
 
 | Addition | Why |
 | --- | --- |

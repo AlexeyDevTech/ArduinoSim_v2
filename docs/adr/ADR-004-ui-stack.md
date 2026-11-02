@@ -1,6 +1,6 @@
 # ADR-004: UI stack
 
-- Status: Accepted (stack fixed by the brief, §3.7). Docking choice **proposed**: custom split layout.
+- Status: Accepted (stack fixed by the brief, §3.7; custom split layout confirmed by the owner on 2026-11-02).
 - Date: 2026-11-02
 
 ## Decision
@@ -15,7 +15,7 @@
 - **Theme**: our own resource dictionaries of tokens (colors, spacing on an 8 px grid, radii, type ramp) and control templates; dark by default, light variant from M5. No stock control look survives into M3.
 - **Boundary**: `ArduSim.Core`, `Boards`, `Build` and `Ipc` reference no UI assembly — enforced by `ProjectBoundaryTests` — so an Avalonia port stays possible.
 
-### Docking: custom split layout (proposed)
+### Docking: custom split layout
 
 | | AvalonDock (Dirkster) 5.0 | Custom split layout |
 | --- | --- | --- |

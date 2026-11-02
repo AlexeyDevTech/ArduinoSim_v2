@@ -1,6 +1,6 @@
 # ADR-008: Project format
 
-- Status: Accepted (shape fixed by the brief, §3.8). Field-level schema v1 **proposed** — a file format, so it waits for confirmation.
+- Status: Accepted (shape fixed by the brief, §3.8; schema v1 confirmed by the owner on 2026-11-02).
 - Date: 2026-11-02
 
 ## Decision
@@ -14,7 +14,7 @@ MyProject/
   eeprom.bin             EEPROM contents, raw bytes, board EEPROM size (Nano: 1024), erased = 0xFF
 ```
 
-### `project.simproj.json`, schema v1 (proposed)
+### `project.simproj.json`, schema v1
 
 ```json
 {

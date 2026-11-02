@@ -1,6 +1,6 @@
 # ADR-002: Portable C++ toolchain
 
-- Status: **Proposed** — llvm-mingw, waiting for confirmation (brief §8).
+- Status: Accepted — llvm-mingw (confirmed by the owner on 2026-11-02).
 - Date: 2026-11-02
 
 ## Context
@@ -33,7 +33,7 @@ Machine: Windows 11 Pro 26200, x64. PATH reduced to `System32` during compilatio
 
 Both DLLs depend only on components present on every Windows 10/11 (UCRT ships with the OS since Windows 10).
 
-## Decision (proposed)
+## Decision
 
 Use **llvm-mingw 20261020, UCRT, x86_64**, pinned by URL and SHA-256 (`fd5462b7f5d93b2ff981fcd3f9c7e427e47f3203c64ea91c27bcc444eebd74cd`, 190 612 575 bytes) in a toolchain manifest inside `ArduSim.Build`.
 

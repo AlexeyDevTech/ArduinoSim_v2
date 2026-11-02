@@ -1,6 +1,6 @@
 # ADR-005: Cooperative, deterministic virtual time
 
-- Status: Accepted (fixed by the brief, §3.3). Nano timing values **proposed** pending calibration (brief §8).
+- Status: Accepted (fixed by the brief, §3.3; timing table v1 confirmed by the owner on 2026-11-02, calibration still open).
 - Date: 2026-11-02
 
 ## Decision
@@ -17,7 +17,7 @@ The firmware runs on the Runner's single simulation thread, and virtual time adv
 - **Determinism**: the simulation never reads wall-clock time or OS randomness. Floating inputs read from a PRNG seeded per run (fixed default seed). UI input events are applied at the next scheduling point and stamped with that virtual time; the same timed input sequence reproduces the same run.
 - **Runaway**: no host call for 2 s of wall time while running → `FirmwareBusy` (ADR-003).
 
-## Nano timing table (proposed v1)
+## Nano timing table v1
 
 | Host call | Cost | Source / reasoning |
 | --- | --- | --- |
@@ -33,7 +33,7 @@ The firmware runs on the Runner's single simulation thread, and virtual time adv
 | Serial | frame bits per byte at the baud rate (8N1 = 10), via the 64-byte TX ring drained by scheduled events; writes block while the ring is full | Brief. |
 | `yield`, `delay_us` overhead | 0 | Scheduling points only. |
 
-Calibration proposal (see open questions in `docs/PLAN.md`): run `tools/nano-timing-bench/nano-timing-bench.ino` on a real Nano and replace the estimates with measured numbers, or cross-check by running the AVR core under avr8js (MIT) with an avr-gcc build, used only as a one-off reference.
+Calibration (open): run `tools/nano-timing-bench/nano-timing-bench.ino` on a real Nano and replace the estimates with measured numbers, or cross-check by running the AVR core under avr8js (MIT) with an avr-gcc build, used only as a one-off reference.
 
 ## Consequences
 

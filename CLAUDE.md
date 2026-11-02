@@ -54,6 +54,6 @@ docs/                  BRIEF (spec), ARCHITECTURE, PLAN, DECISIONS, CHANGELOG, a
 ## Known limitations (current state: M0)
 
 - Nothing simulates yet: the Runner only answers `--version`; the App shows a placeholder window.
-- Toolchain, IPC serializer, docking, SSD1306 scroll scope, LCD modelling, timing table, ABI v1 and project schema v1 are proposals waiting for the owner (`docs/PLAN.md`, "Open questions").
+- The Nano timing table v1 is partly estimated; calibration against real hardware or avr8js is still open (ADR-005).
 - Toolchain measurements were taken on the dev machine with a scrubbed PATH, not on a clean VM.
 - `tools/nano-timing-bench` is only syntax-checked with clang against a stub `Arduino.h`; it has not been compiled for AVR (no avr-gcc on this machine).

@@ -2,12 +2,12 @@
 
 Milestones from the brief (§6). A milestone is done when a clean clone builds, `dotnet test` is green, the app runs, `docs/CHANGELOG.md` has an entry, and the owner has a two-line "how to try it".
 
-## M0 — Scaffold and plans ✅ (pending answers to the open questions below)
+## M0 — Scaffold and plans ✅
 
 - [x] Solution skeleton (`ArduSim.sln`, 6 src + 3 test projects, central packages, analyzers)
 - [x] ADR-001 … ADR-008, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `CLAUDE.md`, README, THIRD_PARTY
 - [x] Toolchain measurement and smoke build (`tools/toolchain-eval`), draft ABI `firmware/shim/include/sim_abi.h`
-- [ ] Owner answers the open questions
+- [x] Owner answers the open questions (2026-11-02: all eight proposals accepted)
 
 ## M1 — Build and run headless
 
@@ -75,9 +75,9 @@ Done when every item of brief §7 passes.
 | Warm rebuild over 3 s with big libraries (U8g2) | Object cache + parallel compile; measured per example in integration tests. |
 | Toolchain fails on a clean machine | Post-install smoke compile with "re-download"; clean-VM pass in M5. |
 
-## Open questions (M0)
+## M0 questions (resolved 2026-11-02: all proposals accepted)
 
-Each has a proposal; confirm or redirect.
+Kept for the record; each proposal below is now the decision in its ADR.
 
 1. **Toolchain** (ADR-002): llvm-mingw 20261020 UCRT, 182 MiB download, ~0.45 s per TU and ~0.15 s link — or zig 0.17.0, 96 MiB but ~0.8 s per TU, ~0.5 s link and +31 s on the very first build? **Proposal: llvm-mingw.**
 2. **IPC serializer** (ADR-003): **Proposal: MessagePack-CSharp** (inspectable, tolerant evolution, active); MemoryPack's speed is irrelevant at ≤ 60 Hz.

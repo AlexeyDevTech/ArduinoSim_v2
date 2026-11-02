@@ -1,6 +1,6 @@
 # ADR-003: Process model and IPC
 
-- Status: Accepted (process model fixed by the brief, §3.2). Serializer choice **proposed**: MessagePack-CSharp.
+- Status: Accepted (process model fixed by the brief, §3.2; MessagePack-CSharp confirmed by the owner on 2026-11-02).
 - Date: 2026-11-02
 
 ## Context
@@ -30,7 +30,7 @@ A crash in the sketch kills only the Runner; Stop on a busy loop kills the proce
 - UI → Runner input events: `ButtonDown/Up`, `PotValue`, `SerialInput`, `PinOverride`. Applied at the next scheduling point and stamped with that virtual time.
 - Runner → UI: `Snapshot` at ≤ 60 Hz as deltas (pin levels and PWM duty, changed display framebuffers, component states, virtual time, pacing ratio) and events (`SerialOutput`, `Log`, `Warning` with component id, `CrashReport`, `BuildStats`, `FirmwareBusy`).
 
-### Serializer: MessagePack-CSharp (proposed)
+### Serializer: MessagePack-CSharp
 
 | | MessagePack-CSharp 3.1 | MemoryPack 1.21 |
 | --- | --- | --- |

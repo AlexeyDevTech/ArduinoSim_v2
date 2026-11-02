@@ -1,6 +1,6 @@
 # ADR-006: Protocol-level peripheral simulation
 
-- Status: Accepted (fixed by the brief, §3.5). SSD1306 scrolling scope and the LCD backpack modelling are **proposed** (brief §8).
+- Status: Accepted (fixed by the brief, §3.5; full SSD1306 scrolling and the single LCD component confirmed by the owner on 2026-11-02).
 - Date: 2026-11-02
 
 ## Decision
@@ -34,11 +34,11 @@ State machines in `ArduSim.Core`, unit-tested with recorded byte streams against
 
 Framebuffers leave Core as immutable snapshots with a version counter; the UI renders only changed ones (WriteableBitmap, nearest-neighbor scaling).
 
-### Proposed: full SSD1306 scrolling
+### Full SSD1306 scrolling
 
 Implement 0x26/0x27 (horizontal), 0x29/0x2A (vertical + horizontal), 0xA3 (vertical scroll area) and 0x2E/0x2F, not only basic horizontal scroll. The acceptance example `ssd1306_128x64_i2c` calls `startscrollright`, `startscrollleft`, `startscrolldiagright` and `startscrolldiagleft`, so the diagonal commands are needed for it to look right. Scroll steps are driven by the display's frame clock in virtual time (about 107 Hz with the reset oscillator and MUX 64, times the frame-interval setting).
 
-### Proposed: one LCD component with an "interface" property
+### One LCD component with an "interface" property
 
 One `LCD (HD44780)` component with `size` (16x2, 20x4) and `interface` (parallel 4-bit, parallel 8-bit, I2C backpack) properties; the palette offers presets such as "LCD 1602 I2C". Its pins change with the interface. Internally the I2C variant composes the PCF8574 and HD44780 models, so a standalone PCF8574 part is cheap to add later.
 

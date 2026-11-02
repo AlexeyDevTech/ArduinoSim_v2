@@ -13,7 +13,7 @@
 
 ## Toolchain (downloaded at first run, not redistributed in the repo)
 
-Pending confirmation of ADR-002: llvm-mingw 20261020 (UCRT, x86_64) by Martin Storsjö — LLVM (Apache-2.0 with LLVM exceptions), mingw-w64 (ZPL/public-domain headers and runtime, see its COPYING), libc++/libunwind (Apache-2.0 with LLVM exceptions).
+llvm-mingw 20261020 (UCRT, x86_64) by Martin Storsjö — LLVM (Apache-2.0 with LLVM exceptions), mingw-w64 (ZPL/public-domain headers and runtime, see its COPYING), libc++/libunwind (Apache-2.0 with LLVM exceptions).
 
 ## Vendored Arduino libraries
 
