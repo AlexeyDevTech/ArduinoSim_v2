@@ -58,13 +58,17 @@ typedef enum SimInterruptMode {
 } SimInterruptMode;
 
 /* Written by the firmware's vectored exception handler right before the
- * process dies; lives in memory shared with ArduSim.App so it survives. */
+ * process dies; lives in memory shared with ArduSim.App so it survives.
+ * The host provides at least 64 bytes here; fields are only appended. */
 typedef struct SimCrashInfo {
     uint32_t magic;             /* 0x48535253 'SRSH' once written */
-    uint32_t exception_code;    /* NTSTATUS, e.g. 0xC0000005 */
+    uint32_t exception_status;  /* NTSTATUS, e.g. 0xC0000005 (not "exception_code": a macro in <excpt.h>) */
     uint64_t exception_address;
     uint64_t firmware_base;     /* load address of firmware.dll, for RVA */
     uint64_t access_address;    /* faulting data address for access violations */
+    uint64_t return_address;    /* first return address into firmware.dll on the faulting stack, or 0 */
+    uint32_t access_kind;       /* access violations: 0 read, 1 write, 8 execute */
+    uint32_t reserved;
 } SimCrashInfo;
 
 typedef struct SimHostApi {

@@ -1,8 +1,13 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using ArduSim.Boards;
 using ArduSim.Core.Boards;
+using ArduSim.Core.Components;
 using ArduSim.Core.Diagnostics;
+using ArduSim.Core.Projects;
 using ArduSim.Core.Simulation;
 using ArduSim.Core.Timing;
+using ArduSim.Ipc;
 using ArduSim.Runner.Interop;
 
 namespace ArduSim.Runner;
@@ -15,50 +20,79 @@ internal enum StopReason
 }
 
 /// <summary>
-/// Hosts one simulation run on the calling thread: the engine, the MCU model, pacing, interrupt
-/// dispatch, and the firmware's setup/loop. One per process (ADR-003); the run ends by
-/// terminating the process.
+/// Hosts one simulation run on the calling thread: the engine, the board simulation (circuit,
+/// parts, MCU), pacing, interrupt dispatch, pause and step, and the firmware's setup/loop.
+/// Commands from other threads are queued and applied at scheduling points. One per process
+/// (ADR-003); a run ends through <see cref="Exit"/>, which by default terminates the process.
 /// </summary>
-internal sealed unsafe class SimulationHost
+internal sealed unsafe class SimulationHost : IDisposable
 {
     private static readonly TimeSpan BusyLimit = TimeSpan.FromSeconds(2);
 
     private readonly Stopwatch _wall = new();
+    private readonly CrashBlock _crash;
+    private readonly BlockingCollection<Action> _commands = new(new ConcurrentQueue<Action>());
     private FirmwareLibrary? _firmware;
     private long _progress;
     private volatile bool _stopRequested;
+    private volatile bool _waiting;
     private StopReason _stopReason;
+    private bool _paused;
+    private bool _pauseRequested;
+    private bool _pauseAfterLoop;
 
-    public SimulationHost(BoardProfile board, EepromMemory eeprom, int seed)
+    public SimulationHost(BoardProfile board, SceneDocument scene, EepromMemory eeprom, int seed, CrashBlock crash)
     {
+        _crash = crash;
         Engine = new SimulationEngine();
-        Mcu = new Mcu(board, Engine, eeprom, seed);
+        Simulation = BoardSimulation.Create(scene, board, ComponentRegistry.CreateDefault(BoardCatalog.All), Engine, eeprom, seed);
         Pacer = new Pacer(() => _wall.Elapsed, Thread.Sleep);
         Engine.SchedulingPoint = OnSchedulingPoint;
     }
 
     public SimulationEngine Engine { get; }
 
-    public Mcu Mcu { get; }
+    public BoardSimulation Simulation { get; }
+
+    public Mcu Mcu => Simulation.Mcu;
 
     public Pacer Pacer { get; }
 
     public TimeSpan WallTime => _wall.Elapsed;
 
-    /// <summary>Called once, right before the process ends normally.</summary>
+    public bool IsPaused => _paused;
+
+    public double VirtualMilliseconds => VirtualTime.ToMilliseconds(Engine.Clock.Now);
+
+    /// <summary>Called once, right before a normal end.</summary>
     public Action<StopReason>? Stopping { get; set; }
 
-    /// <summary>Called when the firmware made no host call for 2 s of wall time.</summary>
-    public Action? Busy { get; set; }
+    /// <summary>Called when the firmware made no host call for 2 s of wall time; return true to end the run.</summary>
+    public Func<bool>? Busy { get; set; }
 
     /// <summary>Called for unrecoverable errors: firmware <c>fatal()</c> or a bug in the host.</summary>
     public Action<string, int>? Failed { get; set; }
 
-    public Mcu Enter()
+    /// <summary>Called at every scheduling point after commands ran (snapshot publishing).</summary>
+    public Action? Tick { get; set; }
+
+    /// <summary>Called when the run pauses or resumes.</summary>
+    public Action? RunStateChanged { get; set; }
+
+    /// <summary>Ends the run; never returns. Default: terminate the process.</summary>
+    public Action<int> Exit { get; set; } = ProcessExit.Terminate;
+
+    public Mcu Enter(HostCall call, int a = 0, int b = 0)
     {
         _progress++;
-        return Mcu;
+        _crash.Record(call, a, b, Engine.Clock.Now);
+        return Simulation.Mcu;
     }
+
+    public void Dispose() => _commands.Dispose();
+
+    /// <summary>Queues work for the simulation thread (any thread may call this).</summary>
+    public void Post(Action command) => _commands.Add(command);
 
     public void StopAt(ulong virtualTime) => Engine.Clock.ScheduleAt(virtualTime, () => RequestStop(StopReason.TimeLimit));
 
@@ -66,21 +100,57 @@ internal sealed unsafe class SimulationHost
     {
         _stopReason = reason;
         _stopRequested = true;
+        Post(() => { });
     }
 
-    /// <summary>Loads the firmware and runs setup() and loop() until the run is stopped. Never returns.</summary>
-    public void Run(string firmwarePath)
+    public void Pause() => _pauseRequested = true;
+
+    public void Resume()
     {
-        SimHostApi* api = HostCallbacks.Create(this);
+        _pauseRequested = false;
+        _pauseAfterLoop = false;
+        _paused = false;
+    }
+
+    public void StepLoop()
+    {
+        _pauseAfterLoop = true;
+        _paused = false;
+    }
+
+    public void StepTime(ulong nanoseconds)
+    {
+        Engine.Clock.Schedule(nanoseconds, Pause);
+        _paused = false;
+    }
+
+    public void SetSpeed(double speed)
+    {
+        Pacer.Speed = speed;
+        Pacer.Reset(Engine.Clock.Now);
+    }
+
+    /// <summary>Loads the firmware and runs setup() and loop() until the run ends. Never returns.</summary>
+    public void Run(string firmwarePath, bool startPaused = false)
+    {
+        SimHostApi* api = HostCallbacks.Create(this, (SimCrashInfo*)_crash.Address);
         _firmware = FirmwareLibrary.Load(firmwarePath, api);
         _wall.Start();
         Pacer.Reset(Engine.Clock.Now);
         StartWatchdog();
+        _paused = startPaused;
+        OnSchedulingPoint();
 
         _firmware.Setup();
         while (true)
         {
             _firmware.Loop();
+            if (_pauseAfterLoop)
+            {
+                _pauseAfterLoop = false;
+                _pauseRequested = true;
+            }
+
             // Returning from loop() is a scheduling point; main()'s loop overhead costs a little time,
             // so a sketch with an empty loop() still lets virtual time pass.
             Engine.Finish(Mcu.Board.Timing.ShortCall);
@@ -105,16 +175,32 @@ internal sealed unsafe class SimulationHost
     private void Fail(string message, int exitCode)
     {
         Failed?.Invoke(message, exitCode);
-        ProcessExit.Terminate(exitCode);
+        Exit(exitCode);
     }
 
     private void OnSchedulingPoint()
     {
         _progress++;
+        while (_commands.TryTake(out Action? command))
+        {
+            command();
+        }
+
+        if (_pauseRequested)
+        {
+            _pauseRequested = false;
+            _paused = true;
+        }
+
+        if (_paused)
+        {
+            WaitWhilePaused();
+        }
+
         if (_stopRequested)
         {
             Stopping?.Invoke(_stopReason);
-            ProcessExit.Terminate(ProcessExit.Success);
+            Exit(ProcessExit.Success);
         }
 
         if (_firmware is not null && Mcu.Interrupts.TryBeginDispatch(out int interrupt))
@@ -130,6 +216,24 @@ internal sealed unsafe class SimulationHost
         }
 
         Pacer.Pace(Engine.Clock.Now);
+        Tick?.Invoke();
+    }
+
+    private void WaitWhilePaused()
+    {
+        RunStateChanged?.Invoke();
+        _wall.Stop();
+        _waiting = true;
+        while (_paused && !_stopRequested)
+        {
+            Tick?.Invoke();
+            _commands.Take()();
+        }
+
+        _waiting = false;
+        _wall.Start();
+        Pacer.Reset(Engine.Clock.Now);
+        RunStateChanged?.Invoke();
     }
 
     private void StartWatchdog()
@@ -137,20 +241,25 @@ internal sealed unsafe class SimulationHost
         var thread = new Thread(() =>
         {
             long last = -1;
+            bool reported = false;
             var idle = Stopwatch.StartNew();
             while (true)
             {
                 Thread.Sleep(250);
                 long now = Interlocked.Read(ref _progress);
-                if (now != last)
+                if (now != last || _waiting)
                 {
                     last = now;
+                    reported = false;
                     idle.Restart();
                 }
-                else if (idle.Elapsed >= BusyLimit)
+                else if (!reported && idle.Elapsed >= BusyLimit)
                 {
-                    Busy?.Invoke();
-                    ProcessExit.Terminate(ProcessExit.FirmwareBusy);
+                    reported = true;
+                    if (Busy?.Invoke() == true)
+                    {
+                        Exit(ProcessExit.FirmwareBusy);
+                    }
                 }
             }
         })
@@ -160,6 +269,4 @@ internal sealed unsafe class SimulationHost
         };
         thread.Start();
     }
-
-    public double VirtualMilliseconds => VirtualTime.ToMilliseconds(Engine.Clock.Now);
 }

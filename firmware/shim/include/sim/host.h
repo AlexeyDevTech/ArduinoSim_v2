@@ -15,6 +15,9 @@ extern const SimHostApi* g_host;
 const SimHostApi* resolve_host();
 bool is_compatible(const SimHostApi* api);
 
+/* Records fatal exceptions in firmware.dll (or in the C runtime it calls) into crash_info. */
+void install_crash_handler(SimCrashInfo* crash);
+
 inline const SimHostApi& host()
 {
     const SimHostApi* api = g_host;

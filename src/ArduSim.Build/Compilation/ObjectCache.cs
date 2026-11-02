@@ -70,11 +70,26 @@ public sealed class ObjectCache(string directory, string toolchainRoot)
 
         string obj = Path.Combine(entry, "unit.o");
         string deps = Path.Combine(entry, "deps.txt");
-        File.Move(compiledObject, obj, overwrite: true);
-        File.WriteAllText(deps + ".tmp", recorded.ToString());
-        File.Move(deps + ".tmp", deps, overwrite: true);
+        string depsTemp = compiledObject + ".deps";
+        File.WriteAllText(depsTemp, recorded.ToString());
+        // Another build (another Runner, a parallel test) may commit the same unit at the same moment
+        // or be linking it; its files come from identical inputs, so keeping them is correct.
+        Replace(compiledObject, obj);
+        Replace(depsTemp, deps);
         File.Delete(dependencyFile);
         return new CacheEntry(obj, Fingerprint(key, recorded.ToString()));
+    }
+
+    private static void Replace(string source, string target)
+    {
+        try
+        {
+            File.Move(source, target, overwrite: true);
+        }
+        catch (Exception e) when ((e is IOException or UnauthorizedAccessException) && File.Exists(target))
+        {
+            File.Delete(source);
+        }
     }
 
     private static string Fingerprint(string key, string recordedDependencies) => ComputeKey([key, recordedDependencies]);

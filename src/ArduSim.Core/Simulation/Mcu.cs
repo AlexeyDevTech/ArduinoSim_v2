@@ -1,5 +1,6 @@
 using System.Globalization;
 using ArduSim.Core.Boards;
+using ArduSim.Core.Circuits;
 using ArduSim.Core.Diagnostics;
 using ArduSim.Core.Timing;
 
@@ -41,26 +42,36 @@ public readonly record struct PinChange(ulong Time, int Pin, PinDrive Drive);
 /// <summary>
 /// The microcontroller as the firmware sees it through the host API: pins, PWM, tone, ADC,
 /// UARTs, EEPROM and external interrupts, each call charging its cost from the board's timing
-/// table. Until nets arrive (M2), nothing outside the MCU drives a pin: an input without its
-/// pull-up floats and reads noise, with a one-time warning.
+/// table. Pins drive their nets in the <see cref="Circuit"/> (outputs strongly, INPUT_PULLUP
+/// through ~35 kΩ) and read back the resolved net, so buttons, pull-ups and shorts behave as wired.
 /// </summary>
 public sealed class Mcu
 {
     private const int AnalogReferenceDefault = 1;
+    private const int AnalogReferenceInternal = 3;
+    private const int AnalogReferenceExternal = 0;
+    private const double InternalPullUp = 35_000;
+    private const double InternalReference = 1.1;
 
     private readonly SimulationEngine _engine;
     private readonly TimingTable _timing;
+    private readonly Circuit _circuit;
+    private readonly string _boardId;
     private readonly PinState?[] _pins;
     private readonly Random _noise;
     private ulong _eepromReadyAt;
 
-    public Mcu(BoardProfile board, SimulationEngine engine, EepromMemory eeprom, int seed)
+    /// <summary>Registers the MCU's pin drivers; build <paramref name="circuit"/> afterwards.</summary>
+    public Mcu(BoardProfile board, SimulationEngine engine, EepromMemory eeprom, int seed, Circuit circuit, string boardId)
     {
         ArgumentNullException.ThrowIfNull(board);
         ArgumentNullException.ThrowIfNull(engine);
+        ArgumentNullException.ThrowIfNull(circuit);
         Board = board;
         _engine = engine;
         _timing = board.Timing;
+        _circuit = circuit;
+        _boardId = boardId;
         Eeprom = eeprom;
 #pragma warning disable CA5394 // a simulation needs a reproducible generator, not a secure one
         _noise = new Random(seed);
@@ -68,7 +79,10 @@ public sealed class Mcu
         _pins = new PinState?[board.Pins.Max(p => p.Number) + 1];
         foreach (BoardPin pin in board.Pins)
         {
-            _pins[pin.Number] = new PinState(pin);
+            var reference = new PinRef(boardId, pin.Name);
+            var state = new PinState(pin, reference, circuit.AddDriver(reference, boardId));
+            _pins[pin.Number] = state;
+            circuit.Watch(reference, () => OnNetChanged(state));
         }
 
         Uarts = Enumerable.Range(0, board.SerialPorts).Select(i => new UartPort(i, engine)).ToList();
@@ -120,6 +134,12 @@ public sealed class Mcu
         {
             state.PortBit = level != 0;
             state.PwmDuty = 0;
+            if (state.Mode == Simulation.PinMode.InputPullup || state.Mode == Simulation.PinMode.Input)
+            {
+                // On AVR, writing an input switches its pull-up.
+                state.Mode = state.PortBit ? Simulation.PinMode.InputPullup : Simulation.PinMode.Input;
+            }
+
             Update(state);
         }
 
@@ -143,8 +163,17 @@ public sealed class Mcu
         }
         else
         {
-            Log.ReportOnce($"floating-analog-{pin}", SimSeverity.Warning, "floating-input", $"{state.Info.Name} is not connected; analogRead returns noise.");
-            value = _noise.Next(Board.AdcMax + 1);
+            NetState net = _circuit.StateOf(state.Reference);
+            if (net.HasVoltage)
+            {
+                double reference = ReferenceVoltage();
+                value = (int)Math.Clamp(Math.Round(net.AverageVoltage / reference * Board.AdcMax), 0, Board.AdcMax);
+            }
+            else
+            {
+                ReportFloating(state, "analogRead returns noise");
+                value = _noise.Next(Board.AdcMax + 1);
+            }
         }
 
         _engine.Finish(_timing.AnalogRead);
@@ -353,24 +382,84 @@ public sealed class Mcu
 
     private int ReadLevel(PinState state)
     {
-        bool? level = Level(state);
-        if (level is { } known)
+        NetState net = _circuit.StateOf(state.Reference);
+        if (Level(net) is { } known)
         {
             return known ? 1 : 0;
         }
 
-        Log.ReportOnce($"floating-{state.Info.Number}", SimSeverity.Warning, "floating-input", $"{state.Info.Name} is floating: it is an input with no pull-up and nothing connected, so it reads random values.");
+        if (net.Condition == NetCondition.Floating)
+        {
+            ReportFloating(state, "it reads random values");
+        }
+        else if (net.Condition != NetCondition.Conflict)
+        {
+            Log.ReportOnce(
+                $"undefined-{state.Info.Number}",
+                SimSeverity.Warning,
+                "undefined-level",
+                string.Create(CultureInfo.InvariantCulture, $"{state.Info.Name} is at {net.Voltage:0.0#} V, between the LOW ({Board.InputLowVoltage:0.#} V) and HIGH ({Board.InputHighVoltage:0.#} V) thresholds, so it reads random values."),
+                PointAt(state));
+        }
+
         return _noise.Next(2);
     }
 
-    private bool? Level(int pin) => Find(pin) is { } state ? Level(state) : null;
+    private void ReportFloating(PinState state, string consequence) =>
+        Log.ReportOnce(
+            $"floating-{state.Info.Number}",
+            SimSeverity.Warning,
+            "floating-input",
+            $"{state.Info.Name} is floating: nothing drives or pulls its net ({_circuit.NetOf(state.Reference).Name}), so {consequence}.",
+            PointAt(state));
 
-    private static bool? Level(PinState state) => state.Mode switch
+    // Warnings point at the part wired to the pin, or at the board when nothing is.
+    private string PointAt(PinState state) =>
+        _circuit.NetOf(state.Reference).Pins.Select(p => p.Component).FirstOrDefault(c => c != _boardId) ?? _boardId;
+
+    private bool? Level(int pin) => Find(pin) is { } state ? Level(_circuit.StateOf(state.Reference)) : null;
+
+    private bool? Level(NetState net)
     {
-        Simulation.PinMode.Output => state.ToneHz > 0 ? null : state.PwmDuty > 0 ? state.PwmDuty >= 128 : state.PortBit,
-        Simulation.PinMode.InputPullup => true,
-        _ => null,
-    };
+        if (!net.HasVoltage)
+        {
+            return null;
+        }
+
+        double voltage = net.Duty < 1 ? (net.Duty >= 0.5 ? net.Voltage : 0) : net.Voltage;
+        return voltage >= Board.InputHighVoltage ? true : voltage <= Board.InputLowVoltage ? false : null;
+    }
+
+    private double ReferenceVoltage()
+    {
+        if (AnalogReference == AnalogReferenceInternal)
+        {
+            return InternalReference;
+        }
+
+        if (AnalogReference == AnalogReferenceExternal)
+        {
+            NetState aref = _circuit.Contains(new PinRef(_boardId, "AREF")) ? _circuit.StateOf(new PinRef(_boardId, "AREF")) : default;
+            if (aref.HasVoltage && aref.Voltage > 0)
+            {
+                return aref.Voltage;
+            }
+
+            Log.ReportOnce("aref", SimSeverity.Warning, "floating-input", "analogReference(EXTERNAL) is set but AREF is not connected; using Vcc.", _boardId);
+        }
+
+        return Board.LogicVoltage;
+    }
+
+    private void OnNetChanged(PinState state)
+    {
+        bool? level = Level(_circuit.StateOf(state.Reference));
+        if (level != state.LastLevel)
+        {
+            Interrupts.OnLevelChanged(state.Info.Number, state.LastLevel, level);
+            state.LastLevel = level;
+        }
+    }
 
     private void StopTone(PinState state)
     {
@@ -383,20 +472,21 @@ public sealed class Mcu
 
     private void Update(PinState state)
     {
-        PinDrive drive = state.Mode != Simulation.PinMode.Output ? new PinDrive(DriveKind.None, 0)
-            : state.ToneHz > 0 ? new PinDrive(DriveKind.Tone, state.ToneHz)
-            : state.PwmDuty > 0 ? new PinDrive(DriveKind.Pwm, state.PwmDuty)
-            : new PinDrive(state.PortBit ? DriveKind.High : DriveKind.Low, 0);
-        bool? level = Level(state);
-        if (level != state.LastLevel)
+        double vcc = Board.LogicVoltage;
+        (PinDrive drive, NetDrive net) = state.Mode switch
         {
-            Interrupts.OnLevelChanged(state.Info.Number, state.LastLevel, level);
-            state.LastLevel = level;
-        }
+            Simulation.PinMode.InputPullup => (new PinDrive(DriveKind.None, 0), NetDrive.Weak(vcc, InternalPullUp)),
+            Simulation.PinMode.Input => (new PinDrive(DriveKind.None, 0), NetDrive.None),
+            _ when state.ToneHz > 0 => (new PinDrive(DriveKind.Tone, state.ToneHz), NetDrive.Strong(vcc, 0.5, state.ToneHz)),
+            _ when state.PwmDuty > 0 => (new PinDrive(DriveKind.Pwm, state.PwmDuty), NetDrive.Strong(vcc, state.PwmDuty / 255.0)),
+            _ => (new PinDrive(state.PortBit ? DriveKind.High : DriveKind.Low, 0), NetDrive.Strong(state.PortBit ? vcc : 0)),
+        };
 
-        if (drive != state.Drive)
+        bool changed = drive != state.Drive;
+        state.Drive = drive;
+        state.Driver.Set(net);
+        if (changed)
         {
-            state.Drive = drive;
             PinChanged?.Invoke(new PinChange(Now, state.Info.Number, drive));
         }
     }
@@ -439,9 +529,13 @@ public sealed class Mcu
         return wrapped;
     }
 
-    private sealed class PinState(BoardPin info)
+    private sealed class PinState(BoardPin info, PinRef reference, Driver driver)
     {
         public BoardPin Info { get; } = info;
+
+        public PinRef Reference { get; } = reference;
+
+        public Driver Driver { get; } = driver;
 
         public PinMode Mode { get; set; } = Simulation.PinMode.Input;
 

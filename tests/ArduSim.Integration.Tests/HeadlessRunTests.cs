@@ -24,6 +24,51 @@ public sealed class HeadlessRunTests(ToolchainFixture toolchain)
     }
 
     [Fact]
+    public async Task Blink_lights_the_external_led_and_the_onboard_L()
+    {
+        string project = RunnerProcess.CopyProject("examples/Blink");
+
+        RunResult result = await RunnerProcess.RunProjectAsync(project, "--run-for", "1500");
+
+        Assert.True(result.ExitCode == 0, result.ToString());
+        Assert.Contains(result.Timeline, e => e.Text == "led1 brightness=1");
+        Assert.Contains(result.Timeline, e => e.Text == "board L=1");
+        Assert.Contains(result.Timeline, e => e.Text == "led1 brightness=0" && e.Milliseconds > 999);
+    }
+
+    [Fact]
+    public async Task Button_example_toggles_the_led_on_each_press()
+    {
+        string project = RunnerProcess.CopyProject("examples/Button");
+
+        RunResult result = await RunnerProcess.RunProjectAsync(
+            project, "--run-for", "2000",
+            "--input", "500:btn1:pressed=1", "--input", "600:btn1:pressed=0",
+            "--input", "1500:btn1:pressed=1", "--input", "1600:btn1:pressed=0");
+
+        Assert.True(result.ExitCode == 0, result.ToString());
+        TimelineEvent on = result.Timeline.Single(e => e.Text == "led1 brightness=1");
+        TimelineEvent off = result.Timeline.Single(e => e.Text == "led1 brightness=0" && e.Milliseconds > 1000);
+        Assert.InRange(on.Milliseconds, 520, 530);   // 20 ms debounce after the press at 500 ms
+        Assert.InRange(off.Milliseconds, 1520, 1530);
+        Assert.Equal(["Press the button to toggle the LED.", "LED on", "LED off"], result.SerialLines);
+        Assert.DoesNotContain("floating", result.Stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Floating_input_example_warns_once_and_reads_high_while_pressed()
+    {
+        string project = RunnerProcess.CopyProject("examples/FloatingInput");
+
+        RunResult result = await RunnerProcess.RunProjectAsync(project, "--run-for", "1200", "--input", "700:btn1:pressed=1");
+
+        Assert.True(result.ExitCode == 0, result.ToString());
+        TimelineEvent warning = Assert.Single(result.Timeline, e => e.Text.StartsWith("warning: D2 is floating", StringComparison.Ordinal));
+        Assert.Contains("board.D2, btn1.1", warning.Text, StringComparison.Ordinal);
+        Assert.Equal("1", result.SerialLines.Last());
+    }
+
+    [Fact]
     public async Task Serial_output_is_paced_at_the_baud_rate()
     {
         string project = RunnerProcess.CopyProject("tests/ArduSim.Integration.Tests/Projects/SerialTiming");
@@ -77,7 +122,7 @@ public sealed class HeadlessRunTests(ToolchainFixture toolchain)
 
         RunResult result = await RunnerProcess.RunProjectAsync(project, "--run-for", "1000");
 
-        Assert.Equal(3, result.ExitCode);
+        Assert.Equal(4, result.ExitCode);
         Assert.Contains("busy for 2 s without calling the Arduino API", result.Stderr, StringComparison.Ordinal);
     }
 

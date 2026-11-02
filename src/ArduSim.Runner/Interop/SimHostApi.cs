@@ -71,4 +71,7 @@ internal struct SimCrashInfo
     public ulong ExceptionAddress;
     public ulong FirmwareBase;
     public ulong AccessAddress;
+    public ulong ReturnAddress;
+    public uint AccessKind;
+    public uint Reserved;
 }

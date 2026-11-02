@@ -1,4 +1,6 @@
-// Locates the simulator's SimHostApi. The only shim file that includes <windows.h>.
+// Locates the simulator's SimHostApi and records crashes. The only shim file that includes <windows.h>.
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0A00 // Windows 10: GetCurrentThreadStackLimits
 #include "sim/host.h"
 
 #include <stdio.h>
@@ -38,6 +40,105 @@ const SimHostApi* resolve_host()
 
     g_host = api;
     return api;
+}
+
+namespace {
+
+constexpr uint32_t CrashMagic = 0x48535253;
+
+SimCrashInfo* g_crash = nullptr;
+uintptr_t g_firmware_begin = 0;
+uintptr_t g_firmware_end = 0;
+
+bool in_firmware(uintptr_t address) { return address >= g_firmware_begin && address < g_firmware_end; }
+
+bool is_fatal(DWORD code)
+{
+    switch (code) {
+    case EXCEPTION_ACCESS_VIOLATION:
+    case EXCEPTION_INT_DIVIDE_BY_ZERO:
+    case EXCEPTION_INT_OVERFLOW:
+    case EXCEPTION_STACK_OVERFLOW:
+    case EXCEPTION_ILLEGAL_INSTRUCTION:
+    case EXCEPTION_PRIV_INSTRUCTION:
+    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+    case EXCEPTION_DATATYPE_MISALIGNMENT:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// The C runtime the sketch calls into (strcpy on a null pointer faults inside ucrtbase).
+bool in_c_runtime(uintptr_t address)
+{
+    HMODULE module = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            reinterpret_cast<LPCWSTR>(address), &module)) {
+        return false;  // JIT-compiled managed code has no module: not ours
+    }
+    return module == GetModuleHandleW(L"ucrtbase.dll") || module == GetModuleHandleW(L"msvcrt.dll");
+}
+
+// Scans the faulting stack for the first return address into firmware.dll, so a crash inside the
+// C runtime still points at the sketch line that called it.
+uint64_t find_firmware_return(const CONTEXT* context)
+{
+    ULONG_PTR low = 0;
+    ULONG_PTR high = 0;
+    GetCurrentThreadStackLimits(&low, &high);
+    const uint64_t* slot = reinterpret_cast<const uint64_t*>(context->Rsp);
+    for (int i = 0; i < 2048 && reinterpret_cast<ULONG_PTR>(slot + 1) <= high; i++, slot++) {
+        if (in_firmware(static_cast<uintptr_t>(*slot))) {
+            return *slot;
+        }
+    }
+    return 0;
+}
+
+LONG CALLBACK on_exception(EXCEPTION_POINTERS* info)
+{
+    const EXCEPTION_RECORD* record = info->ExceptionRecord;
+    if (g_crash == nullptr || g_crash->magic == CrashMagic || !is_fatal(record->ExceptionCode)) {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
+
+    uintptr_t address = reinterpret_cast<uintptr_t>(record->ExceptionAddress);
+    bool overflow = record->ExceptionCode == EXCEPTION_STACK_OVERFLOW;  // almost no stack left: do the minimum
+    if (!in_firmware(address) && (overflow || !in_c_runtime(address))) {
+        return EXCEPTION_CONTINUE_SEARCH;  // the .NET runtime handles its own faults
+    }
+
+    g_crash->exception_status = record->ExceptionCode;
+    g_crash->exception_address = address;
+    if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && record->NumberParameters >= 2) {
+        g_crash->access_kind = static_cast<uint32_t>(record->ExceptionInformation[0]);
+        g_crash->access_address = record->ExceptionInformation[1];
+    }
+    g_crash->return_address = overflow ? 0 : find_firmware_return(info->ContextRecord);
+    MemoryBarrier();
+    g_crash->magic = CrashMagic;
+    return EXCEPTION_CONTINUE_SEARCH;  // let the process die; ArduSim.App reads the record
+}
+
+}  // namespace
+
+void install_crash_handler(SimCrashInfo* crash)
+{
+    if (crash == nullptr || g_crash != nullptr) {
+        return;
+    }
+
+    HMODULE self = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       reinterpret_cast<LPCWSTR>(&on_exception), &self);
+    const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(self);
+    const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(reinterpret_cast<const char*>(self) + dos->e_lfanew);
+    g_firmware_begin = reinterpret_cast<uintptr_t>(self);
+    g_firmware_end = g_firmware_begin + nt->OptionalHeader.SizeOfImage;
+    crash->firmware_base = g_firmware_begin;
+    g_crash = crash;
+    AddVectoredExceptionHandler(1, on_exception);
 }
 
 }  // namespace sim

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using ArduSim.Ipc;
 
 namespace ArduSim.Runner.Interop;
 
@@ -11,7 +12,7 @@ internal static unsafe class HostCallbacks
 {
     private static SimulationHost _host = null!;
 
-    public static SimHostApi* Create(SimulationHost host)
+    public static SimHostApi* Create(SimulationHost host, SimCrashInfo* crashInfo)
     {
         _host = host;
         var api = (SimHostApi*)NativeMemory.AllocZeroed((nuint)sizeof(SimHostApi));
@@ -54,140 +55,140 @@ internal static unsafe class HostCallbacks
         api->SetInterruptsEnabled = &SetInterruptsEnabled;
         api->Log = &Log;
         api->Fatal = &Fatal;
-        api->CrashInfo = (SimCrashInfo*)NativeMemory.AllocZeroed((nuint)sizeof(SimCrashInfo));
+        api->CrashInfo = crashInfo;
         return api;
     }
 
     [UnmanagedCallersOnly]
     private static void PinMode(int pin, int mode)
     {
-        try { _host.Enter().PinMode(pin, mode); }
+        try { _host.Enter(HostCall.PinMode, pin, mode).PinMode(pin, mode); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static void DigitalWrite(int pin, int level)
     {
-        try { _host.Enter().DigitalWrite(pin, level); }
+        try { _host.Enter(HostCall.DigitalWrite, pin, level).DigitalWrite(pin, level); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static int DigitalRead(int pin)
     {
-        try { return _host.Enter().DigitalRead(pin); }
+        try { return _host.Enter(HostCall.DigitalRead, pin).DigitalRead(pin); }
         catch (Exception e) { _host.InternalError(e); return 0; }
     }
 
     [UnmanagedCallersOnly]
     private static int AnalogRead(int pin)
     {
-        try { return _host.Enter().AnalogRead(pin); }
+        try { return _host.Enter(HostCall.AnalogRead, pin).AnalogRead(pin); }
         catch (Exception e) { _host.InternalError(e); return 0; }
     }
 
     [UnmanagedCallersOnly]
     private static void AnalogWrite(int pin, int value)
     {
-        try { _host.Enter().AnalogWrite(pin, value); }
+        try { _host.Enter(HostCall.AnalogWrite, pin, value).AnalogWrite(pin, value); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static void AnalogReference(int mode)
     {
-        try { _host.Enter().AnalogReferenceMode(mode); }
+        try { _host.Enter(HostCall.AnalogReference, mode).AnalogReferenceMode(mode); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static void Tone(int pin, uint frequency, uint durationMs)
     {
-        try { _host.Enter().Tone(pin, frequency, durationMs); }
+        try { _host.Enter(HostCall.Tone, pin, (int)frequency).Tone(pin, frequency, durationMs); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static void NoTone(int pin)
     {
-        try { _host.Enter().NoTone(pin); }
+        try { _host.Enter(HostCall.NoTone, pin).NoTone(pin); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static ulong NowUs()
     {
-        try { return _host.Enter().NowMicros(); }
+        try { return _host.Enter(HostCall.Micros).NowMicros(); }
         catch (Exception e) { _host.InternalError(e); return 0; }
     }
 
     [UnmanagedCallersOnly]
     private static void DelayUs(uint us)
     {
-        try { _host.Enter().DelayMicros(us); }
+        try { _host.Enter(HostCall.DelayMicroseconds, (int)us).DelayMicros(us); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static void Yield()
     {
-        try { _host.Enter().Yield(); }
+        try { _host.Enter(HostCall.Yield).Yield(); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static void SerialBegin(int port, uint baud, uint config)
     {
-        try { _host.Enter().SerialBegin(port, baud, config); }
+        try { _host.Enter(HostCall.SerialBegin, port, (int)baud).SerialBegin(port, baud, config); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static void SerialEnd(int port)
     {
-        try { _host.Enter().SerialEnd(port); }
+        try { _host.Enter(HostCall.SerialEnd, port).SerialEnd(port); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static int SerialWrite(int port, byte* data, int length)
     {
-        try { return _host.Enter().SerialWrite(port, new ReadOnlySpan<byte>(data, Math.Max(length, 0))); }
+        try { return _host.Enter(HostCall.SerialWrite, port, length).SerialWrite(port, new ReadOnlySpan<byte>(data, Math.Max(length, 0))); }
         catch (Exception e) { _host.InternalError(e); return 0; }
     }
 
     [UnmanagedCallersOnly]
     private static int SerialRead(int port)
     {
-        try { return _host.Enter().SerialRead(port); }
+        try { return _host.Enter(HostCall.SerialRead, port).SerialRead(port); }
         catch (Exception e) { _host.InternalError(e); return -1; }
     }
 
     [UnmanagedCallersOnly]
     private static int SerialPeek(int port)
     {
-        try { return _host.Enter().SerialPeek(port); }
+        try { return _host.Enter(HostCall.SerialPeek, port).SerialPeek(port); }
         catch (Exception e) { _host.InternalError(e); return -1; }
     }
 
     [UnmanagedCallersOnly]
     private static int SerialAvailable(int port)
     {
-        try { return _host.Enter().SerialAvailable(port); }
+        try { return _host.Enter(HostCall.SerialAvailable, port).SerialAvailable(port); }
         catch (Exception e) { _host.InternalError(e); return 0; }
     }
 
     [UnmanagedCallersOnly]
     private static int SerialAvailableForWrite(int port)
     {
-        try { return _host.Enter().SerialAvailableForWrite(port); }
+        try { return _host.Enter(HostCall.SerialAvailableForWrite, port).SerialAvailableForWrite(port); }
         catch (Exception e) { _host.InternalError(e); return 0; }
     }
 
     [UnmanagedCallersOnly]
     private static void SerialFlush(int port)
     {
-        try { _host.Enter().SerialFlush(port); }
+        try { _host.Enter(HostCall.SerialFlush, port).SerialFlush(port); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
@@ -244,35 +245,35 @@ internal static unsafe class HostCallbacks
     [UnmanagedCallersOnly]
     private static byte EepromRead(int address)
     {
-        try { return _host.Enter().EepromRead(address); }
+        try { return _host.Enter(HostCall.EepromRead, address).EepromRead(address); }
         catch (Exception e) { _host.InternalError(e); return 0xFF; }
     }
 
     [UnmanagedCallersOnly]
     private static void EepromWrite(int address, byte value)
     {
-        try { _host.Enter().EepromWrite(address, value); }
+        try { _host.Enter(HostCall.EepromWrite, address, value).EepromWrite(address, value); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static void AttachInterrupt(int number, int mode)
     {
-        try { _host.Enter().AttachInterrupt(number, mode); }
+        try { _host.Enter(HostCall.AttachInterrupt, number, mode).AttachInterrupt(number, mode); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static void DetachInterrupt(int number)
     {
-        try { _host.Enter().DetachInterrupt(number); }
+        try { _host.Enter(HostCall.DetachInterrupt, number).DetachInterrupt(number); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]
     private static void SetInterruptsEnabled(int enabled)
     {
-        try { _host.Enter().SetInterruptsEnabled(enabled != 0); }
+        try { _host.Enter(HostCall.SetInterruptsEnabled, enabled).SetInterruptsEnabled(enabled != 0); }
         catch (Exception e) { _host.InternalError(e); }
     }
 
@@ -292,7 +293,7 @@ internal static unsafe class HostCallbacks
 
     private static void NotSimulated(string bus)
     {
-        try { _host.Enter().BusNotSimulated(bus); }
+        try { _host.Enter(bus == "SPI" ? HostCall.Spi : HostCall.I2c).BusNotSimulated(bus); }
         catch (Exception e) { _host.InternalError(e); }
     }
 }

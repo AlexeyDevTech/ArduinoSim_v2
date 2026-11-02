@@ -12,7 +12,7 @@ internal static partial class ProcessExit
     public const int Success = 0;
     public const int BuildFailed = 1;
     public const int FirmwareError = 2;
-    public const int FirmwareBusy = 3;
+    public const int FirmwareBusy = 4; // 3 is what abort() returns
     public const int Usage = 64;
     public const int ToolchainUnavailable = 69;
     public const int InternalError = 70;

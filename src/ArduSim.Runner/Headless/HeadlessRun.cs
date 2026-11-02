@@ -6,10 +6,12 @@ using ArduSim.Build;
 using ArduSim.Build.Compilation;
 using ArduSim.Build.Toolchains;
 using ArduSim.Core.Boards;
+using ArduSim.Core.Components;
 using ArduSim.Core.Diagnostics;
 using ArduSim.Core.Projects;
 using ArduSim.Core.Simulation;
 using ArduSim.Core.Timing;
+using ArduSim.Ipc;
 using ArduSim.Runner.Interop;
 
 namespace ArduSim.Runner.Headless;
@@ -71,12 +73,24 @@ internal static class HeadlessRun
             $"build: {stats.Units} units, {stats.Units - stats.CacheHits} compiled, {stats.CacheHits} cached, {(stats.Linked ? "linked" : "up to date")} in {stats.Elapsed.TotalSeconds:F2} s"));
 
         using EepromMemory eeprom = EepromMemory.FileBacked(Path.Combine(options.ProjectDirectory, ProjectFile.EepromFileName), board.EepromSize);
-        var host = new SimulationHost(board, eeprom, options.Seed);
+        using CrashBlock crash = CrashBlock.CreatePrivate();
+        var host = new SimulationHost(board, project.Scene, eeprom, options.Seed, crash);
         host.Pacer.Speed = options.Speed;
         Attach(host, options, output);
         if (options.RunForMilliseconds is double ms)
         {
             host.StopAt((ulong)(ms * VirtualTime.Millisecond));
+        }
+
+        foreach (ScheduledInput input in options.Inputs)
+        {
+            if (host.Simulation.FindComponent(input.Component) is not { } component)
+            {
+                Console.Error.WriteLine($"--input: the scene has no part '{input.Component}'.");
+                return ProcessExit.Usage;
+            }
+
+            host.Engine.Clock.ScheduleAt((ulong)(input.Milliseconds * VirtualTime.Millisecond), () => component.ApplyInput(input.Name, input.Value));
         }
 
         Console.CancelKeyPress += (_, e) =>
@@ -163,6 +177,26 @@ internal static class HeadlessRun
         if (options.TracePins)
         {
             host.Mcu.PinChanged += change => output.WriteLine($"{Stamp()} {board.PinName(change.Pin)} {change.Drive}");
+            foreach (SimComponent component in host.Simulation.Components)
+            {
+                var shown = new Dictionary<string, double>(component.State, StringComparer.Ordinal);
+                component.StateChanged += c =>
+                {
+                    string changes = string.Join(" ", c.State
+                        .Where(kv => !shown.TryGetValue(kv.Key, out double old) || !old.Equals(kv.Value))
+                        .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+                        .Select(kv => string.Create(CultureInfo.InvariantCulture, $"{kv.Key}={kv.Value:0.###}")));
+                    foreach ((string key, double value) in c.State)
+                    {
+                        shown[key] = value;
+                    }
+
+                    if (changes.Length > 0)
+                    {
+                        output.WriteLine($"{Stamp()} {c.Id} {changes}");
+                    }
+                };
+            }
         }
 
         FileStream? dump = options.DumpSerial is null ? null : new FileStream(options.DumpSerial, FileMode.Create, FileAccess.Write, FileShare.Read);
@@ -199,7 +233,11 @@ internal static class HeadlessRun
             output.WriteLine(string.Create(CultureInfo.InvariantCulture,
                 $"stopped ({why}) at {host.VirtualMilliseconds:F3} ms virtual after {wall:F2} s wall"));
         };
-        host.Busy = () => Console.Error.WriteLine($"{Stamp()} error: the firmware has been busy for 2 s without calling the Arduino API (an endless loop?); the run was stopped.");
+        host.Busy = () =>
+        {
+            Console.Error.WriteLine($"{Stamp()} error: the firmware has been busy for 2 s without calling the Arduino API (an endless loop?); the run was stopped.");
+            return true;
+        };
         host.Failed = (message, _) => Console.Error.WriteLine($"{Stamp()} error: {message}");
         ProcessExit.OnExit(() =>
         {

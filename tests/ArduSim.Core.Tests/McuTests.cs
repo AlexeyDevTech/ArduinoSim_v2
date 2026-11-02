@@ -1,6 +1,7 @@
 using System.Text;
 using ArduSim.Boards;
 using ArduSim.Core.Diagnostics;
+using ArduSim.Core.Projects;
 using ArduSim.Core.Simulation;
 using ArduSim.Core.Timing;
 
@@ -15,7 +16,7 @@ public sealed class McuTests : IDisposable
 
     public McuTests()
     {
-        _mcu = new Mcu(Nano.Profile, _engine, _eeprom, seed: 1);
+        _mcu = Scenes.Create(new SceneDocument(), _engine, _eeprom).Mcu;
         _mcu.PinChanged += _changes.Add;
     }
 
@@ -195,7 +196,7 @@ public sealed class McuTests : IDisposable
     public void Same_seed_gives_the_same_noise()
     {
         using var otherEeprom = EepromMemory.InMemory(1024);
-        var other = new Mcu(Nano.Profile, new SimulationEngine(), otherEeprom, seed: 1);
+        Mcu other = Scenes.Create(new SceneDocument(), new SimulationEngine(), otherEeprom).Mcu;
 
         int[] a = Enumerable.Range(0, 5).Select(_ => _mcu.AnalogRead(14)).ToArray();
         int[] b = Enumerable.Range(0, 5).Select(_ => other.AnalogRead(14)).ToArray();

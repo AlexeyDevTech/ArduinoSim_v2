@@ -1,8 +1,11 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using ArduSim.Boards;
 using ArduSim.Build;
+using ArduSim.Build.Compilation;
 using ArduSim.Build.Toolchains;
+using ArduSim.Core.Projects;
 
 [assembly: AssemblyFixture(typeof(ArduSim.Integration.Tests.ToolchainFixture))]
 
@@ -64,6 +67,25 @@ public static class RunnerProcess
         }
 
         return target;
+    }
+
+    public static string RunnerPath => Path.Combine(AppContext.BaseDirectory, "ArduSim.Runner.exe");
+
+    /// <summary>Builds a project's firmware the way the app does (no Runner involved).</summary>
+    public static async Task<string> BuildFirmwareAsync(Toolchain toolchain, string projectDirectory)
+    {
+        ProjectFile project = ProjectFile.Load(projectDirectory);
+        var builder = new FirmwareBuilder(toolchain, new ObjectCache(ArduSimPaths.Default.ObjectCache, toolchain.Root), ShimLayout.Bundled);
+        BuildResult result = await builder.BuildAsync(
+            new FirmwareBuildRequest(
+                project.SketchDirectory(projectDirectory),
+                Path.Combine(projectDirectory, ".build"),
+                Nano.Profile.Variant,
+                Nano.Profile.Defines,
+                [Path.Combine(ArduSimPaths.BundledContentRoot, "libraries")]),
+            TestContext.Current.CancellationToken);
+        Assert.True(result.Succeeded, result.Output);
+        return result.FirmwarePath!;
     }
 
     /// <summary>Builds and runs a project headlessly with its build output inside the project copy.</summary>

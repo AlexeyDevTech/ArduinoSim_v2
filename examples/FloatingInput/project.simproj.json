@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 100, "y": 300, "rotation": 0, "flip": false },
+      { "id": "btn1", "type": "pushbutton", "x": 190, "y": 160, "rotation": 0, "flip": false, "properties": { "color": "blue", "key": "Space" } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "btn1", "pin": "1" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [[200, 260], [220, 260]], "color": "auto" },
+      { "id": "w2", "from": { "component": "btn1", "pin": "2" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[240, 250], [290, 250], [290, 420], [230, 420]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

@@ -19,6 +19,7 @@ SIM_FW_EXPORT int32_t sim_fw_init(const SimHostApi* host)
         return 1;
     }
     sim::g_host = host;
+    sim::install_crash_handler(host->crash_info);
     return 0;
 }
 

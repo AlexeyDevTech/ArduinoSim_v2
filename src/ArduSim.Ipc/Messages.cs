@@ -1,0 +1,100 @@
+using MessagePack;
+
+namespace ArduSim.Ipc;
+
+/// <summary>Protocol constants (ADR-003). Bump <see cref="Version"/> on any incompatible change.</summary>
+public static class IpcProtocol
+{
+    public const int Version = 1;
+    public const int MaxFrameBytes = 16 << 20;
+}
+
+/// <summary>Every message on the pipe, in both directions. Union keys are part of the protocol.</summary>
+[Union(0, typeof(Hello))]
+[Union(1, typeof(Snapshot))]
+[Union(2, typeof(FirmwareBusy))]
+[Union(10, typeof(PauseRun))]
+[Union(11, typeof(ResumeRun))]
+[Union(12, typeof(StepRun))]
+[Union(13, typeof(SetSpeed))]
+[Union(14, typeof(ComponentInput))]
+[Union(15, typeof(SerialInput))]
+[Union(16, typeof(StopRun))]
+public abstract record IpcMessage;
+
+/// <summary>First message each way.</summary>
+[MessagePackObject]
+public sealed record Hello([property: Key(0)] int ProtocolVersion, [property: Key(1)] string ProductVersion) : IpcMessage;
+
+public enum RunState : byte
+{
+    Running,
+    Paused,
+}
+
+/// <param name="Kind">A <c>DriveKind</c> of the MCU model: 0 input, 1 LOW, 2 HIGH, 3 PWM, 4 tone.</param>
+[MessagePackObject]
+public sealed record PinUpdate([property: Key(0)] int Pin, [property: Key(1)] byte Kind, [property: Key(2)] int Value);
+
+[MessagePackObject]
+public sealed record ComponentUpdate([property: Key(0)] string Id, [property: Key(1)] IReadOnlyDictionary<string, double> State);
+
+/// <param name="Severity">0 info, 1 warning, 2 error.</param>
+[MessagePackObject]
+public sealed record LogEntry(
+    [property: Key(0)] ulong TimeNs,
+    [property: Key(1)] byte Severity,
+    [property: Key(2)] string Code,
+    [property: Key(3)] string Message,
+    [property: Key(4)] string? ComponentId);
+
+/// <summary>
+/// Runner → UI, at most 60 per second: what changed since the previous snapshot. The first
+/// snapshot of a run carries every pin and component.
+/// </summary>
+/// <param name="WallSeconds">Wall time since the run started, for the speed readout.</param>
+[MessagePackObject]
+public sealed record Snapshot(
+    [property: Key(0)] ulong TimeNs,
+    [property: Key(1)] double WallSeconds,
+    [property: Key(2)] RunState State,
+    [property: Key(3)] IReadOnlyList<PinUpdate> Pins,
+    [property: Key(4)] IReadOnlyList<ComponentUpdate> Components,
+    [property: Key(5)] byte[] Serial,
+    [property: Key(6)] IReadOnlyList<LogEntry> Logs) : IpcMessage;
+
+/// <summary>Runner → UI: no Arduino API call for 2 s of wall time; the UI offers Stop.</summary>
+[MessagePackObject]
+public sealed record FirmwareBusy([property: Key(0)] ulong TimeNs) : IpcMessage;
+
+[MessagePackObject]
+public sealed record PauseRun : IpcMessage;
+
+[MessagePackObject]
+public sealed record ResumeRun : IpcMessage;
+
+public enum StepKind : byte
+{
+    /// <summary>Run until the next return from loop().</summary>
+    Loop,
+
+    /// <summary>Run <see cref="StepRun.Nanoseconds"/> of virtual time.</summary>
+    Time,
+}
+
+[MessagePackObject]
+public sealed record StepRun([property: Key(0)] StepKind Kind, [property: Key(1)] ulong Nanoseconds) : IpcMessage;
+
+/// <param name="Speed">Pacing factor; <see cref="double.PositiveInfinity"/> means as fast as possible.</param>
+[MessagePackObject]
+public sealed record SetSpeed([property: Key(0)] double Speed) : IpcMessage;
+
+/// <summary>UI → Runner: a press, a knob turn, a switch flip (applied at the next scheduling point).</summary>
+[MessagePackObject]
+public sealed record ComponentInput([property: Key(0)] string Component, [property: Key(1)] string Name, [property: Key(2)] double Value) : IpcMessage;
+
+[MessagePackObject]
+public sealed record SerialInput([property: Key(0)] int Port, [property: Key(1)] byte[] Data) : IpcMessage;
+
+[MessagePackObject]
+public sealed record StopRun : IpcMessage;
