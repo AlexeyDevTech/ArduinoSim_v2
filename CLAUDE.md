@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-ArduSim: a Windows desktop simulator for Arduino sketches (C#/.NET 10, WPF). The full specification is the owner's brief; architecture is in `docs/ARCHITECTURE.md`, decisions in `docs/adr/` and `docs/DECISIONS.md`, the milestone plan in `docs/PLAN.md`.
+ArduSim: a Windows desktop simulator for Arduino sketches (C#/.NET 10, WPF). The full specification is the owner's brief, `docs/BRIEF.md` (copy of 2026-11-02; a newer brief from the owner replaces it). Architecture is in `docs/ARCHITECTURE.md`, decisions in `docs/adr/` and `docs/DECISIONS.md`, the milestone plan in `docs/PLAN.md`.
 
 ## Working agreement
 
@@ -38,7 +38,7 @@ libraries/             vendored Arduino libraries; libraries/compat/ per-library
 examples/              example projects, each built and run by the integration tests
 tests/                 ArduSim.Core.Tests, ArduSim.Build.Tests, ArduSim.Integration.Tests
 tools/                 dev-only: toolchain-eval (ADR-002), nano-timing-bench (ADR-005 calibration)
-docs/                  ARCHITECTURE, PLAN, DECISIONS, CHANGELOG, adr/ (UI.md before M3)
+docs/                  BRIEF (spec), ARCHITECTURE, PLAN, DECISIONS, CHANGELOG, adr/ (UI.md before M3)
 ```
 
 ## Conventions

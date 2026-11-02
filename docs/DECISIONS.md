@@ -19,3 +19,4 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-02 — The shim never exposes `<windows.h>` to sketch translation units.
 - 2026-11-02 — Dev-only scripts live in `tools/` (toolchain evaluation, Nano timing bench); they are not part of the build or tests.
 - 2026-11-02 — Git: `main` branch, conventional commits.
+- 2026-11-02 — The brief is kept in the repo as `docs/BRIEF.md` so a clean clone carries its own specification.
