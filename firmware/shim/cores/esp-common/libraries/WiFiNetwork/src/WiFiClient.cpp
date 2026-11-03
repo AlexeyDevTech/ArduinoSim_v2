@@ -2,16 +2,18 @@
 #include "WiFiClient.h"
 
 #include <sim/host.h>
-
-#include "WiFi.h"
+#include <sim/network_wait.h>
 
 using sim::host;
 
 namespace {
 
+constexpr int32_t Connected = 3;  // wl_status_t WL_CONNECTED
+constexpr int32_t SoftApAddress = 4;
+
 bool network_ready()
 {
-    if (WiFi.status() == WL_CONNECTED || static_cast<uint32_t>(WiFi.softAPIP()) != 0) {
+    if (host().wifi_status() == Connected || host().wifi_address(SoftApAddress) != 0) {
         return true;
     }
     static bool warned = false;
@@ -113,7 +115,7 @@ int WiFiClient::available()
     int count = host().net_available(shared_->handle) + (shared_->peeked >= 0 ? 1 : 0);
     if (count == 0) {
         // Waiting for data: other tasks get their turn, as they would on two cores.
-        sim_task_switch_point();
+        sim::network_wait();
     }
     return count;
 }
@@ -131,7 +133,7 @@ bool WiFiClient::fill()
         shared_->peeked = byte;
         return true;
     }
-    sim_task_switch_point();
+    sim::network_wait();
     return false;
 }
 
@@ -195,4 +197,4 @@ uint16_t WiFiClient::remotePort()
     return shared_ != nullptr && host().net_remote(shared_->handle, &ip, &port) == 1 ? port : 0;
 }
 
-IPAddress WiFiClient::localIP() { return WiFi.localIP(); }
+IPAddress WiFiClient::localIP() { return IPAddress(host().wifi_address(0)); }

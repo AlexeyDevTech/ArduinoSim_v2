@@ -54,6 +54,25 @@ bool TwoWire::setClock(uint32_t clock)
     return true;
 }
 #else
+#if defined(ARDUINO_ARCH_ESP8266)
+void TwoWire::begin() { begin(sda_, scl_); }
+
+void TwoWire::begin(int sda, int scl)
+{
+    rxIndex_ = 0;
+    rxLength_ = 0;
+    txLength_ = 0;
+    sda_ = sda;
+    scl_ = scl;
+    host().i2c_begin(bus_, sda, scl);
+}
+
+void TwoWire::begin(int sda, int scl, uint8_t)
+{
+    sim::log_warning("Wire.begin(sda, scl, address): I2C slave mode is not simulated; the board stays a master.");
+    begin(sda, scl);
+}
+#else
 void TwoWire::begin()
 {
     rxIndex_ = 0;
@@ -61,6 +80,7 @@ void TwoWire::begin()
     txLength_ = 0;
     host().i2c_begin(bus_, SIM_PIN_DEFAULT, SIM_PIN_DEFAULT);
 }
+#endif
 
 void TwoWire::end() { host().i2c_end(bus_); }
 
@@ -181,8 +201,8 @@ size_t TwoWire::write(uint8_t value)
     if (txLength_ >= BUFFER_LENGTH) {
         if (!overflowReported_) {
             overflowReported_ = true;
-            #if defined(ARDUINO_ARCH_ESP32)
-            sim::log_warning("Wire: more than 128 bytes in one transmission; as on the ESP32 core the extra bytes are dropped.");
+            #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+            sim::log_warning("Wire: more than 128 bytes in one transmission; as on the ESP cores the extra bytes are dropped.");
 #else
             sim::log_warning("Wire: more than 32 bytes in one transmission; as on the AVR the extra bytes are dropped.");
 #endif

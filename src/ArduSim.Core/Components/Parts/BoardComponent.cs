@@ -69,7 +69,10 @@ public sealed class BoardComponent : SimComponent
         if (BuiltinLedPin is { } led)
         {
             NetState state = Net(led);
-            SetState("L", state.HasVoltage && state.Voltage >= 2.0 ? Math.Min(state.Duty, 1) : 0);
+            double high = state.HasVoltage && state.Voltage >= 2.0 ? Math.Min(state.Duty, 1) : 0;
+
+            // The ESP-12 modules' LED sits between 3.3 V and GPIO 2: it lights while the pin is LOW.
+            SetState("L", !_board.BuiltinLedActiveLow ? high : state.HasVoltage ? 1 - high : 0);
         }
     }
 

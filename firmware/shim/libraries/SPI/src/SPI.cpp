@@ -5,6 +5,7 @@
 
 using sim::host;
 
+#if defined(SIM_SPI_ESP)
 #if defined(ARDUINO_ARCH_ESP32)
 SPIClass SPI(VSPI);
 
@@ -18,6 +19,27 @@ void SPIClass::begin(int8_t sck, int8_t miso, int8_t mosi, int8_t ss)
     }
     apply();
 }
+#else
+SPIClass SPI;
+
+void SPIClass::begin()
+{
+    ss_ = SS;
+    host().spi_begin(bus_, SIM_PIN_DEFAULT, SIM_PIN_DEFAULT, SIM_PIN_DEFAULT, SIM_PIN_DEFAULT);
+    if (hwCs_) {
+        pinMode(SS, OUTPUT);
+        digitalWrite(SS, HIGH);
+    }
+    apply();
+}
+
+// Only the core's overlap mode moves the pins; the simulated bus keeps its hardware pins.
+bool SPIClass::pins(int8_t, int8_t, int8_t, int8_t)
+{
+    sim::log_warning("SPI.pins(): the overlap mode on the flash pins is not simulated; SPI stays on GPIO 12-15.");
+    return false;
+}
+#endif
 
 void SPIClass::setFrequency(uint32_t freq)
 {
@@ -106,7 +128,7 @@ void SPIClass::beginTransaction(SPISettings settings)
     bitOrder_ = settings.bitOrder_;
     dataMode_ = settings.dataMode_;
     apply();
-#if defined(ARDUINO_ARCH_ESP32)
+#if defined(SIM_SPI_ESP)
     if (hwCs_ && ss_ >= 0) {
         digitalWrite(static_cast<uint8_t>(ss_), LOW);
     }
@@ -115,7 +137,7 @@ void SPIClass::beginTransaction(SPISettings settings)
 
 void SPIClass::endTransaction(void)
 {
-#if defined(ARDUINO_ARCH_ESP32)
+#if defined(SIM_SPI_ESP)
     if (hwCs_ && ss_ >= 0) {
         digitalWrite(static_cast<uint8_t>(ss_), HIGH);
     }
@@ -156,6 +178,8 @@ void SPIClass::attachInterrupt() { sim::log_warning("SPI.attachInterrupt(): SPI 
 
 #if defined(ARDUINO_ARCH_ESP32)
 void SPIClass::apply() { host().spi_settings(bus_, clock_, bitOrder_, dataMode_ & 3); }
+#elif defined(ARDUINO_ARCH_ESP8266)
+void SPIClass::apply() { host().spi_settings(bus_, clock_, bitOrder_, ((dataMode_ >> 4) << 1) | (dataMode_ & 1)); }
 #else
 void SPIClass::apply() { host().spi_settings(bus_, clock_, bitOrder_, (dataMode_ & SPI_MODE_MASK) >> 2); }
 #endif

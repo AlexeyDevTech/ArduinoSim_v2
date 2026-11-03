@@ -1,5 +1,15 @@
 # Changelog
 
+## M7 — ESP8266: NodeMCU v3 and Wemos D1 mini (2026-11-03)
+
+- Boards NodeMCU v3 and Wemos D1 mini (ESP-12E/F, 80 MHz, 3.3 V): D0–D8, A0, RX, TX with GPIO numbers; GPIO 16 has a pull-down and no pull-up or interrupt; A0 reads 0–3.3 V as 0–1023 and any other pin reads 0 or 1023, as the core does; the module's blue LED on GPIO 2 lights while the pin is LOW; board drawings with a Wi-Fi indicator.
+- ESP8266 core (Arduino core 3.x API): software PWM on any pin with `analogWriteRange`/`analogWriteFreq`/`analogWriteResolution`, `Serial` and TX-only `Serial1`, `Wire.begin(sda, scl)` on any pins, SPI on GPIO 12–15, `ESP.*` (getResetReason, getChipId, getVcc, restart, deepSleep), `EEPROM.begin/commit`, `RANDOM_REG32`.
+- `ESP8266WiFi`, `ESP8266WiFiMulti`, event handlers (`onStationModeGotIP`, …) that run between `loop()` calls and only while the sketch keeps the handler, `ESP8266HTTPClient`, `BearSSL::WiFiClientSecure` with `setTrustAnchors`; the networking classes and EEPROM are shared with the ESP32 through `firmware/shim/cores/esp-common`.
+- A warning when `loop()` runs 3.2 s without returning, `delay()` or `yield()`: a real ESP8266's software watchdog would reset the board.
+- Firmware ABI 2.1: the reset reason and timer deep sleep. ESP32: `esp_reset_reason()`, `esp_sleep_enable_timer_wakeup()` with `esp_deep_sleep_start()`, the wake-up cause, and `IRAM_ATTR`/`RTC_DATA_ATTR` (the latter do not survive a restart).
+- `libraries/compat` now works: a file there replaces the vendored source with the same path at build time. First use: U8g2's ESP8266 font read cut 64-bit pointers.
+- Examples Esp8266Blink, Esp8266Fade, Esp8266WiFi, Esp8266Eeprom, Esp8266Oled; tests include an HTTP POST from the ESP8266 to a server the test runs, and the ESP8266 core is checked warning-free under `-Werror`.
+
 ## M6 — ESP32 DevKit v1 (2026-11-03)
 
 - Firmware ABI 2.0 (ADR-009): numbered I2C and SPI buses on chosen pins, UART pins, `INPUT_PULLDOWN` and `OUTPUT_OPEN_DRAIN`, PWM with a frequency and resolution, the DAC, a key-value store, restart, and the Wi-Fi and network calls. The Nano behaves exactly as before.

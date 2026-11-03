@@ -10,7 +10,7 @@ namespace ArduSim.Runner.Interop;
 internal unsafe struct SimHostApi
 {
     public const uint AbiMajor = 2;
-    public const uint AbiMinor = 0;
+    public const uint AbiMinor = 1;
     public const uint AbiVersion = (AbiMajor << 16) | AbiMinor;
 
     public uint StructSize;
@@ -95,6 +95,9 @@ internal unsafe struct SimHostApi
     public delegate* unmanaged<ushort, int> UdpOpen;
     public delegate* unmanaged<int, byte*, ushort, byte*, int, int> UdpSend;
     public delegate* unmanaged<int, byte*, int, uint*, ushort*, int> UdpReceive;
+
+    public delegate* unmanaged<int> ResetReason;
+    public delegate* unmanaged<ulong, void> DeepSleep;
 }
 
 [StructLayout(LayoutKind.Sequential)]

@@ -23,19 +23,24 @@ public sealed record ShimLayout(string Root)
 
     /// <summary>A board family's own part of the shim (<c>cores/avr</c>, <c>cores/esp32</c>): headers, sources, libraries.</summary>
     public string CoreDirectory(string core) => Path.Combine(Root, "cores", core);
+
+    /// <summary><c>libraries/compat</c> next to <c>firmware</c>: per-library replacement sources (libraries/compat/README.md).</summary>
+    public string CompatDirectory => Path.GetFullPath(Path.Combine(Root, "..", "..", "libraries", "compat"));
 }
 
 /// <param name="Variant">Folder under <c>firmware/shim/variants</c> with the board's <c>pins_arduino.h</c>.</param>
 /// <param name="Defines">Board macros (<c>NAME</c> or <c>NAME=value</c>).</param>
 /// <param name="LibraryRoots">Library folders after the shim's own: project paths, Documents\Arduino\libraries, bundled.</param>
 /// <param name="Core">Folder under <c>firmware/shim/cores</c> for the board family.</param>
+/// <param name="CoreBase">A second folder under <c>cores</c> with code the family shares (searched after <paramref name="Core"/>), or null.</param>
 public sealed record FirmwareBuildRequest(
     string SketchDirectory,
     string OutputDirectory,
     string Variant,
     IReadOnlyList<string> Defines,
     IReadOnlyList<string> LibraryRoots,
-    string Core = "avr");
+    string Core = "avr",
+    string? CoreBase = null);
 
 public sealed record BuildStatistics(int Units, int CacheHits, bool Linked, TimeSpan Elapsed);
 
@@ -61,6 +66,15 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
 
     public const string FirmwareFileName = "firmware.dll";
 
+    // A file at libraries/compat/<library folder>/<same relative path> replaces the vendored source
+    // (the vendored file stays untouched); the original folder stays on the include path.
+    private CompileUnit LibraryUnit(ArduinoLibrary library, string source, string[] includes)
+    {
+        string compat = Path.Combine(shim.CompatDirectory, Path.GetFileName(library.Directory), Path.GetRelativePath(library.Directory, source));
+        return File.Exists(compat)
+            ? new CompileUnit(compat, [], [Path.GetDirectoryName(source)!, .. includes], Quiet: true)
+            : new CompileUnit(source, [], includes, Quiet: true);
+    }
     public async Task<BuildResult> BuildAsync(FirmwareBuildRequest request, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -81,9 +95,9 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
         string generated = Path.Combine(request.OutputDirectory, "sketch", sketch.Name + ".ino.cpp");
         WriteIfChanged(generated, preprocessed.Code);
 
-        string core = shim.CoreDirectory(request.Core);
-        string[] coreIncludes = [shim.IncludeDirectory, Path.Combine(core, "include"), shim.VariantDirectory(request.Variant)];
-        var resolver = new LibraryResolver([Path.Combine(core, "libraries"), shim.LibrariesDirectory, .. request.LibraryRoots], coreIncludes);
+        string[] cores = [shim.CoreDirectory(request.Core), .. request.CoreBase is { } shared ? [shim.CoreDirectory(shared)] : Array.Empty<string>()];
+        string[] coreIncludes = [shim.IncludeDirectory, .. cores.Select(c => Path.Combine(c, "include")).Where(Directory.Exists), shim.VariantDirectory(request.Variant)];
+        var resolver = new LibraryResolver([.. cores.Select(c => Path.Combine(c, "libraries")).Where(Directory.Exists), shim.LibrariesDirectory, .. request.LibraryRoots], coreIncludes);
         IEnumerable<string> sketchHeaders = Directory.EnumerateFiles(sketch.Directory, "*.h");
         LibraryResolution resolution = resolver.Resolve([.. sketch.InoFiles, .. sketch.SourceFiles, .. sketchHeaders]);
         string[] libraryIncludes = [.. coreIncludes, .. resolution.Libraries.SelectMany(l => l.IncludeDirectories)];
@@ -93,10 +107,10 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
         // reports the sketch's own warnings, not third-party ones.
         var units = new List<CompileUnit> { new(generated, libraryIncludes, [sketch.Directory], Quiet: false) };
         units.AddRange(sketch.SourceFiles.Select(s => new CompileUnit(s, libraryIncludes, [sketch.Directory], Quiet: false)));
-        units.AddRange(new[] { shim.SourceDirectory, Path.Combine(core, "src") }
+        units.AddRange(new[] { shim.SourceDirectory }.Concat(cores.Select(c => Path.Combine(c, "src"))).Where(Directory.Exists)
             .SelectMany(d => Directory.EnumerateFiles(d).Where(IsSource).Order(StringComparer.Ordinal))
             .Select(s => new CompileUnit(s, [], coreIncludes, Quiet: false)));
-        units.AddRange(resolution.Libraries.SelectMany(l => l.SourceFiles()).Select(s => new CompileUnit(s, [], libraryIncludes, Quiet: true)));
+        units.AddRange(resolution.Libraries.SelectMany(l => l.SourceFiles().Select(s => LibraryUnit(l, s, libraryIncludes))));
 
         var hashes = new FileHashes();
         var outputs = new ConcurrentDictionary<int, string>();

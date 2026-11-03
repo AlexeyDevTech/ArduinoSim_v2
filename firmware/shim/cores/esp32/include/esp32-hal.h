@@ -71,6 +71,39 @@ uint32_t esp_get_minimum_free_heap_size(void);
 void delayMicroseconds(unsigned int us);
 unsigned long micros(void);
 
+/* ---- Reset reason and deep sleep (timer wake-up only) ---- */
+typedef enum {
+    ESP_RST_UNKNOWN,
+    ESP_RST_POWERON,
+    ESP_RST_EXT,
+    ESP_RST_SW,
+    ESP_RST_PANIC,
+    ESP_RST_INT_WDT,
+    ESP_RST_TASK_WDT,
+    ESP_RST_WDT,
+    ESP_RST_DEEPSLEEP,
+    ESP_RST_BROWNOUT,
+    ESP_RST_SDIO
+} esp_reset_reason_t;
+
+typedef enum {
+    ESP_SLEEP_WAKEUP_UNDEFINED,
+    ESP_SLEEP_WAKEUP_ALL,
+    ESP_SLEEP_WAKEUP_EXT0,
+    ESP_SLEEP_WAKEUP_EXT1,
+    ESP_SLEEP_WAKEUP_TIMER,
+    ESP_SLEEP_WAKEUP_TOUCHPAD,
+    ESP_SLEEP_WAKEUP_ULP
+} esp_sleep_wakeup_cause_t;
+
+esp_reset_reason_t esp_reset_reason(void);
+esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause(void);
+int esp_sleep_enable_timer_wakeup(uint64_t time_in_us);
+void esp_deep_sleep_start(void) __attribute__((noreturn));
+void esp_deep_sleep(uint64_t time_in_us) __attribute__((noreturn));
+int esp_sleep_enable_ext0_wakeup(int gpio_num, int level) SIM_ESP_UNAVAILABLE("deep-sleep wake-up from a pin (use the timer)");
+int esp_sleep_enable_touchpad_wakeup(void) SIM_ESP_UNAVAILABLE("deep-sleep wake-up from touch (use the timer)");
+
 /* ---- Not simulated: fail at compile time ---- */
 typedef struct hw_timer_s hw_timer_t;
 hw_timer_t* timerBegin(uint32_t frequency) SIM_ESP_UNAVAILABLE("ESP32 hardware timers (timerBegin); use millis() or a FreeRTOS task");

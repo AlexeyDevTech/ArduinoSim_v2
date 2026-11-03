@@ -74,6 +74,7 @@ public static class Esp32DevKit
         PullResistance: 45_000)
     {
         Core = "esp32",
+        CoreBase = "esp-common",
         SpiAnyDivider = true,
         HasWifi = true,
         InputHighFraction = 0.75,

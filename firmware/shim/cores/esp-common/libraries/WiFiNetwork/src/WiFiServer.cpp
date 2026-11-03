@@ -2,6 +2,7 @@
 #include "WiFiServer.h"
 
 #include <sim/host.h>
+#include <sim/network_wait.h>
 
 using sim::host;
 
@@ -22,7 +23,7 @@ bool WiFiServer::hasClient()
         waiting_ = host().net_accept(listener_);
     }
     if (waiting_ == 0) {
-        sim_task_switch_point();
+        sim::network_wait();
     }
     return waiting_ != 0;
 }

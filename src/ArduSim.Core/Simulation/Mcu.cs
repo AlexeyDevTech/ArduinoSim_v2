@@ -17,6 +17,14 @@ public enum PinMode
     OutputOpenDrain = 4,
 }
 
+/// <summary>Values of <c>SimResetReason</c> in sim_abi.h.</summary>
+public enum BootReason
+{
+    PowerOn = 0,
+    Software = 1,
+    DeepSleep = 2,
+}
+
 public enum DriveKind
 {
     /// <summary>The pin is an input and drives nothing.</summary>
@@ -120,6 +128,9 @@ public sealed class Mcu
 
     /// <summary>The simulated Wi-Fi radio of ESP boards; null on boards without one.</summary>
     public WifiRadio? Wifi { get; set; }
+
+    /// <summary>Why the board last booted (the ESP cores' reset reason).</summary>
+    public BootReason ResetReason { get; private set; } = BootReason.PowerOn;
 
     /// <summary>Virtual time of the last boot; millis() and micros() count from here.</summary>
     public ulong BootTime { get; private set; }
@@ -351,7 +362,17 @@ public sealed class Mcu
         _engine.Finish(0);
     }
 
-    public void Yield() => _engine.Finish(0);
+    public void Yield()
+    {
+        LastYield = Now;
+        _engine.Finish(0);
+    }
+
+    /// <summary>Virtual time the firmware last gave the system its turn (yield, delay, the end of loop()); the ESP8266 watchdog counts from it.</summary>
+    public ulong LastYield { get; private set; }
+
+    /// <summary>loop() returned: as on the ESP8266 core, that feeds the software watchdog.</summary>
+    public void LoopReturned() => LastYield = Now;
 
     public void SerialBegin(int port, uint baud, uint config) => SerialBegin(port, baud, config, -1, -1);
 
@@ -775,8 +796,9 @@ public sealed class Mcu
     /// A reboot (ESP.restart): every pin back to an input, PWM, tones, DAC, UARTs, buses and interrupts
     /// off, millis() from 0. External parts keep their state, as on a real board.
     /// </summary>
-    public void Reset()
+    public void Reset(BootReason reason = BootReason.Software)
     {
+        ResetReason = reason;
         foreach (PinState state in _pins.OfType<PinState>())
         {
             state.ToneEnd?.Cancel();
@@ -902,7 +924,7 @@ public sealed class Mcu
         {
             Simulation.PinMode.Output or Simulation.PinMode.OutputOpenDrain when state.Info.Has(PinCapabilities.InputOnly) =>
                 ("output", $"pinMode({name}): {name} is input-only on {board}; it stays an input."),
-            Simulation.PinMode.InputPullup when state.Info.Has(PinCapabilities.InputOnly) =>
+            Simulation.PinMode.InputPullup when state.Info.Has(PinCapabilities.InputOnly) || state.Info.Has(PinCapabilities.NoPullUp) =>
                 ("pullup", $"pinMode({name}): {name} has no internal pull-up on {board}; it stays an input."),
             Simulation.PinMode.InputPulldown when !state.Info.Has(PinCapabilities.PullDown) =>
                 ("pulldown", $"pinMode({name}): {name} has no internal pull-down on {board}; it stays an input."),

@@ -52,4 +52,14 @@ void sim_interrupts_disable(void);
 
 typedef unsigned int word;
 
+/* Placement attributes of ESP-IDF: everything is ordinary memory here. RTC_DATA_ATTR variables
+ * do not survive deep sleep or a restart (the firmware is loaded afresh), unlike on the chip. */
+#define IRAM_ATTR
+#define DRAM_ATTR
+#define ICACHE_RAM_ATTR
+#define RTC_DATA_ATTR
+#define RTC_NOINIT_ATTR
+#define RTC_RODATA_ATTR
+#define WORD_ALIGNED_ATTR __attribute__((aligned(4)))
+
 #endif /* Core_defs_h */

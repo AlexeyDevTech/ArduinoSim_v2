@@ -2,11 +2,11 @@
 
 A Windows desktop simulator for Arduino sketches. It compiles your `.ino` with a bundled portable C++ compiler — no Arduino IDE or arduino-cli — runs it against a virtual board, and shows the result on a schematic with real wires and live displays (HD44780 LCDs, SSD1306/SH1106 OLEDs).
 
-**Status: M6 — ESP32 DevKit v1** (after the M5 MVP). Every acceptance item of `docs/BRIEF.md` §7 is checked on the development machine; the pass on a clean Windows VM is still open. See `docs/PLAN.md`.
+**Status: M7 — ESP8266** (after the M5 MVP and the ESP32 in M6). Every acceptance item of `docs/BRIEF.md` §7 is checked on the development machine; the pass on a clean Windows VM is still open. See `docs/PLAN.md`.
 
 ## What it does
 
-- **Boards**: Arduino Nano and ESP32 DevKit v1 (FreeRTOS tasks, LEDC PWM, DAC, Preferences, ESP.restart, a simulated Wi-Fi radio with the computer's real network behind it). The board picker in the toolbar switches a project's board.
+- **Boards**: Arduino Nano, ESP32 DevKit v1 (FreeRTOS tasks, LEDC PWM, DAC, Preferences) and the ESP8266 boards NodeMCU v3 and Wemos D1 mini (software PWM, EEPROM in flash); both ESP families have ESP.restart, deep sleep and a simulated Wi-Fi radio with the computer's real network behind it. The board picker in the toolbar switches a project's board.
 - **Schematic editor**: LEDs, RGB LED, buttons, slide switch, potentiometer, resistors, buzzer, LCD 1602/2004 (I2C or parallel), OLED SSD1306 (128x64, 128x32, 64x48, 96x16) and SH1106 (I2C or SPI). Pin-to-pin wires with orthogonal routing, undo/redo, copy/paste.
 - **Code**: tabs with C++ highlighting, build errors on the line, reload when the file changes in another editor (VS Code and the like).
 - **Run**: Build/Run/Pause/Stop, single steps, speed 0.1×–10× or as fast as possible. Buttons, switches and pots stay live during a run.
@@ -62,6 +62,7 @@ ArduSim simulates the Arduino API, not the AVR CPU. The app lists the same limit
 - LCDs use the A00 character ROM and the 5x8 font (5x10 mode draws as 5x8).
 - `sprintf` formats `%f` (avr-libc prints `?`), `round()` returns a `double`, and `sizeof(int)` is 4, which changes the byte layout `EEPROM.put` writes for `int` fields.
 - Sleep modes and the watchdog are not simulated: `sleep_cpu()` returns immediately and `wdt_enable()` never resets the board (each logs a warning).
+- ESP8266: the software watchdog (3.2 s without yield) only warns; Serial.swap(), Ticker and RTC user memory are not simulated.
 - ESP32: FreeRTOS tasks are cooperative (a task gives up the CPU only in delays and waits; the core number is ignored); the Wi-Fi radio is simulated and connections use the computer's real network, holding the run at 1× while open; free heap and flash sizes are fixed numbers; hardware timers, touch and the temperature sensor fail to compile.
 
 ## Licenses

@@ -198,6 +198,110 @@
       </DataTrigger>
     </DataTemplate.Triggers>
   </DataTemplate>
+  <!-- NodeMCU v3: USB on the left, the ESP-12E module with its antenna on the right (pins from Esp8266Boards.cs). -->
+  <DataTemplate x:Key="Part.board.nodemcu-v3" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="240" Height="120">
+      <Rectangle Width="240" Height="120" RadiusX="3" RadiusY="3" Fill="#FF1E2025" Stroke="#FF101216" />
+      <Rectangle Canvas.Left="-10" Canvas.Top="49" Width="22" Height="22" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
+      <Rectangle Canvas.Left="40" Canvas.Top="42" Width="36" Height="36" Fill="#FF2B2F36" />
+      <TextBlock Canvas.Left="44" Canvas.Top="57" FontSize="4.5" Foreground="#FF8A93A6" Text="CH340G" />
+      <Rectangle Canvas.Left="120" Canvas.Top="24" Width="112" Height="72" RadiusX="2" RadiusY="2" Fill="#FF1D4E8F" />
+      <Rectangle Canvas.Left="124" Canvas.Top="30" Width="74" Height="60" RadiusX="2" RadiusY="2" Fill="#FFA8AEB8" Stroke="#FF7D838E" />
+      <Path Canvas.Left="204" Canvas.Top="32" Stroke="#FFD9B45A" StrokeThickness="1.6" Data="M0,0 L0,48 L6,48 L6,6 L12,6 L12,48 L18,48 L18,6 L24,6 L24,54" />
+      <TextBlock Canvas.Left="133" Canvas.Top="52" FontSize="8" FontWeight="SemiBold" Foreground="#FF2B2F36" Text="ESP-12E" />
+      <TextBlock Canvas.Left="84" Canvas.Top="54" FontSize="6" Foreground="#FFD8E2F4" Text="NodeMCU v3" />
+      <Ellipse Canvas.Left="192.5" Canvas.Top="79.5" Width="20" Height="20" Opacity="{Binding OnboardLed}">
+        <Ellipse.Fill>
+          <RadialGradientBrush>
+            <GradientStop Color="#C03E8BFF" Offset="0" />
+            <GradientStop Color="#003E8BFF" Offset="1" />
+          </RadialGradientBrush>
+        </Ellipse.Fill>
+      </Ellipse>      <Rectangle Canvas.Left="200" Canvas.Top="88" Width="5" Height="3" Fill="#FF3E8BFF" Opacity="{Binding OnboardLed}" />
+      <Ellipse x:Name="WifiDot" Canvas.Left="210" Canvas.Top="87" Width="6" Height="6" Fill="#FF5A606E" />
+      <ItemsControl ItemsSource="{Binding Pins}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:PinViewModel}">
+            <Canvas>
+              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+            </Canvas>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>    </Canvas>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding WifiState}" Value="1">
+        <Setter TargetName="WifiDot" Property="Fill" Value="#FFF2C94C" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding WifiState}" Value="2">
+        <Setter TargetName="WifiDot" Property="Fill" Value="#FF3AE06A" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding WifiState}" Value="3">
+        <Setter TargetName="WifiDot" Property="Fill" Value="#FF3E8BFF" />
+      </DataTrigger>
+    </DataTemplate.Triggers>  </DataTemplate>
+
+  <!-- Wemos D1 mini: USB on the left, the ESP-12F module on the right (pins from Esp8266Boards.cs). -->
+  <DataTemplate x:Key="Part.board.wemos-d1-mini" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="140" Height="100">
+      <Rectangle Width="140" Height="100" RadiusX="3" RadiusY="3" Fill="#FF1E5C9E" Stroke="#FF143F78" />
+      <Rectangle Canvas.Left="-10" Canvas.Top="39" Width="20" Height="22" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
+      <Rectangle Canvas.Left="52" Canvas.Top="20" Width="84" Height="60" RadiusX="2" RadiusY="2" Fill="#FFA8AEB8" Stroke="#FF7D838E" />
+      <Path Canvas.Left="112" Canvas.Top="24" Stroke="#FFD9B45A" StrokeThickness="1.4" Data="M0,0 L0,40 L5,40 L5,5 L10,5 L10,40 L15,40 L15,5 L20,5 L20,46" />
+      <TextBlock Canvas.Left="58" Canvas.Top="44" FontSize="7" FontWeight="SemiBold" Foreground="#FF2B2F36" Text="ESP-12F" />
+      <TextBlock Canvas.Left="16" Canvas.Top="45" FontSize="5.5" Foreground="#FFD8E2F4" Text="D1 mini" />
+      <Ellipse Canvas.Left="90.5" Canvas.Top="63.5" Width="20" Height="20" Opacity="{Binding OnboardLed}">
+        <Ellipse.Fill>
+          <RadialGradientBrush>
+            <GradientStop Color="#C03E8BFF" Offset="0" />
+            <GradientStop Color="#003E8BFF" Offset="1" />
+          </RadialGradientBrush>
+        </Ellipse.Fill>
+      </Ellipse>      <Rectangle Canvas.Left="98" Canvas.Top="72" Width="5" Height="3" Fill="#FF3E8BFF" Opacity="{Binding OnboardLed}" />
+      <Ellipse x:Name="WifiDot" Canvas.Left="122" Canvas.Top="70" Width="6" Height="6" Fill="#FF5A606E" />
+      <ItemsControl ItemsSource="{Binding Pins}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:PinViewModel}">
+            <Canvas>
+              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+            </Canvas>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>    </Canvas>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding WifiState}" Value="1">
+        <Setter TargetName="WifiDot" Property="Fill" Value="#FFF2C94C" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding WifiState}" Value="2">
+        <Setter TargetName="WifiDot" Property="Fill" Value="#FF3AE06A" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding WifiState}" Value="3">
+        <Setter TargetName="WifiDot" Property="Fill" Value="#FF3E8BFF" />
+      </DataTrigger>
+    </DataTemplate.Triggers>  </DataTemplate>
   <DataTemplate x:Key="Part.led" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="40" Height="70">
       <Line X1="10" Y1="40" X2="10" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />

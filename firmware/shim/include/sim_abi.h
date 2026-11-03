@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #define SIM_ABI_VERSION_MAJOR 2
-#define SIM_ABI_VERSION_MINOR 0
+#define SIM_ABI_VERSION_MINOR 1
 #define SIM_ABI_VERSION ((uint32_t)((SIM_ABI_VERSION_MAJOR << 16) | SIM_ABI_VERSION_MINOR))
 
 #if defined(_WIN32)
@@ -176,7 +176,18 @@ typedef struct SimHostApi {
     int32_t (*udp_open)(uint16_t port);       /* handle, or -1 */
     int32_t (*udp_send)(int32_t handle, const char* host, uint16_t port, const uint8_t* data, int32_t length); /* 1 = sent */
     int32_t (*udp_receive)(int32_t handle, uint8_t* buffer, int32_t capacity, uint32_t* ip, uint16_t* port); /* datagram length, -1 when none */
+
+    /* 2.1: why the board last booted (SimResetReason), and deep sleep: nothing runs for the
+     * given time, then the board boots with SIM_RESET_DEEP_SLEEP; never returns. */
+    int32_t (*reset_reason)(void);
+    void (*deep_sleep)(uint64_t microseconds);
 } SimHostApi;
+
+typedef enum SimResetReason {
+    SIM_RESET_POWER_ON = 0,
+    SIM_RESET_SOFTWARE = 1,
+    SIM_RESET_DEEP_SLEEP = 2
+} SimResetReason;
 
 typedef enum SimKvType {
     SIM_KV_I8 = 1,

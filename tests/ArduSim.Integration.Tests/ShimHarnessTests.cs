@@ -42,13 +42,14 @@ public sealed class ShimHarnessTests(ToolchainFixture toolchain)
         Assert.Contains(" 0 failed", text, StringComparison.Ordinal);
     }
 
-    /// <summary>The ESP32 core and its libraries (WiFi, HTTPClient, Preferences, EEPROM) with the shared Wire and SPI, syntax only.</summary>
+    /// <summary>The ESP32 core and its libraries (WiFi, Preferences, and the esp-common HTTPClient, EEPROM, WiFiNetwork) with the shared Wire and SPI, syntax only.</summary>
     [Fact]
     public async Task Esp32_core_compiles_warning_free()
     {
         string shim = Path.Combine(RunnerProcess.RepositoryRoot, "firmware", "shim");
         string esp32 = Path.Combine(shim, "cores", "esp32");
-        string[] libraries = [.. Directory.EnumerateDirectories(Path.Combine(esp32, "libraries")).Select(d => Path.Combine(d, "src")),
+        string common = Path.Combine(shim, "cores", "esp-common");
+        string[] libraries = [.. new[] { esp32, common }.SelectMany(c => Directory.EnumerateDirectories(Path.Combine(c, "libraries"))).Select(d => Path.Combine(d, "src")),
             Path.Combine(shim, "libraries", "Wire", "src"), Path.Combine(shim, "libraries", "SPI", "src")];
         var compile = new ProcessStartInfo(toolchain.Toolchain.CxxCompiler)
         {
@@ -59,10 +60,43 @@ public sealed class ShimHarnessTests(ToolchainFixture toolchain)
         [
             "-std=gnu++17", "-fno-exceptions", "-fno-rtti", "-Wall", "-Wextra", "-Werror", "-fsyntax-only", "-fno-color-diagnostics",
             "-DARDUINO=10819", "-DARDUINO_ARCH_SIM", "-DSIM_BOARD_ESP32_DEVKIT", "-DESP32", "-DARDUINO_ARCH_ESP32", "-DARDUINO_ESP32_DEV", "-DF_CPU=240000000L",
-            "-I" + Path.Combine(shim, "include"), "-I" + Path.Combine(esp32, "include"), "-I" + Path.Combine(shim, "variants", "esp32-devkit"),
+            "-I" + Path.Combine(shim, "include"), "-I" + Path.Combine(esp32, "include"), "-I" + Path.Combine(common, "include"), "-I" + Path.Combine(shim, "variants", "esp32-devkit"),
             .. libraries.Select(l => "-I" + l),
             .. Directory.EnumerateFiles(Path.Combine(shim, "src"), "*.cpp"),
             .. Directory.EnumerateFiles(Path.Combine(esp32, "src"), "*.cpp"),
+            .. libraries.SelectMany(l => Directory.EnumerateFiles(l, "*.cpp")),
+        ];
+        foreach (string flag in flags)
+        {
+            compile.ArgumentList.Add(flag);
+        }
+
+        (int exit, string output) = await Run(compile);
+        Assert.True(exit == 0, output);
+    }
+
+    /// <summary>The ESP8266 core and its libraries (ESP8266WiFi, and the esp-common HTTPClient, EEPROM, WiFiNetwork) with the shared Wire and SPI, syntax only.</summary>
+    [Fact]
+    public async Task Esp8266_core_compiles_warning_free()
+    {
+        string shim = Path.Combine(RunnerProcess.RepositoryRoot, "firmware", "shim");
+        string esp8266 = Path.Combine(shim, "cores", "esp8266");
+        string common = Path.Combine(shim, "cores", "esp-common");
+        string[] libraries = [.. new[] { esp8266, common }.SelectMany(c => Directory.EnumerateDirectories(Path.Combine(c, "libraries"))).Select(d => Path.Combine(d, "src")),
+            Path.Combine(shim, "libraries", "Wire", "src"), Path.Combine(shim, "libraries", "SPI", "src")];
+        var compile = new ProcessStartInfo(toolchain.Toolchain.CxxCompiler)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        string[] flags =
+        [
+            "-std=gnu++17", "-fno-exceptions", "-fno-rtti", "-Wall", "-Wextra", "-Werror", "-fsyntax-only", "-fno-color-diagnostics",
+            "-DARDUINO=10819", "-DARDUINO_ARCH_SIM", "-DSIM_BOARD_ESP8266", "-DESP8266", "-DARDUINO_ARCH_ESP8266", "-DARDUINO_ESP8266_NODEMCU_ESP12E", "-DF_CPU=80000000L",
+            "-I" + Path.Combine(shim, "include"), "-I" + Path.Combine(esp8266, "include"), "-I" + Path.Combine(common, "include"), "-I" + Path.Combine(shim, "variants", "esp8266"),
+            .. libraries.Select(l => "-I" + l),
+            .. Directory.EnumerateFiles(Path.Combine(shim, "src"), "*.cpp"),
+            .. Directory.EnumerateFiles(Path.Combine(esp8266, "src"), "*.cpp"),
             .. libraries.SelectMany(l => Directory.EnumerateFiles(l, "*.cpp")),
         ];
         foreach (string flag in flags)

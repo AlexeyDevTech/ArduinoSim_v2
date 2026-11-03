@@ -17,6 +17,8 @@
 #define SPI_HAS_NOTUSINGINTERRUPT 1
 #define SPI_ATOMIC_VERSION 1
 
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+#define SIM_SPI_ESP 1
 #if defined(ARDUINO_ARCH_ESP32)
 #define FSPI 1
 #define HSPI 2
@@ -26,6 +28,12 @@
 #define SPI_MODE1 1
 #define SPI_MODE2 2
 #define SPI_MODE3 3
+#else
+#define SPI_MODE0 0x00
+#define SPI_MODE1 0x01
+#define SPI_MODE2 0x10
+#define SPI_MODE3 0x11
+#endif
 
 /* The core's dividers mimic the AVR speeds (16 MHz / n). */
 #define SPI_CLOCK_DIV2 2
@@ -68,11 +76,19 @@ private:
 
 class SPIClass {
 public:
+#if defined(SIM_SPI_ESP)
 #if defined(ARDUINO_ARCH_ESP32)
     /// VSPI is bus 0 (the default SPI), HSPI bus 1.
     explicit SPIClass(uint8_t spi_bus = HSPI) : bus_(spi_bus == VSPI || spi_bus == FSPI ? 0 : 1), clock_(1000000), bitOrder_(MSBFIRST), dataMode_(SPI_MODE0) {}
 
     void begin(int8_t sck = -1, int8_t miso = -1, int8_t mosi = -1, int8_t ss = -1);
+#else
+    /// The ESP8266 has one usable hardware SPI (HSPI) on fixed pins: SCK 14, MISO 12, MOSI 13, SS 15.
+    SPIClass() : bus_(0), clock_(1000000), bitOrder_(MSBFIRST), dataMode_(SPI_MODE0) {}
+
+    void begin();
+    bool pins(int8_t sck, int8_t miso, int8_t mosi, int8_t ss);
+#endif
     void setHwCs(bool use) { hwCs_ = use; }
     void setFrequency(uint32_t freq);
     void setClockDivider(uint32_t clockDiv);
@@ -119,7 +135,7 @@ private:
     uint32_t clock_;
     uint8_t bitOrder_;
     uint8_t dataMode_;
-#if defined(ARDUINO_ARCH_ESP32)
+#if defined(SIM_SPI_ESP)
     int8_t ss_ = -1;
     bool hwCs_ = false;
 #endif

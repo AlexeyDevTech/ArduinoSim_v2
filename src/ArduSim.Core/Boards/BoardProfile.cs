@@ -19,6 +19,9 @@ public enum PinCapabilities
 
     /// <summary>On the ESP32's second ADC, which Wi-Fi takes over while the radio is on.</summary>
     Adc2 = 64,
+
+    /// <summary>No internal pull-up although the pin can drive (ESP8266 GPIO 16).</summary>
+    NoPullUp = 128,
 }
 
 /// <param name="Number">Arduino pin number as the sketch uses it (Nano: D0-D13 = 0-13, A0-A7 = 14-21).</param>
@@ -119,11 +122,23 @@ public sealed record BoardProfile(
     /// <summary>The SPI clock is divided from <see cref="CpuHz"/> by any integer (ESP32); otherwise by 2..128 in powers of two (AVR).</summary>
     public bool SpiAnyDivider { get; init; }
 
+    /// <summary>
+    /// The ESP8266's software watchdog: a real board resets when loop() runs this long (virtual ns)
+    /// without returning, delay() or yield(); the simulation warns. 0 when the board has none.
+    /// </summary>
+    public ulong SoftWatchdog { get; init; }
+
+    /// <summary>The on-board LED lights while its pin is LOW (ESP8266 modules).</summary>
+    public bool BuiltinLedActiveLow { get; init; }
+
     /// <summary>The board has a (simulated) Wi-Fi radio (ADR-010).</summary>
     public bool HasWifi { get; init; }
 
     /// <summary>Folder under <c>firmware/shim/cores</c>: the Arduino core the board's sketches compile against.</summary>
     public string Core { get; init; } = "avr";
+
+    /// <summary>A second core folder searched after <see cref="Core"/>: code shared by a family of cores (<c>esp-common</c>).</summary>
+    public string? CoreBase { get; init; }
 
     /// <summary>digitalWrite on an input switches its pull-up (AVR); other cores leave the pulls alone.</summary>
     public bool InputWriteSetsPullUp { get; init; } = true;

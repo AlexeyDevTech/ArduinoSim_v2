@@ -21,3 +21,8 @@ One folder per example project (ADR-008 layout). Every example is built and run 
 | Esp32WiFi | Wi-Fi scan and connect (simulated radio), an HTTP GET over the real network |
 | Esp32Preferences | a boot counter in Preferences across ESP.restart() and across runs |
 | Esp32Oled | U8g2 on an SSD1306 at the ESP32's default I2C pins (21/22) |
+| Esp8266Blink | NodeMCU v3: the module's LED (GPIO 2, lit while LOW) and an LED on D6 |
+| Esp8266Fade | Wemos D1 mini: software PWM on D2 with analogWriteRange(1023) |
+| Esp8266WiFi | ESP8266WiFi scan, connect with an event handler, ESP8266HTTPClient GET |
+| Esp8266Eeprom | EEPROM.begin/commit boot counter across ESP.restart(), with the reset reason |
+| Esp8266Oled | U8g2 on an SSD1306 at D2/D1 of a Wemos D1 mini |

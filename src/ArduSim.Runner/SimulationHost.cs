@@ -42,6 +42,7 @@ internal sealed unsafe class SimulationHost : IDisposable
     private int _restarts;
     private ulong _networkCheckedAt;
     private bool _networkLimitReported;
+    private bool _softWatchdogReported;
     private long _progress;
     private volatile bool _stopRequested;
     private volatile bool _waiting;
@@ -179,15 +180,36 @@ internal sealed unsafe class SimulationHost : IDisposable
     /// firmware (new globals, static constructors again) runs setup() on a new thread, and the
     /// calling thread, inside the old copy, stays parked. Never returns.
     /// </summary>
-    public void Restart()
+    public void Restart() => Reboot(BootReason.Software);
+
+    /// <summary>ESP deep sleep: the MCU is off for the time given (external parts run on), then it boots.</summary>
+    public void DeepSleep(ulong microseconds)
+    {
+        Engine.Log.Report(SimSeverity.Info, "deep-sleep", $"The board sleeps for {microseconds / 1000} ms; it then boots again and setup() runs.");
+        Mcu.Reset(BootReason.DeepSleep);
+        while (microseconds > 0)
+        {
+            uint chunk = (uint)Math.Min(microseconds, 1_000_000_000UL);
+            Engine.Delay(chunk * VirtualTime.Microsecond);
+            microseconds -= chunk;
+        }
+
+        Reboot(BootReason.DeepSleep);
+    }
+
+    private void Reboot(BootReason reason)
     {
         if (++_restarts > MaxRestarts)
         {
             Fail($"firmware: the board restarted more than {MaxRestarts} times in one run; the run is stopped.", ProcessExit.FirmwareError);
         }
 
-        Engine.Log.Report(SimSeverity.Info, "restart", $"The board restarted (ESP.restart()); setup() runs again.");
-        Mcu.Reset();
+        if (reason == BootReason.Software)
+        {
+            Engine.Log.Report(SimSeverity.Info, "restart", $"The board restarted (ESP.restart()); setup() runs again.");
+        }
+
+        Mcu.Reset(reason);
         string copy = FirmwareLibrary.CopyFor(_firmwarePath!, _restarts);
         var next = new Thread(() => RunGeneration(copy), RestartStackSize) { IsBackground = true, Name = "firmware after restart" };
         next.Start();
@@ -221,6 +243,7 @@ internal sealed unsafe class SimulationHost : IDisposable
 
             // Returning from loop() is a scheduling point; main()'s loop overhead costs a little time,
             // so a sketch with an empty loop() still lets virtual time pass.
+            Mcu.LoopReturned();
             Engine.Finish(Mcu.Board.Timing.ShortCall);
         }
     }
@@ -284,8 +307,22 @@ internal sealed unsafe class SimulationHost : IDisposable
         }
 
         LimitSpeedForNetwork();
+        WatchSoftWatchdog();
         Pacer.Pace(Engine.Clock.Now);
         Tick?.Invoke();
+    }
+
+    // The ESP8266 resets itself when loop() hogs the CPU for 3.2 s; the simulation only says so, once.
+    private void WatchSoftWatchdog()
+    {
+        ulong limit = Mcu.Board.SoftWatchdog;
+        if (limit == 0 || _softWatchdogReported || Engine.Clock.Now < Mcu.LastYield + limit)
+        {
+            return;
+        }
+
+        _softWatchdogReported = true;
+        Engine.Log.Report(SimSeverity.Warning, "soft-wdt", $"loop() has run for {limit / VirtualTime.Millisecond} ms without returning, delay() or yield(); a real ESP8266 resets here (soft WDT). The simulation carries on.");
     }
 
     // While sockets are open the sketch's timeouts must mean wall-clock time (ADR-010). Checked

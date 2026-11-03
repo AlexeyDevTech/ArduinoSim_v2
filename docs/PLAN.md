@@ -83,7 +83,7 @@ In the order of brief §4 "Later". Each milestone ends in examples that build an
 - UI: the board picker switches boards (wires to pins the new board lacks are removed, in one undo step); the properties panel of the board lists its Wi-Fi networks.
 - The bundled display libraries run on ESP32 pins (I2C 21/22, VSPI 18/23/5) in the tests.
 
-**M7 — ESP8266: NodeMCU v3 and Wemos D1 mini.** Done when ESP8266 versions of Blink, PWM fade, Wi-Fi connect, EEPROM commit and an OLED example run.
+**M7 — ESP8266: NodeMCU v3 and Wemos D1 mini ✅ (2026-11-03).** Done when ESP8266 versions of Blink, PWM fade, Wi-Fi connect, EEPROM commit and an OLED example run. All five run, headless in `dotnet test` and on the canvas. Not yet: `Serial.swap()` (warns), the Ticker library, ESP8266WebServer, RTC user memory, deep-sleep wake without the GPIO 16–RST wire check.
 - D-pin names mapped to GPIO, A0 with the boards' 0–3.3 V divider, `analogWriteRange`/`analogWriteFreq`, Serial1 TX-only on GPIO 2, `ESP8266WiFi.h` mock, `EEPROM.begin/commit`, `ESP.*`; a warning when `loop()` blocks for seconds without `yield()` (the soft watchdog would reset a real board).
 
 **M8 — Components I: inputs and sensors.** Rotary encoder, 4x4 keypad, joystick, DHT11/DHT22, DS18B20 on a 1-Wire bus model, HC-SR04, IR receiver; the libraries people use with them (Keypad, DHT sensor library, OneWire and DallasTemperature, IRremote), each with an example. OneWire and IRremote need compat shims (direct register access, timer interrupts).

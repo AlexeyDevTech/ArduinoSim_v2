@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "board": "nodemcu-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "nodemcu-v3", "x": 0, "y": 0, "rotation": 0, "flip": false }
+    ],
+    "wires": [
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 115200, "lineEnding": "LF" }, "libraryPaths": [] }
+}

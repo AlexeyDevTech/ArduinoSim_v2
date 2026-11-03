@@ -87,6 +87,8 @@ internal static unsafe class HostCallbacks
         api->UdpOpen = &UdpOpen;
         api->UdpSend = &UdpSend;
         api->UdpReceive = &UdpReceive;
+        api->ResetReason = &ResetReason;
+        api->DeepSleep = &DeepSleep;
         return api;
     }
 
@@ -581,6 +583,24 @@ internal static unsafe class HostCallbacks
             return length;
         }
         catch (Exception e) { _host.InternalError(e); return -1; }
+    }
+
+    [UnmanagedCallersOnly]
+    private static int ResetReason()
+    {
+        try { return (int)_host.Enter(HostCall.Restart).ResetReason; }
+        catch (Exception e) { _host.InternalError(e); return 0; }
+    }
+
+    [UnmanagedCallersOnly]
+    private static void DeepSleep(ulong microseconds)
+    {
+        try
+        {
+            _host.Enter(HostCall.Restart, (int)Math.Min(microseconds / 1000, int.MaxValue));
+            _host.DeepSleep(microseconds);
+        }
+        catch (Exception e) { _host.InternalError(e); }
     }
 
     [UnmanagedCallersOnly]

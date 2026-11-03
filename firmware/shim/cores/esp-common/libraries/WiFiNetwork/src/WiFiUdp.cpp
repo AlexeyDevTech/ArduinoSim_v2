@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <sim/host.h>
+#include <sim/network_wait.h>
 
 using sim::host;
 
@@ -63,7 +64,7 @@ int WiFiUDP::parsePacket()
     }
     int32_t length = host().udp_receive(handle_, rx_, BufferSize, &remote_ip_, &remote_port_);
     if (length < 0) {
-        sim_task_switch_point();
+        sim::network_wait();
         return 0;
     }
     rx_length_ = length < BufferSize ? length : BufferSize;

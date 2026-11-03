@@ -28,9 +28,34 @@ public:
     void setHandshakeTimeout(unsigned long) {}
     bool verify(const char*, const char*) { return true; }
 
+#if defined(ARDUINO_ARCH_ESP8266)
+    /// BearSSL fingerprints are not checked by the host's TLS; the connection is then not verified.
+    bool setFingerprint(const char* fingerprint);
+    bool setFingerprint(const uint8_t fingerprint[20]) { return setFingerprint(reinterpret_cast<const char*>(fingerprint)); }
+    void setTrustAnchors(const class X509List* anchors);
+    void setBufferSizes(int, int) {}
+#endif
+
 private:
     const char* ca_ = nullptr;
     bool insecure_ = false;
 };
+
+#if defined(ARDUINO_ARCH_ESP8266)
+/// A PEM certificate (chain) for setTrustAnchors(), as BearSSL::X509List on the ESP8266 core.
+class X509List {
+public:
+    explicit X509List(const char* pem) : pem_(pem) {}
+    const char* pem() const { return pem_; }
+
+private:
+    const char* pem_;
+};
+
+namespace BearSSL {
+using WiFiClientSecure = ::WiFiClientSecure;
+using X509List = ::X509List;
+}  // namespace BearSSL
+#endif
 
 #endif

@@ -21,6 +21,9 @@
 #define I2C_BUFFER_LENGTH 128
 #define BUFFER_LENGTH I2C_BUFFER_LENGTH
 #define SIM_WIRE_RESULT bool
+#elif defined(ARDUINO_ARCH_ESP8266)
+#define BUFFER_LENGTH 128
+#define SIM_WIRE_RESULT void
 #else
 #define BUFFER_LENGTH 32
 #define SIM_WIRE_RESULT void
@@ -49,6 +52,16 @@ public:
     {
         return requestFrom(static_cast<uint8_t>(address), static_cast<uint8_t>(size > 255 ? 255 : size), static_cast<uint8_t>(sendStop));
     }
+#elif defined(ARDUINO_ARCH_ESP8266)
+    /// The ESP8266 core's I2C is bit-banged in software, so any two GPIOs work.
+    void begin(int sda, int scl);
+    void begin(int sda, int scl, uint8_t address);
+    void pins(int sda, int scl)
+    {
+        sda_ = sda;
+        scl_ = scl;
+    }
+    void setClockStretchLimit(uint32_t) {}
 #endif
     void setWireTimeout(uint32_t timeout = 25000, bool reset_with_timeout = false);
     bool getWireTimeoutFlag(void);
@@ -88,6 +101,9 @@ private:
     int scl_ = -1;
     uint32_t clock_ = 100000;
     uint16_t timeout_ = 50;
+#elif defined(ARDUINO_ARCH_ESP8266)
+    int sda_ = -1;
+    int scl_ = -1;
 #endif
     uint8_t rxBuffer_[BUFFER_LENGTH];
     uint8_t rxIndex_;

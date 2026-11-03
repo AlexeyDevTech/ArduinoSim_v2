@@ -30,14 +30,14 @@ Runner options: `--project <folder>` (required), `--run-for <ms>`, `--speed <x|m
 ```
 ArduSim.sln, Directory.Build.props, Directory.Packages.props, global.json, .editorconfig
 src/ArduSim.Core       engine: Timing, Circuits (nets), Components (+ Parts), Simulation (engine, Mcu, BoardSimulation, UART, EEPROM, interrupts, WifiRadio, KeyValueStore), Diagnostics, Boards (profile types), Projects (file, template), Editing (SceneModel, SceneEditor), Buses (I2cBus, SpiBus), Displays (HD44780, PCF8574, OledController, frames, DisplayImage)
-src/ArduSim.Boards     board profiles and timing tables (Nano, ESP32 DevKit v1)
+src/ArduSim.Boards     board profiles and timing tables (Nano, ESP32 DevKit v1, NodeMCU v3, Wemos D1 mini)
 src/ArduSim.Build      Toolchains, Sketches (preprocessor), Libraries (resolver), Compilation (builder, object cache, diagnostics, FirmwareSymbols)
 src/ArduSim.Ipc        Messages (MessagePack), IpcChannel, ISimulationSession, PipeSimulationSession, CrashBlock
 src/ArduSim.Runner     Interop (SimHostApi mirror, callbacks, loader), SimulationHost (+ restart), Network (NetworkService: real sockets for ESP Wi-Fi), Session (SessionServer, PipeServer, InProcessSimulationSession), Headless (+ PngWriter)
 src/ArduSim.App        WPF UI: MainWindow (chrome, panels), Views (SchematicCanvas, CodeEditor, LcdScreen, OledScreen, PlotterView, ExampleThumbnails, UnsavedDialog, SettingsDialog, AccuracySheet, converters), ViewModels (Main, Scene, Palette, Properties, CodeDocument, Plotter), Services (build, environment, UserState, Theme), Themes (Dark, Light, Controls, Parts), Localization (Strings, LogText), Resources/Strings.resx
-firmware/shim          C++ Arduino shim (ABI 2.0): shared include/ (Arduino.h, sim_abi.h, sim/) and src/; cores/avr and cores/esp32 (headers, sources, core libraries: EEPROM; ESP32 also WiFi, HTTPClient, Preferences); variants/nano and esp32-devkit; shared libraries Wire and SPI; test/ (harness)
-libraries/             vendored Arduino libraries (LiquidCrystal, LiquidCrystal_I2C, Adafruit_GFX, Adafruit_BusIO, Adafruit_SSD1306, Adafruit_SH110X, U8g2, GyverOLED), unmodified; libraries/compat/ per-library fixes (none needed yet)
-examples/              user-facing example projects (Blink, Button, FloatingInput, Potentiometer, LcdHello, LcdI2c, LcdCustomChars, OledAdafruit, OledU8g2, OledGyver, Sh1106, Esp32Blink, Esp32Fade, Esp32Tasks, Esp32WiFi, Esp32Preferences, Esp32Oled); copied next to the app
+firmware/shim          C++ Arduino shim (ABI 2.0): shared include/ (Arduino.h, sim_abi.h, sim/) and src/; cores/avr, cores/esp32, cores/esp8266 and cores/esp-common (shared by both ESP cores: WiFiNetwork, HTTPClient, EEPROM); core libraries (AVR EEPROM; ESP32 WiFi, Preferences; ESP8266WiFi); variants/nano, esp32-devkit, esp8266; shared libraries Wire and SPI; test/ (harness)
+libraries/             vendored Arduino libraries (LiquidCrystal, LiquidCrystal_I2C, Adafruit_GFX, Adafruit_BusIO, Adafruit_SSD1306, Adafruit_SH110X, U8g2, GyverOLED), unmodified; libraries/compat/<library>/<path> replaces a vendored file at build time (U8g2: the ESP8266 font read)
+examples/              user-facing example projects (Blink, Button, FloatingInput, Potentiometer, LcdHello, LcdI2c, LcdCustomChars, OledAdafruit, OledU8g2, OledGyver, Sh1106, Esp32Blink, Esp32Fade, Esp32Tasks, Esp32WiFi, Esp32Preferences, Esp32Oled, Esp8266Blink, Esp8266Fade, Esp8266WiFi, Esp8266Eeprom, Esp8266Oled); copied next to the app
 tests/                 ArduSim.Core.Tests, ArduSim.Build.Tests, ArduSim.App.Tests (view models, no window), ArduSim.Integration.Tests (+ Projects/ fixture sketches; PerformanceTests run alone)
 tools/                 dev-only: toolchain-eval (ADR-002), nano-timing-bench (ADR-005 calibration)
 docs/                  BRIEF (spec), ARCHITECTURE, UI, PLAN, DECISIONS, CHANGELOG, adr/
@@ -55,12 +55,14 @@ docs/                  BRIEF (spec), ARCHITECTURE, UI, PLAN, DECISIONS, CHANGELO
 - Bus devices implement `II2cDevice` / `ISpiDevice` and register on `ComponentContext.I2c` / `.Spi` in `OnAttach`; displays expose `SimComponent.Display` and call `NotifyDisplayChanged()`.
 - Colors: XAML uses `DynamicResource` tokens (both themes have the same keys); a color picked in code follows `Services.Theme` (`IsLight`, `Changed`).
 - NuGet licenses: MIT, BSD, Apache or Microsoft only; list every dependency in `THIRD_PARTY.md`. Versions only in `Directory.Packages.props`.
-- C++ shim: C++17, warning-clean under clang `-Wall -Wextra -Werror` (the harness tests enforce it for the AVR and ESP32 cores), one `.cpp` per module, `<windows.h>` only in `src/host_bootstrap.cpp` (it also wraps threads and events for the ESP32 tasks). Board-family code goes to `cores/<core>`; shared libraries branch on `ARDUINO_ARCH_ESP32`. ABI changes: `sim_abi.h` and `src/ArduSim.Runner/Interop/SimHostApi.cs` together, same field order.
+- C++ shim: C++17, warning-clean under clang `-Wall -Wextra -Werror` (the harness tests enforce it for the AVR, ESP32 and ESP8266 cores), one `.cpp` per module, `<windows.h>` only in `src/host_bootstrap.cpp` (it also wraps threads and events for the ESP32 tasks). Board-family code goes to `cores/<core>`; shared libraries branch on `ARDUINO_ARCH_ESP32`. ABI changes: `sim_abi.h` and `src/ArduSim.Runner/Interop/SimHostApi.cs` together, same field order.
 - Host callbacks never let an exception reach native code (each one catches and ends the run with an internal-error report).
 - Vendored libraries are never patched silently; fixes go to `libraries/compat/`.
 - Conventional commits on `main`.
 
-## Known limitations (current state: M6, ESP32)
+## Known limitations (current state: M7, ESP8266)
+
+- ESP8266: no Ticker, ESP8266WebServer or RTC user memory; `Serial.swap()` warns; the software watchdog only warns; deep sleep wakes without the GPIO 16–RST wire.
 
 - ESP32: FreeRTOS tasks are cooperative (no preemption, core number ignored); Wi-Fi networks and the real-network switch are edited in `project.simproj.json` only (`settings.wifi`, `settings.network`); Serial1/Serial2 output is not shown anywhere; hardware timers, touch, the temperature sensor, deep-sleep wake-ups other than the timer, client TLS certificates are not simulated; every ESP.restart() loads another copy of firmware.dll and parks a thread.
 

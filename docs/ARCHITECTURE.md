@@ -68,6 +68,8 @@ firmware/shim/
 
 - `firmware/shim/include` and `src`: what every core shares (Arduino.h, Print, Stream, String, IPAddress, Client/Server/UDP, the host bootstrap). `Arduino.h` pulls `core_defs.h` (constants) and `core_api.h` (extra API) from the board's core.
 - `firmware/shim/cores/avr`: the AVR core (avr/ headers, register proxies, HardwareSerial, wiring, EEPROM).
+- `firmware/shim/cores/esp8266`: the ESP8266 Arduino core 3.x API (software PWM with a range, A0, Serial/Serial1, the ESP object, ESP8266WiFi with event handlers run between loop() calls). `firmware/shim/cores/esp-common`: what both ESP cores share (WiFiNetwork: WiFiClient, WiFiClientSecure, WiFiServer, WiFiUDP; HTTPClient; EEPROM), added through `BoardProfile.CoreBase`.
+- `libraries/compat/<library folder>/<path>`: replacement sources the builder uses instead of the vendored file with the same path (see its README).
 - `firmware/shim/cores/esp32`: the Arduino-ESP32 3.x API: the hardware layer (`esp32-hal.h`, wiring.cpp), HardwareSerial with pins, the ESP object, FreeRTOS as cooperative tasks (`freertos.cpp`: one OS thread per task, exactly one running, handing over with events), and the libraries WiFi, HTTPClient, Preferences and EEPROM. The build adds `cores/<BoardProfile.Core>` to the include, source and library paths.
 
 ## Network (ADR-010)

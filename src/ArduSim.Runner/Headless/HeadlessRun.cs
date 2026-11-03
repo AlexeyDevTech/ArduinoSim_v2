@@ -127,7 +127,8 @@ internal static class HeadlessRun
             board.Variant,
             board.Defines,
             ArduSimPaths.LibraryRoots(project.LibraryDirectories(projectDirectory)),
-            board.Core);
+            board.Core,
+            board.CoreBase);
         return await builder.BuildAsync(request, CancellationToken.None);
     }
 

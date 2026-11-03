@@ -89,7 +89,7 @@ public static class Nano
 /// <summary>All boards the simulator knows, by project id.</summary>
 public static class BoardCatalog
 {
-    public static IReadOnlyList<BoardProfile> All { get; } = [Nano.Profile, Esp32DevKit.Profile];
+    public static IReadOnlyList<BoardProfile> All { get; } = [Nano.Profile, Esp32DevKit.Profile, NodeMcu.Profile, WemosD1Mini.Profile];
 
     public static BoardProfile? Find(string id) => All.FirstOrDefault(b => string.Equals(b.Id, id, StringComparison.OrdinalIgnoreCase));
 }
