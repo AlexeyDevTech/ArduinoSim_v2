@@ -16,6 +16,15 @@ public enum DisplayKind
 
     /// <summary>Addressable RGB LEDs (WS2812): Rows x Columns LEDs, 3 bytes each (R, G, B), row by row.</summary>
     RgbLeds = 5,
+
+    /// <summary>Grayscale OLED (SSD1327): Rows lines of Columns bytes, the light of each pixel 0-255 at full contrast; Contrast scales it.</summary>
+    GrayOled = 6,
+
+    /// <summary>Monochrome graphic LCD (PCD8544): Rows lines of Columns bytes, the darkness of each pixel 0-255 (Vop included); Contrast is the backlight.</summary>
+    GraphicLcd = 7,
+
+    /// <summary>Color TFT: Rows lines of Columns pixels, 3 bytes each (R, G, B) as the glass shows them; Contrast is the backlight.</summary>
+    ColorTft = 8,
 }
 
 [Flags]

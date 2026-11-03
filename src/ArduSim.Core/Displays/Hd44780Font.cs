@@ -7,7 +7,7 @@ namespace ArduSim.Core.Displays;
 /// blank. Glyphs use the top seven dot rows; the eighth is the cursor line (0xFF fills it too).
 /// Pixel-level differences from a particular physical ROM are possible.
 /// </summary>
-public static class Hd44780Font
+public static partial class Hd44780Font
 {
     // One glyph per line: code, then seven rows of five dots ('#' on, '.' off).
     private const string Table = """
@@ -202,7 +202,7 @@ public static class Hd44780Font
         FF ##### ##### ##### ##### ##### ##### #####
         """;
 
-    private static readonly byte[] Rom = Build();
+    private static readonly byte[] Rom = BuildA00();
 
     /// <summary>Writes the eight 5-bit dot rows of <paramref name="code"/> (bit 4 = leftmost dot).</summary>
     public static void A00(byte code, Span<byte> rows)
@@ -210,14 +210,21 @@ public static class Hd44780Font
         Rom.AsSpan(code * 8, 8).CopyTo(rows);
     }
 
-    private static byte[] Build()
+    private static byte[] BuildA00()
+    {
+        byte[] rom = Build(Table, 7);
+        rom[(0xFF * 8) + 7] = 0x1F;
+        return rom;
+    }
+
+    private static byte[] Build(string table, int rowsPerGlyph)
     {
         var rom = new byte[256 * 8];
-        foreach (string line in Table.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (string line in table.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             string[] parts = line.Split(' ');
             int code = Convert.ToInt32(parts[0], 16);
-            for (int row = 0; row < 7; row++)
+            for (int row = 0; row < rowsPerGlyph; row++)
             {
                 byte bits = 0;
                 foreach (char dot in parts[row + 1])
@@ -229,7 +236,6 @@ public static class Hd44780Font
             }
         }
 
-        rom[(0xFF * 8) + 7] = 0x1F;
         return rom;
     }
 }

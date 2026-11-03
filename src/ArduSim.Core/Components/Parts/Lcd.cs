@@ -44,6 +44,7 @@ public sealed class Lcd : SimComponent, II2cDevice
             new PropertyDefinition("backpack", PropertyKind.Choice, "standard", ["standard", "mjkdz"]) { ShownWhen = ("interface", "i2c") },
             new PropertyDefinition("backlight", PropertyKind.Choice, "blue", ["blue", "green", "none"]),
             new PropertyDefinition("contrast", PropertyKind.Number, "0.75", Minimum: 0, Maximum: 1),
+            new PropertyDefinition("rom", PropertyKind.Choice, "a00", ["a00", "a02"]),
         ]);
 
     private readonly Dictionary<string, Driver> _lineDrivers = new(StringComparer.Ordinal);
@@ -158,7 +159,7 @@ public sealed class Lcd : SimComponent, II2cDevice
 
     protected override void OnAttach()
     {
-        _controller = new Hd44780(() => Context.Engine.Clock.Now);
+        _controller = new Hd44780(() => Context.Engine.Clock.Now, Properties.Choice("rom") == "a02");
         _bus = new Hd44780Bus(_controller);
         _controller.Changed += Invalidate;
         _controller.WrittenWhileBusy += () => Context.Log.ReportOnce(

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "board": "esp32-devkit-v1",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "esp32-devkit-v1", "x": 0, "y": 300, "rotation": 0, "flip": false },
+      { "id": "disp1", "type": "st7789", "x": 60, "y": 60, "rotation": 0, "flip": false, "properties": { "module": "st7789-240x240" } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "disp1", "pin": "GND" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [[80, 50], [290, 50], [290, 420], [40, 420]], "color": "auto" },
+      { "id": "w2", "from": { "component": "disp1", "pin": "VCC" }, "to": { "component": "board", "pin": "3V3" }, "waypoints": [[90, 40], [280, 40], [280, 430], [30, 430]], "color": "auto" },
+      { "id": "w3", "from": { "component": "disp1", "pin": "SCL" }, "to": { "component": "board", "pin": "D18" }, "waypoints": [[100, 30], [270, 30], [270, 440], [110, 440]], "color": "auto" },
+      { "id": "w4", "from": { "component": "disp1", "pin": "SDA" }, "to": { "component": "board", "pin": "D23" }, "waypoints": [[110, 20], [260, 20], [260, 450], [170, 450]], "color": "auto" },
+      { "id": "w5", "from": { "component": "disp1", "pin": "RES" }, "to": { "component": "board", "pin": "D4" }, "waypoints": [[120, 10], [250, 10], [250, 460], [70, 460]], "color": "auto" },
+      { "id": "w6", "from": { "component": "disp1", "pin": "DC" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [[130, 0], [240, 0], [240, 470], [60, 470]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

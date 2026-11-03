@@ -95,6 +95,81 @@
     </Canvas>
   </DataTemplate>
 
+  <DataTemplate x:Key="TftModuleArt" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="{Binding Width}" Height="{Binding Height}">
+      <Rectangle Width="{Binding Width}" Height="{Binding Height}" RadiusX="3" RadiusY="3" Fill="{Binding BoardBrush}" Stroke="#FF2A0C10" StrokeThickness="0.6" />
+      <Border Canvas.Left="{Binding GlassLeft}" Canvas.Top="{Binding GlassTop}" Margin="-4" Padding="4" CornerRadius="1.5" Background="#FF15171C">
+        <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+      </Border>
+      <ItemsControl ItemsSource="{Binding Pins}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:PinViewModel}">
+            <Canvas>
+              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="3.6" Foreground="#FFF1E9E4" Text="{Binding Label}" />
+            </Canvas>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>    </Canvas>
+  </DataTemplate>
+
+  <DataTemplate x:Key="Part.st7735" DataType="{x:Type vm:PartViewModel}">
+    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TftModuleArt}" />
+  </DataTemplate>
+
+  <DataTemplate x:Key="Part.st7789" DataType="{x:Type vm:PartViewModel}">
+    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TftModuleArt}" />
+  </DataTemplate>
+
+  <DataTemplate x:Key="Part.ili9341" DataType="{x:Type vm:PartViewModel}">
+    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource TftModuleArt}" />
+  </DataTemplate>
+
+  <DataTemplate x:Key="Part.pcd8544" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="170" Height="170">
+      <Rectangle Width="170" Height="170" RadiusX="3" RadiusY="3" Fill="{Binding BoardBrush}" Stroke="#FF10203C" StrokeThickness="0.6" />
+      <Ellipse Canvas.Left="5" Canvas.Top="5" Width="9" Height="9" Fill="#FF0E1A30" Stroke="#FFC9A33A" StrokeThickness="0.8" />
+      <Ellipse Canvas.Left="156" Canvas.Top="5" Width="9" Height="9" Fill="#FF0E1A30" Stroke="#FFC9A33A" StrokeThickness="0.8" />
+      <Ellipse Canvas.Left="5" Canvas.Top="156" Width="9" Height="9" Fill="#FF0E1A30" Stroke="#FFC9A33A" StrokeThickness="0.8" />
+      <Ellipse Canvas.Left="156" Canvas.Top="156" Width="9" Height="9" Fill="#FF0E1A30" Stroke="#FFC9A33A" StrokeThickness="0.8" />
+      <Rectangle Canvas.Left="14" Canvas.Top="34" Width="142" Height="102" RadiusX="2" RadiusY="2" Fill="#FF9AA0A8" Stroke="#FF5E646E" StrokeThickness="0.8" />
+      <Border Canvas.Left="{Binding GlassLeft}" Canvas.Top="{Binding GlassTop}" Margin="-5" Padding="5" Background="#FF7E8676">
+        <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+      </Border>
+      <TextBlock Canvas.Left="14" Canvas.Top="142" FontSize="5" Foreground="#FFE3EAF6" Text="Nokia 5110 · PCD8544" />
+      <ItemsControl ItemsSource="{Binding Pins}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:PinViewModel}">
+            <Canvas>
+              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="3.6" Foreground="#FFF1E9E4" Text="{Binding Label}" />
+            </Canvas>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>    </Canvas>
+  </DataTemplate>
   <DataTemplate x:Key="Part.board" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="180" Height="70">
       <Rectangle Width="180" Height="70" RadiusX="3" RadiusY="3" Fill="#FF1D5AA8" Stroke="#FF143F78" />

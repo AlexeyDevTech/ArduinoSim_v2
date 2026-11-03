@@ -27,9 +27,11 @@ public sealed class Hd44780
     private byte _highNibble;
 
     /// <param name="clock">Virtual time in nanoseconds, for the busy flag.</param>
-    public Hd44780(Func<ulong> clock)
+    /// <param name="romA02">The European character ROM (A02) instead of the Japanese one (A00).</param>
+    public Hd44780(Func<ulong> clock, bool romA02 = false)
     {
         _clock = clock;
+        RomA02 = romA02;
         Reset();
     }
 
@@ -150,7 +152,9 @@ public sealed class Hd44780
     /// <summary>Busy flag and address counter, as read with RS low.</summary>
     public byte Status => (byte)((Busy ? 0x80 : 0) | (AddressCounter & 0x7F));
 
-    /// <summary>The 5-bit dot rows of character <paramref name="code"/> (CGRAM for 0x00-0x0F, else the A00 ROM).</summary>
+    public bool RomA02 { get; }
+
+    /// <summary>The 5-bit dot rows of character <paramref name="code"/> (CGRAM for 0x00-0x0F, else the character ROM).</summary>
     public void Glyph(byte code, Span<byte> rows)
     {
         if (code < 0x10)
@@ -159,6 +163,10 @@ public sealed class Hd44780
             {
                 rows[r] = (byte)(_cgram[((code & 7) * 8) + r] & 0x1F);
             }
+        }
+        else if (RomA02)
+        {
+            Hd44780Font.A02(code, rows);
         }
         else
         {

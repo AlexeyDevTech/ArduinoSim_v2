@@ -28,6 +28,10 @@
 #define SPI_MODE1 1
 #define SPI_MODE2 2
 #define SPI_MODE3 3
+
+/* esp32-hal-spi.h: bit orders for the HAL and libraries that use it (Adafruit_BusIO). */
+#define SPI_LSBFIRST 0
+#define SPI_MSBFIRST 1
 #else
 #define SPI_MODE0 0x00
 #define SPI_MODE1 0x01

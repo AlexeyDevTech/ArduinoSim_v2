@@ -1,5 +1,13 @@
 # Changelog
 
+## M10 — Displays (2026-11-03)
+
+- New parts: color TFTs ST7735 (1.8" black and green tab, 1.44", 0.96"), ST7789 IPS (1.3" without CS, 2.0", 1.14") and ILI9341 2.8"; Nokia 5110 (PCD8544); the OLED part gains the SSD1309 (2.42") and the grayscale SSD1327 (1.5" 128x128); the LCD part gains the A02 character ROM (European, with Cyrillic capitals).
+- TFT controllers on SPI with MADCTL rotations, 12/16/18-bit pixels, windows, vertical scrolling, inversion and the status reads; each module's glass sits on GRAM as on the real board, so a wrong tab, rotation or missing INVON looks as it would on hardware. The backlight pin dims the glass.
+- Bundled Adafruit ST7735 and ST7789 1.12.0, Adafruit ILI9341 1.7.0, Adafruit PCD8544 2.0.3, Adafruit SSD1327 1.0.4; U8g2 drives the SSD1309 and SSD1327 too. The libraries build on the Nano, the ESP32 and the ESP8266.
+- Headless runs print TFT, graphic LCD and grayscale OLED pixel counts; `--dump-display` writes color PNGs.
+- Hardware SPI bytes no longer allocate (faster TFT fills).
+- Examples TftIli9341, TftSt7735, TftSt7789Esp32, Nokia5110, OledSsd1309, OledSsd1327Esp32, LcdA02.
 ## M9 — Outputs and modules (2026-11-03)
 
 - New parts: SG90 servo, 5 V relay module, seven-segment display (1 or 4 digits, common cathode or anode), TM1637 4-digit module, MAX7219 8x8 matrix (one module or the FC-16 chain of four), WS2812B strip, ring and 8x8 matrix, DS3231 RTC module, microSD module; a "Модули" palette group.

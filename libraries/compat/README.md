@@ -8,3 +8,4 @@ One folder per library that has no portable (non-AVR) code path. A file at `comp
 - `Adafruit_NeoPixel`: `Adafruit_NeoPixel.cpp` (`show()` hands the frame to the simulator, ABI 2.3), `esp.c` and `esp8266.c` emptied.
 - `FastLED`: eight files that put every board on FastLED's own stub platform, whose clockless controller hands the frame to the simulator; the ESP32 drivers off; an unused SD file system emptied.
 - `SdFat`: `src/SdFatConfig.h` (SdFat's own open flags on every board) and `src/iostream/ostream.h` (a 64-bit-safe pointer print).
+- `Adafruit_BusIO`: `Adafruit_SPIDevice.h`, software SPI through `digitalWrite` on every board (no GPIO register writes).

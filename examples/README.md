@@ -43,3 +43,10 @@ One folder per example project (ADR-008 layout). Every example is built and run 
 | FastLedMatrix | FastLED: a moving rainbow on an 8x8 serpentine WS2812 panel on D5 |
 | Ds3231Clock | RTClib: date, time and temperature from a DS3231 every second; its alarm on SQW interrupts D2 |
 | SdCardLog | the SD library: reads config.txt from the card, logs A0 to log.csv; the card is the project's sd folder |
+| TftIli9341 | Adafruit_ILI9341 on a 2.8" TFT: the controller's status reads, a test card, a seconds counter |
+| TftSt7735 | Adafruit_ST7735 on a 1.8" 128x160 TFT: the potentiometer on A0 as a number and a bar |
+| TftSt7789Esp32 | Adafruit_ST7789 on a 1.3" 240x240 IPS without CS on the ESP32: rings and a moving dot |
+| Nokia5110 | Adafruit_PCD8544: text, a sine wave and a counter on the Nokia 5110, backlight by PWM |
+| OledSsd1309 | U8g2 on a 2.42" SSD1309 over SPI: a frame, a title and a moving bar |
+| OledSsd1327Esp32 | Adafruit_SSD1327 on a 1.5" 128x128 grayscale OLED (ESP32, I2C): sixteen gray levels |
+| LcdA02 | a 1602 LCD with the A02 ROM: "ПРИВЕТ, МИР!" and Latin-1 letters |

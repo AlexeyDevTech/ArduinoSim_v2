@@ -7,7 +7,7 @@ namespace ArduSim.App.Views;
 
 /// <summary>
 /// The glass of one OLED part (docs/UI.md §3.6): lit pixels in the panel's color (white, blue, or
-/// yellow on the top 16 rows of a two-tone 128x64), contrast as brightness, black when off. Every
+/// yellow on the top 16 rows of a two-tone 128x64) at their gray level (SSD1327), contrast as brightness, black when off. Every
 /// OLED pixel is a whole number of device pixels at the current zoom, so the WriteableBitmap is
 /// shown 1:1 with nearest-neighbor sampling (brief §3.5); the glow is a blur effect in the template.
 /// </summary>
@@ -17,6 +17,9 @@ public sealed class OledScreen
     public const double PixelPitch = 0.67;
 
     private const int MaxPitch = 8;
+
+    /// <summary>DisplayKind.GrayOled: one level byte per pixel.</summary>
+    private const byte GrayKind = 6;
 
     private WriteableBitmap? _bitmap;
     private uint[] _pixels = [];
@@ -58,7 +61,26 @@ public sealed class OledScreen
         }
 
         Array.Fill(_pixels, dark);
-        if (on)
+        if (on && frame!.Kind == GrayKind)
+        {
+            Color lowerColor = Scale(panel == "white" ? Rgb(0xF0F5FF) : Rgb(0x48AEFF), brightness);
+            for (int y = 0; y < rows; y++)
+            {
+                for (int x = 0; x < columns; x++)
+                {
+                    int index = (y * columns) + x;
+                    if (index < frame.Dots.Length && frame.Dots[index] > 0)
+                    {
+                        uint level = Pixel(Scale(lowerColor, frame.Dots[index] / 255.0));
+                        for (int dy = 0; dy < pitch - gap; dy++)
+                        {
+                            Array.Fill(_pixels, level, (((y * pitch) + dy) * width) + (x * pitch), pitch - gap);
+                        }
+                    }
+                }
+            }
+        }
+        else if (on)
         {
             int stride = (columns + 7) / 8;
             for (int y = 0; y < rows; y++)

@@ -46,8 +46,14 @@ Sources only, unmodified, in `libraries/`; compiled by the user's builds.
 | MD_Parola | 3.7.7 (0cf3b50) | github.com/MajicDesigns/MD_Parola | LGPL-2.1 (LICENSE) |
 | RTClib | 2.1.4 (5298434) | github.com/adafruit/RTClib | MIT (license.txt) |
 | SdFat | 2.3.1 (cda0573) | github.com/greiman/SdFat | MIT (LICENSE.md) |
+| Adafruit_ST7735_and_ST7789_Library | 1.12.0 (d568339) | github.com/adafruit/Adafruit-ST7735-Library | MIT (notice in the sources and README.txt) |
+| Adafruit_ILI9341 | 1.7.0 (1871d95) | github.com/adafruit/Adafruit_ILI9341 | MIT (README.md; the .cpp header says BSD) |
+| Adafruit_PCD8544_Nokia_5110_LCD_library | 2.0.3 (87565cd) | github.com/adafruit/Adafruit-PCD8544-Nokia-5110-LCD-library | BSD (license.txt) |
+| Adafruit_SSD1327 | 1.0.4 (6404a44) | github.com/adafruit/Adafruit_SSD1327 | BSD (license.txt) |
 
-Images, archives, CI and editor files (`.github`, `.devcontainer`, `.gitignore`, IRremote's `pictures/`), documentation sites, tooling and test folders (FastLED's `ci`, `tests`, `docs` and its `.rgb` data files; SdFat's `doc`) of these repositories are left out; nothing else is changed. Fixes for the simulator live in `libraries/compat/` (OneWire, IRremote, U8g2, Adafruit_NeoPixel, FastLED, SdFat), never in the vendored files; a compat file copied from a library and changed keeps that library's license (LGPL-3.0 for `Adafruit_NeoPixel.cpp`, MIT for the FastLED and SdFat copies).
+Images, archives, CI and editor files (`.github`, `.devcontainer`, `.gitignore`, IRremote's `pictures/`), documentation sites, tooling and test folders (FastLED's `ci`, `tests`, `docs` and its `.rgb` data files; SdFat's `doc`) of these repositories are left out; nothing else is changed. Fixes for the simulator live in `libraries/compat/` (OneWire, IRremote, U8g2, Adafruit_NeoPixel, FastLED, SdFat, Adafruit_BusIO), never in the vendored files; a compat file copied from a library and changed keeps that library's license (LGPL-3.0 for `Adafruit_NeoPixel.cpp`, MIT for the FastLED, SdFat and Adafruit_BusIO copies).
+
+The HD44780 A02 character data in `src/ArduSim.Core/Displays/Hd44780Font.A02.cs` comes from wokwi-elements (github.com/wokwi/wokwi-elements, `src/lcd1602-font-a02.ts`, MIT, Copyright (c) 2020 Uri Shaked), rasterized there from the HD44780U datasheet.
 
 The Arduino `SD` and `Servo` libraries are not bundled; the shim has its own implementations of their APIs (`firmware/shim/libraries/SD` on SdFat, `firmware/shim/libraries/Servo`).
 

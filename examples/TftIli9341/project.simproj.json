@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 100, "y": 300, "rotation": 0, "flip": false },
+      { "id": "disp1", "type": "ili9341", "x": 90, "y": -150, "rotation": 0, "flip": false }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "disp1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[150, -160], [380, -160], [380, 380], [230, 380]], "color": "auto" },
+      { "id": "w2", "from": { "component": "disp1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[160, -170], [370, -170], [370, 390], [250, 390]], "color": "auto" },
+      { "id": "w3", "from": { "component": "disp1", "pin": "CS" }, "to": { "component": "board", "pin": "D10" }, "waypoints": [[170, -180], [360, -180], [360, 230], [140, 230]], "color": "auto" },
+      { "id": "w4", "from": { "component": "disp1", "pin": "RESET" }, "to": { "component": "board", "pin": "D8" }, "waypoints": [[180, -190], [350, -190], [350, 240], [160, 240]], "color": "auto" },
+      { "id": "w5", "from": { "component": "disp1", "pin": "DC" }, "to": { "component": "board", "pin": "D9" }, "waypoints": [[190, -200], [340, -200], [340, 250], [150, 250]], "color": "auto" },
+      { "id": "w6", "from": { "component": "disp1", "pin": "SDI" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [[200, -210], [330, -210], [330, 260], [130, 260]], "color": "auto" },
+      { "id": "w7", "from": { "component": "disp1", "pin": "SCK" }, "to": { "component": "board", "pin": "D13" }, "waypoints": [[210, -220], [320, -220], [320, 440], [120, 440]], "color": "auto" },
+      { "id": "w8", "from": { "component": "disp1", "pin": "LED" }, "to": { "component": "board", "pin": "3V3" }, "waypoints": [[220, -230], [310, -230], [310, 450], [130, 450]], "color": "auto" },
+      { "id": "w9", "from": { "component": "disp1", "pin": "SDO" }, "to": { "component": "board", "pin": "D12" }, "waypoints": [[230, -240], [300, -240], [300, 290], [120, 290]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

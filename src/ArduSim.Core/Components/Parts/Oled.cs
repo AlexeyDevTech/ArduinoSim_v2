@@ -9,8 +9,9 @@ using System.Numerics;
 namespace ArduSim.Core.Components.Parts;
 
 /// <summary>
-/// A monochrome OLED module (ADR-006): SSD1306 (128x64, 128x32, 64x48, 96x16) or SH1106 (128x64),
-/// over I2C (control byte with Co and D/C) or 4-wire SPI (D0 = SCK, D1 = MOSI, DC, CS, RES). SPI
+/// An OLED module (ADR-006, ADR-013): SSD1306 (128x64, 128x32, 64x48, 96x16), SH1106 (128x64),
+/// SSD1309 (2.42" 128x64) or the grayscale SSD1327 (1.5" 128x128), over I2C (control byte with Co
+/// and D/C) or 4-wire SPI (D0 = SCK, D1 = MOSI, DC, CS, RES). SPI
 /// bytes arrive whole from the hardware bus while CS is LOW, or bit by bit on the rising edges of
 /// D0 (software SPI, shiftOut). The module needs VCC (3.3-5 V) and GND; I2C modules carry 4.7 kΩ
 /// pull-ups, SPI modules a pull-up on RES.
@@ -35,14 +36,14 @@ public sealed class Oled : SimComponent, II2cDevice, ISpiDevice
         110,
         Header(I2cHeader, 110),
         [
-            new PropertyDefinition("controller", PropertyKind.Choice, "ssd1306", ["ssd1306", "sh1106"]),
+            new PropertyDefinition("controller", PropertyKind.Choice, "ssd1306", ["ssd1306", "sh1106", "ssd1309", "ssd1327"]),
             new PropertyDefinition("size", PropertyKind.Choice, "128x64", ["128x64", "128x32", "64x48", "96x16"]) { ShownWhen = ("controller", "ssd1306") },
             new PropertyDefinition("interface", PropertyKind.Choice, "i2c", ["i2c", "spi"]),
             new PropertyDefinition("address", PropertyKind.Choice, "0x3C", ["0x3C", "0x3D"]) { ShownWhen = ("interface", "i2c") },
             new PropertyDefinition("panel", PropertyKind.Choice, "white", ["white", "blue", "yellow-blue"]),
         ]);
 
-    private OledController _controller = null!;
+    private IOledController _controller = null!;
     private ScheduledEvent? _scroll;
     private bool _powered;
     private bool _inReset;
@@ -59,7 +60,13 @@ public sealed class Oled : SimComponent, II2cDevice, ISpiDevice
         : base(id, LayoutFor(properties), properties)
     {
         ArgumentNullException.ThrowIfNull(properties);
-        Chip = properties.Choice("controller") == "sh1106" ? OledChip.Sh1106 : OledChip.Ssd1306;
+        Chip = properties.Choice("controller") switch
+        {
+            "sh1106" => OledChip.Sh1106,
+            "ssd1309" => OledChip.Ssd1309,
+            "ssd1327" => OledChip.Ssd1327,
+            _ => OledChip.Ssd1306,
+        };
         Panel = OledPanel.For(Chip, properties.Choice("size"));
         IsI2c = properties.Choice("interface") == "i2c";
         Address = Convert.ToInt32(properties.Choice("address"), 16);
@@ -75,6 +82,8 @@ public sealed class Oled : SimComponent, II2cDevice, ISpiDevice
             new ComponentPreset("ssd1306-128x64-spi", "Preset_Oled12864Spi", new Dictionary<string, string> { ["interface"] = "spi" }),
             new ComponentPreset("sh1106-i2c", "Preset_Sh1106I2c", new Dictionary<string, string> { ["controller"] = "sh1106", ["interface"] = "i2c" }),
             new ComponentPreset("sh1106-spi", "Preset_Sh1106Spi", new Dictionary<string, string> { ["controller"] = "sh1106", ["interface"] = "spi" }),
+            new ComponentPreset("ssd1309-spi", "Preset_Ssd1309Spi", new Dictionary<string, string> { ["controller"] = "ssd1309", ["interface"] = "spi" }),
+            new ComponentPreset("ssd1327-i2c", "Preset_Ssd1327I2c", new Dictionary<string, string> { ["controller"] = "ssd1327", ["interface"] = "i2c", ["address"] = "0x3D" }),
         ],
     };
 
@@ -87,7 +96,7 @@ public sealed class Oled : SimComponent, II2cDevice, ISpiDevice
     /// <summary>The I2C address (0x3C, or 0x3D with SA0 high).</summary>
     public int Address { get; }
 
-    public OledController Controller => _controller;
+    public IOledController Controller => _controller;
 
     public bool Powered => _powered;
 
@@ -102,7 +111,9 @@ public sealed class Oled : SimComponent, II2cDevice, ISpiDevice
     PinRef ISpiDevice.ChipSelect => Pin("CS");
 
     /// <summary>Pixels lit on the glass now.</summary>
-    public int LitPixels => Display.Dots.ToArray().Sum(b => BitOperations.PopCount(b));
+    public int LitPixels => _controller.Kind == DisplayKind.GrayOled
+        ? Display.Dots.ToArray().Count(level => level > 0)
+        : Display.Dots.ToArray().Sum(b => BitOperations.PopCount(b));
 
     public override DisplayFrame Display => _frame is { } frame && frame.Version == _version ? frame : _frame = Render();
 
@@ -110,18 +121,22 @@ public sealed class Oled : SimComponent, II2cDevice, ISpiDevice
     {
         ArgumentNullException.ThrowIfNull(properties);
         string chip = properties.Choice("controller");
-        string size = chip == "sh1106" ? "128x64" : properties.Choice("size");
+        string size = chip == "ssd1306" ? properties.Choice("size") : "128x64";
         return Layouts.GetOrAdd((chip, size, properties.Choice("interface")), key =>
         {
-            (double width, double height) = key.Chip == "sh1106"
-                ? (140.0, 130.0)
-                : key.Size switch
+            (double width, double height) = key.Chip switch
+            {
+                "sh1106" => (140.0, 130.0),
+                "ssd1309" => (240.0, 170.0),
+                "ssd1327" => (150.0, 160.0),
+                _ => key.Size switch
                 {
                     "128x32" => (150.0, 60.0),
                     "64x48" => (100.0, 90.0),
                     "96x16" => (130.0, 60.0),
                     _ => (110.0, 110.0),
-                };
+                },
+            };
             return Base with { Width = width, Height = height, Pins = Header(key.Interface == "spi" ? SpiHeader : I2cHeader, width), Layout = LayoutFor };
         });
     }
@@ -184,7 +199,7 @@ public sealed class Oled : SimComponent, II2cDevice, ISpiDevice
 
     protected override void OnAttach()
     {
-        _controller = new OledController(Chip);
+        _controller = Chip == OledChip.Ssd1327 ? new Ssd1327Controller() : new OledController(Chip);
         _controller.Changed += Invalidate;
         _controller.UnknownCommand += command => Context.Log.ReportOnce(
             $"oled-command-{Id}-{command}",
@@ -316,8 +331,8 @@ public sealed class Oled : SimComponent, II2cDevice, ISpiDevice
     {
         bool on = _powered && !_inReset && _controller.DisplayOn && _controller.PanelSupply;
         DisplayStatus status = (_powered ? DisplayStatus.Powered : 0) | (on ? DisplayStatus.On : 0);
-        byte[] pixels = on ? _controller.Render(Panel) : new byte[((Panel.Width + 7) / 8) * Panel.Height];
-        return new DisplayFrame(DisplayKind.Oled, Panel.Width, Panel.Height, status, _controller.Contrast / 255.0, pixels, [], _version);
+        byte[] pixels = on ? _controller.Render(Panel) : new byte[(_controller.Kind == DisplayKind.GrayOled ? Panel.Width : (Panel.Width + 7) / 8) * Panel.Height];
+        return new DisplayFrame(_controller.Kind, Panel.Width, Panel.Height, status, _controller.Contrast / 255.0, pixels, [], _version);
     }
 
     private bool Ready() => _powered && !_inReset;

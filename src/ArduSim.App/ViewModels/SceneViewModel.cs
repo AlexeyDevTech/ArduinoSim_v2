@@ -731,7 +731,11 @@ public sealed partial class PartViewModel : ObservableObject
     private bool _applying;
     private DisplayData? _display;
     private Views.LcdScreen? _screen;
+    private static readonly SolidColorBrush RedBoard = Board(0xB0, 0x1E, 0x2A);
+    private static readonly SolidColorBrush BlueBoard = Board(0x1B, 0x4C, 0x9C);
+
     private Views.OledScreen? _oled;
+    private Views.TftScreen? _tft;
 
     public PartViewModel(PartModel model, ComponentDefinition? definition, SceneViewModel scene)
     {
@@ -1113,23 +1117,66 @@ public sealed partial class PartViewModel : ObservableObject
 
     public bool IsSh1106 => Text("controller", "ssd1306") == "sh1106";
 
-    /// <summary>Panel pixels and pixel pitch in canvas units, per module (0.96", 0.91", 0.66", 0.69", 1.3").</summary>
-    private (int Columns, int Rows, double Pitch) OledGeometry => IsSh1106 ? (128, 64, 0.9) : Text("size", "128x64") switch
+    /// <summary>Panel pixels and pixel pitch in canvas units, per module (0.96", 0.91", 0.66", 0.69", 1.3", 2.42", 1.5").</summary>
+    private (int Columns, int Rows, double Pitch) OledGeometry => Text("controller", "ssd1306") switch
     {
-        "128x32" => (128, 32, 0.69),
-        "64x48" => (64, 48, 0.82),
-        "96x16" => (96, 16, 0.65),
-        _ => (128, 64, 0.67),
+        "sh1106" => (128, 64, 0.9),
+        "ssd1309" => (128, 64, 1.69),
+        "ssd1327" => (128, 128, 0.82),
+        _ => Text("size", "128x64") switch
+        {
+            "128x32" => (128, 32, 0.69),
+            "64x48" => (64, 48, 0.82),
+            "96x16" => (96, 16, 0.65),
+            _ => (128, 64, 0.67),
+        },
     };
 
-    /// <summary>The black glass of the module, in part units.</summary>
-    public Rect Glass => IsSh1106 ? new Rect(8, 24, 124, 86) : Text("size", "128x64") switch
+    /// <summary>The glass of the module (OLED, TFT or graphic LCD), in part units.</summary>
+    public Rect Glass => Type switch
     {
-        "128x32" => new Rect(10, 16, 130, 36),
-        "64x48" => new Rect(15, 20, 70, 58),
-        "96x16" => new Rect(15, 20, 100, 26),
-        _ => new Rect(5, 22, 100, 70),
+        "st7735" or "st7789" or "ili9341" => TftGlass.Glass,
+        "pcd8544" => new Rect(26, 50, 118, 68),
+        _ => Text("controller", "ssd1306") switch
+        {
+            "sh1106" => new Rect(8, 24, 124, 86),
+            "ssd1309" => new Rect(8, 22, 224, 128),
+            "ssd1327" => new Rect(16, 24, 118, 118),
+            _ => Text("size", "128x64") switch
+            {
+                "128x32" => new Rect(10, 16, 130, 36),
+                "64x48" => new Rect(15, 20, 70, 58),
+                "96x16" => new Rect(15, 20, 100, 26),
+                _ => new Rect(5, 22, 100, 70),
+            },
+        },
     };
+
+    /// <summary>A TFT module's glass (its active area, after the module's size) and its pixel count.</summary>
+    private (Rect Glass, int Columns, int Rows) TftGlass => Type == "ili9341" ? (new Rect(15, 55, 170, 227), 240, 320) : Text("module", "") switch
+    {
+        "st7735-128x128" => (new Rect(15, 45, 100, 100), 128, 128),
+        "st7735-80x160" => (new Rect(28.75, 40, 42.5, 85), 80, 160),
+        "st7789-240x320" => (new Rect(10, 45, 120, 160), 240, 320),
+        "st7789-135x240" => (new Rect(18.2, 35, 53.6, 95.3), 135, 240),
+        "st7789-240x240" => (new Rect(9, 40, 92, 92), 240, 240),
+        _ => (new Rect(15, 40, 110, 137.5), 128, 160),
+    };
+
+    /// <summary>The module's circuit board: TFTs and the LIGHT-low Nokia board are red, the rest blue.</summary>
+    public Brush BoardBrush => Type switch
+    {
+        "st7735" or "ili9341" => RedBoard,
+        "pcd8544" when Text("light", "high") == "low" => RedBoard,
+        _ => BlueBoard,
+    };
+
+    private static SolidColorBrush Board(byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
 
     public double GlassLeft => Glass.Left;
 
@@ -1169,6 +1216,18 @@ public sealed partial class PartViewModel : ObservableObject
             };
             ScreenWidth = Width;
             ScreenHeight = Height;
+        }
+        else if (Type is "st7735" or "st7789" or "ili9341" or "pcd8544")
+        {
+            _tft ??= new Views.TftScreen();
+            (Rect glass, int columns, int rows) = Type == "pcd8544" ? (Glass, 84, 48) : TftGlass;
+            if (_tft.Render(_display, columns, rows, Type == "pcd8544", _scene.PixelsPerUnit, glass.Width / columns))
+            {
+                Screen = _tft.Source;
+            }
+
+            ScreenWidth = glass.Width;
+            ScreenHeight = glass.Height;
         }
         else if (Type == "oled")
         {

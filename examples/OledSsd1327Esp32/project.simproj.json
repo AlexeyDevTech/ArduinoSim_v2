@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "board": "esp32-devkit-v1",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "esp32-devkit-v1", "x": 0, "y": 300, "rotation": 0, "flip": false },
+      { "id": "disp1", "type": "oled", "x": 40, "y": 80, "rotation": 0, "flip": false, "properties": { "controller": "ssd1327", "interface": "i2c", "address": "0x3D" } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "disp1", "pin": "GND" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [[100, 70], [270, 70], [270, 420], [40, 420]], "color": "auto" },
+      { "id": "w2", "from": { "component": "disp1", "pin": "VCC" }, "to": { "component": "board", "pin": "3V3" }, "waypoints": [[110, 60], [260, 60], [260, 430], [30, 430]], "color": "auto" },
+      { "id": "w3", "from": { "component": "disp1", "pin": "SCL" }, "to": { "component": "board", "pin": "D22" }, "waypoints": [[120, 50], [250, 50], [250, 440], [160, 440]], "color": "auto" },
+      { "id": "w4", "from": { "component": "disp1", "pin": "SDA" }, "to": { "component": "board", "pin": "D21" }, "waypoints": [[130, 40], [240, 40], [240, 450], [130, 450]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

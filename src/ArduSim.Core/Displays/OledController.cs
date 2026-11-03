@@ -6,6 +6,44 @@ public enum OledChip
 {
     Ssd1306,
     Sh1106,
+    Ssd1309,
+    Ssd1327,
+}
+
+/// <summary>What the OLED part needs from its controller (SSD1306/SH1106/SSD1309, or the grayscale SSD1327).</summary>
+public interface IOledController
+{
+    event Action? Changed;
+
+    /// <summary>A command byte the controller does not have (reported once per byte by the part).</summary>
+    event Action<byte>? UnknownCommand;
+
+    /// <summary><see cref="DisplayKind.Oled"/> (packed bits) or <see cref="DisplayKind.GrayOled"/> (a level byte per pixel).</summary>
+    DisplayKind Kind { get; }
+
+    bool DisplayOn { get; }
+
+    byte Contrast { get; }
+
+    /// <summary>The panel's supply is on (SSD1306 charge pump, SH1106 DC-DC; always for chips fed from the module's boost converter).</summary>
+    bool PanelSupply { get; }
+
+    bool ScrollActive { get; }
+
+    ulong ScrollStepInterval { get; }
+
+    byte Status { get; }
+
+    void Reset();
+
+    void Command(byte value);
+
+    void Data(byte value);
+
+    void ScrollStep();
+
+    /// <summary>The glass in the layout of <see cref="Kind"/>.</summary>
+    byte[] Render(OledPanel panel);
 }
 
 /// <summary>
@@ -17,29 +55,36 @@ public enum OledChip
 /// <param name="AlternativeComPins">The COM pin layout the glass is wired for (0xDA 0x12), else sequential (0x02).</param>
 public sealed record OledPanel(int Width, int Height, int ColumnOffset, bool AlternativeComPins)
 {
-    public static OledPanel For(OledChip chip, string size) => chip == OledChip.Sh1106
-        ? new OledPanel(128, 64, 2, true)
-        : size switch
+    public static OledPanel For(OledChip chip, string size) => chip switch
+    {
+        OledChip.Sh1106 => new OledPanel(128, 64, 2, true),
+        OledChip.Ssd1309 => new OledPanel(128, 64, 0, true),
+        OledChip.Ssd1327 => new OledPanel(128, 128, 0, true),
+        _ => size switch
         {
             "128x32" => new OledPanel(128, 32, 0, false),
             "64x48" => new OledPanel(64, 48, 32, true),
             "96x16" => new OledPanel(96, 16, 0, false),
             _ => new OledPanel(128, 64, 0, true),
-        };
+        },
+    };
 }
 
 /// <summary>
-/// SSD1306 and SH1106 OLED controllers (ADR-006; datasheets SSD1306 rev 1.5, SH1106 v2.3):
-/// GDDRAM of 8 pages, the command set with its parameter bytes, page/horizontal/vertical
-/// addressing (SSD1306), segment remap, COM scan direction and pin layout, multiplex ratio,
-/// display offset and start line, contrast, inverse, entire-display-on, display on/off, the
-/// charge pump (SSD1306) or DC-DC converter (SH1106), and the SSD1306 scroll commands
-/// (horizontal, vertical-and-horizontal, vertical area) driven by the frame clock.
+/// SSD1306, SH1106 and SSD1309 OLED controllers (ADR-006, ADR-013; datasheets SSD1306 rev 1.5,
+/// SH1106 v2.3, SSD1309 rev 1.1): GDDRAM of 8 pages, the command set with its parameter bytes,
+/// page/horizontal/vertical addressing (SSD1306, SSD1309), segment remap, COM scan direction and pin
+/// layout, multiplex ratio, display offset and start line, contrast, inverse, entire-display-on,
+/// display on/off, the charge pump (SSD1306) or DC-DC converter (SH1106), the scroll commands
+/// (horizontal, vertical-and-horizontal, vertical area; on the SSD1309 with a column range and the
+/// one-column content scroll) driven by the frame clock, and the SSD1309 command lock. The SSD1309
+/// has no charge pump: its panel supply comes from the module.
 /// </summary>
-public sealed class OledController
+public sealed class OledController : IOledController
 {
     private const int Pages = 8;
     private static readonly int[] ScrollIntervals = [5, 64, 128, 256, 3, 4, 25, 2];
+    private static readonly int[] Ssd1309ScrollIntervals = [5, 64, 128, 256, 2, 3, 4, 1];
 
     private readonly byte[] _ram;
     private readonly List<byte> _parameters = [];
@@ -62,6 +107,9 @@ public sealed class OledController
     private int _verticalScroll;
     private int _scrollAreaTop;
     private int _scrollAreaRows;
+    private int _scrollStartColumn;
+    private int _scrollEndColumn;
+    private bool _scrollHorizontal;
 
     private int _divide;
     private int _oscillator;
@@ -70,6 +118,11 @@ public sealed class OledController
 
     public OledController(OledChip chip)
     {
+        if (chip == OledChip.Ssd1327)
+        {
+            throw new ArgumentException("The SSD1327 has its own controller model.", nameof(chip));
+        }
+
         Chip = chip;
         RamColumns = chip == OledChip.Sh1106 ? 132 : 128;
         _ram = new byte[RamColumns * Pages];
@@ -86,6 +139,11 @@ public sealed class OledController
     public event Action<byte>? UnknownCommand;
 
     public OledChip Chip { get; }
+
+    public DisplayKind Kind => DisplayKind.Oled;
+
+    /// <summary>SSD1309: commands and RAM are locked (0xFD 0x16) until 0xFD 0x12.</summary>
+    public bool Locked { get; private set; }
 
     public int RamColumns { get; }
 
@@ -127,7 +185,7 @@ public sealed class OledController
     public double FrameRate { get; private set; }
 
     /// <summary>Virtual time between two scroll steps.</summary>
-    public ulong ScrollStepInterval => (ulong)(ScrollIntervals[_scrollInterval] * (double)VirtualTime.Second / FrameRate);
+    public ulong ScrollStepInterval => (ulong)((Chip == OledChip.Ssd1309 ? Ssd1309ScrollIntervals : ScrollIntervals)[_scrollInterval] * (double)VirtualTime.Second / FrameRate);
 
     /// <summary>Power-on or RES reset: registers to their defaults (RAM keeps its contents, as on the chip).</summary>
     public void Reset()
@@ -142,8 +200,9 @@ public sealed class OledController
         Multiplex = 64;
         DisplayOffset = 0;
         StartLine = 0;
-        PanelSupply = Chip == OledChip.Sh1106;
+        PanelSupply = Chip != OledChip.Ssd1306;
         ScrollActive = false;
+        Locked = false;
         _addressingMode = 2;
         _columnStart = 0;
         _columnEnd = RamColumns - 1;
@@ -154,9 +213,12 @@ public sealed class OledController
         _verticalScroll = 0;
         _scrollAreaTop = 0;
         _scrollAreaRows = 64;
+        _scrollStartColumn = 0;
+        _scrollEndColumn = RamColumns - 1;
+        _scrollHorizontal = true;
         _needed = -1;
         _parameters.Clear();
-        SetTiming(divide: 1, oscillator: 8, phase1: 2, phase2: 2);
+        SetTiming(divide: 1, oscillator: Chip == OledChip.Ssd1309 ? 7 : 8, phase1: 2, phase2: 2);
         Changed?.Invoke();
     }
 
@@ -173,6 +235,11 @@ public sealed class OledController
             }
 
             return;
+        }
+
+        if (Locked && value != 0xFD)
+        {
+            return; // a locked SSD1309 takes nothing but the unlock command
         }
 
         int count = ParameterCount(value);
@@ -200,6 +267,11 @@ public sealed class OledController
 
     public void Data(byte value)
     {
+        if (Locked)
+        {
+            return;
+        }
+
         if (_page < Pages && _column < RamColumns)
         {
             _ram[(_page * RamColumns) + _column] = value;
@@ -217,22 +289,9 @@ public sealed class OledController
             return;
         }
 
-        bool right = _scrollKind is 0x26 or 0x29;
-        for (int page = _scrollStartPage; page <= Math.Min(_scrollEndPage, Pages - 1); page++)
+        if (_scrollHorizontal)
         {
-            Span<byte> row = _ram.AsSpan(page * RamColumns, RamColumns);
-            if (right)
-            {
-                byte last = row[^1];
-                row[..^1].CopyTo(row[1..]);
-                row[0] = last;
-            }
-            else
-            {
-                byte first = row[0];
-                row[1..].CopyTo(row);
-                row[^1] = first;
-            }
+            ShiftColumns(_scrollKind is 0x26 or 0x29);
         }
 
         if (_scrollKind is 0x29 or 0x2A && _scrollAreaRows > 0)
@@ -281,6 +340,34 @@ public sealed class OledController
         }
 
         return pixels;
+    }
+
+    // The scrolled pages move one column inside the scroll's column range (the whole row but on the SSD1309).
+    private void ShiftColumns(bool right)
+    {
+        int first = Math.Min(_scrollStartColumn, RamColumns - 1);
+        int last = Math.Min(_scrollEndColumn, RamColumns - 1);
+        if (last <= first)
+        {
+            return;
+        }
+
+        for (int page = _scrollStartPage; page <= Math.Min(_scrollEndPage, Pages - 1); page++)
+        {
+            Span<byte> row = _ram.AsSpan((page * RamColumns) + first, last - first + 1);
+            if (right)
+            {
+                byte end = row[^1];
+                row[..^1].CopyTo(row[1..]);
+                row[0] = end;
+            }
+            else
+            {
+                byte start = row[0];
+                row[1..].CopyTo(row);
+                row[^1] = start;
+            }
+        }
     }
 
     /// <summary>Status byte for a read (bit 6 set while the display is off).</summary>
@@ -349,6 +436,18 @@ public sealed class OledController
             };
         }
 
+        if (Chip == OledChip.Ssd1309)
+        {
+            return command switch
+            {
+                0x20 or 0xDC or 0xFD => 1,
+                0x21 or 0x22 or 0xA3 => 2,
+                0x26 or 0x27 or 0x29 or 0x2A or 0x2C or 0x2D => 7,
+                0x2E or 0x2F => 0,
+                _ => -1, // no charge pump (0x8D) on the SSD1309
+            };
+        }
+
         return command switch
         {
             0x20 or 0x8D => 1,
@@ -390,6 +489,8 @@ public sealed class OledController
                 _scrollInterval = p[2] & 0x07;
                 _scrollEndPage = p[3] & 0x07;
                 _scrollVerticalStep = 0;
+                _scrollHorizontal = true;
+                (_scrollStartColumn, _scrollEndColumn) = Chip == OledChip.Ssd1309 ? (p[5] & 0x7F, p[6] & 0x7F) : (0, RamColumns - 1);
                 break;
             case 0x29 or 0x2A:
                 ScrollActive = false;
@@ -398,6 +499,14 @@ public sealed class OledController
                 _scrollInterval = p[2] & 0x07;
                 _scrollEndPage = p[3] & 0x07;
                 _scrollVerticalStep = p[4] & 0x3F;
+                _scrollHorizontal = Chip != OledChip.Ssd1309 || (p[0] & 0x01) != 0;
+                (_scrollStartColumn, _scrollEndColumn) = Chip == OledChip.Ssd1309 ? (p[5] & 0x7F, p[6] & 0x7F) : (0, RamColumns - 1);
+                break;
+            case 0x2C or 0x2D: // SSD1309 content scroll: one column now
+                _scrollStartPage = p[1] & 0x07;
+                _scrollEndPage = p[3] & 0x07;
+                (_scrollStartColumn, _scrollEndColumn) = (p[5] & 0x7F, p[6] & 0x7F);
+                ShiftColumns(command == 0x2C);
                 break;
             case 0x2E:
                 ScrollActive = false;
@@ -457,6 +566,9 @@ public sealed class OledController
                 break;
             case 0xDA:
                 AlternativeComPins = (p[0] & 0x10) != 0;
+                break;
+            case 0xFD:
+                Locked = (p[0] & 0x04) != 0;
                 break;
         }
     }

@@ -160,16 +160,38 @@ internal static class HeadlessRun
 
     /// <summary>
     /// What a display shows, as one line: LCD rows and seven-segment digits as <c>"row 0" "row 1"</c>
-    /// (escaped as in <c>Hd44780.RowText</c>), an OLED or LED matrix as the number of lit pixels, RGB
-    /// LEDs as their colors (up to 16) or the number lit.
+    /// (escaped as in <c>Hd44780.RowText</c>), an OLED or LED matrix as the number of lit pixels, a
+    /// graphic LCD as the number of dark ones, a color TFT as the number of pixels that are not black,
+    /// RGB LEDs as their colors (up to 16) or the number lit.
     /// </summary>
     private static string Rows(SimComponent component) => component.Display switch
     {
         { Kind: DisplayKind.Oled or DisplayKind.LedMatrix } frame => string.Create(CultureInfo.InvariantCulture, $"{frame.Dots.ToArray().Sum(b => System.Numerics.BitOperations.PopCount(b))} px on"),
+        { Kind: DisplayKind.GrayOled } frame => string.Create(CultureInfo.InvariantCulture, $"{Count(frame.Dots.Span, 1, level => level > 0)} px on"),
+        { Kind: DisplayKind.GraphicLcd } frame => string.Create(CultureInfo.InvariantCulture, $"{Count(frame.Dots.Span, 1, level => level >= 128)} px dark"),
+        { Kind: DisplayKind.ColorTft } frame => string.Create(CultureInfo.InvariantCulture, $"{Count(frame.Dots.Span, 3, level => level > 0)} px lit"),
         { Kind: DisplayKind.RgbLeds } frame => Colors(frame),
         { } frame => string.Join(" ", frame.Text.Select(row => "\"" + row + "\"")),
         null => "",
     };
+
+    // Pixels of `size` bytes with at least one byte that passes.
+    private static int Count(ReadOnlySpan<byte> pixels, int size, Func<byte, bool> passes)
+    {
+        int count = 0;
+        for (int i = 0; i + size <= pixels.Length; i += size)
+        {
+            bool any = false;
+            for (int b = 0; b < size && !any; b++)
+            {
+                any = passes(pixels[i + b]);
+            }
+
+            count += any ? 1 : 0;
+        }
+
+        return count;
+    }
 
     private static string Colors(DisplayFrame frame)
     {

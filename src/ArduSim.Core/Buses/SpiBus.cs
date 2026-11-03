@@ -19,6 +19,9 @@ public interface ISpiDevice
 
     PinRef ChipSelect { get; }
 
+    /// <summary>False for modules whose CS is tied low on the board (no CS pin): always selected.</summary>
+    bool HasChipSelect => true;
+
     /// <summary>One byte from the master, MSB first as the device sees it; returns what it drives on MISO.</summary>
     byte OnTransfer(byte mosi);
 }
@@ -80,14 +83,25 @@ public sealed class SpiBus
     /// <param name="mode">SPI mode 0-3.</param>
     public byte Transfer(byte value, bool lsbFirst, int mode)
     {
-        List<ISpiDevice> selected = [.. _devices.Where(d => OnBus(d) && Selected(d))];
-        if (selected.Count == 0)
+        ISpiDevice? device = null;
+        int count = 0;
+        foreach (ISpiDevice candidate in _devices)
+        {
+            if (OnBus(candidate) && Selected(candidate))
+            {
+                device ??= candidate;
+                count++;
+            }
+        }
+
+        if (device is null)
         {
             return 0xFF;
         }
 
-        if (selected.Count > 1)
+        if (count > 1)
         {
+            List<ISpiDevice> selected = [.. _devices.Where(d => OnBus(d) && Selected(d))];
             _log.ReportOnce(
                 "spi-conflict",
                 SimSeverity.Warning,
@@ -99,15 +113,15 @@ public sealed class SpiBus
         if (mode is 1 or 2)
         {
             _log.ReportOnce(
-                $"spi-mode-{selected[0].Id}",
+                $"spi-mode-{device.Id}",
                 SimSeverity.Warning,
                 "spi-mode",
-                $"SPI mode {mode} is used with {selected[0].Id}, which samples MOSI on the rising edge (modes 0 and 3); real hardware would read shifted bits.",
-                selected[0].Id);
+                $"SPI mode {mode} is used with {device.Id}, which samples MOSI on the rising edge (modes 0 and 3); real hardware would read shifted bits.",
+                device.Id);
         }
 
         byte wire = lsbFirst ? Reverse(value) : value;
-        byte answer = selected[0].OnTransfer(wire);
+        byte answer = device.OnTransfer(wire);
         return lsbFirst ? Reverse(answer) : answer;
     }
 
@@ -126,5 +140,5 @@ public sealed class SpiBus
         _circuit.NetOf(device.Sck) == _circuit.NetOf(Sck) && _circuit.NetOf(device.Mosi) == _circuit.NetOf(Mosi);
 
     private bool Selected(ISpiDevice device) =>
-        _circuit.StateOf(device.ChipSelect) is { HasVoltage: true } cs && cs.Voltage < LowThreshold;
+        !device.HasChipSelect || (_circuit.StateOf(device.ChipSelect) is { HasVoltage: true } cs && cs.Voltage < LowThreshold);
 }

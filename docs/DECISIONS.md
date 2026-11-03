@@ -134,3 +134,11 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-03 — SD card: a 64 MB SDSC card in SPI mode with one FAT16 partition at block 2048 and 2 KB clusters, built from the project folder (property `folder`, default `sd`) at run start and synced back when the run ends normally; only files the card was loaded with can be deleted from the folder.
 - 2026-11-03 — The library resolver reads a compat replacement's `#include` lines in place of the vendored file's.
 - 2026-11-03 — ESP32 core: `esp_idf_version.h` (ESP-IDF 5.1.4, as Arduino-ESP32 3.0), `esp_log.h`, `esp_system.h`, `esp_heap_caps.h` (one heap for every capability) and an `sdkconfig.h` with no target, so ESP-IDF driver code in libraries stays out.
+- 2026-11-03 — TFT module geometry (GRAM strap, glass origin and direction, color order, IPS) comes from the Adafruit libraries' rotation 0, which is upright on the real modules; IPS panels need INVON for true colors (ADR-013).
+- 2026-11-03 — TFT GRAM starts black at power-on (real chips hold noise); a TN panel shows white while asleep or off, an IPS panel black.
+- 2026-11-03 — TFT backlight follows the LED/BLK pin's level or PWM duty; ST7789 modules pull BLK up, ST7735 and ILI9341 modules stay dark with the pin open (info message).
+- 2026-11-03 — No SPI buffer call in the ABI: 0.3 µs of wall time per SPI byte keeps a Nano TFT faster than real time; ESP32 TFTs at 40 MHz may run slower than real time.
+- 2026-11-03 — Nokia 5110: contrast from V_LCD (on from about 4.5 V, full at 6.5 V, background darkening above 7.5 V) as an approximation of the glass; LIGHT active level is a property (HIGH by default).
+- 2026-11-03 — SSD1327 light per gray level = (pulse width + 1) / (GS15 + 1); the oscillator for frame-rate timing is estimated at 410 kHz at setting 0.
+- 2026-11-03 — HD44780 A02 glyphs from wokwi-elements (MIT), checked against the datasheet table by eye; the LCD part has a `rom` property (a00/a02).
+- 2026-11-03 — Adafruit_BusIO's fast pin I/O is off under the simulator (compat copy of Adafruit_SPIDevice.h).

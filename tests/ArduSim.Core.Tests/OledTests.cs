@@ -319,7 +319,7 @@ public sealed class OledTests : IDisposable
         mcu.I2cStop();
 
         Assert.Equal(32, oled.LitPixels);
-        Assert.False(oled.Controller.Inverse);
+        Assert.False(((OledController)oled.Controller).Inverse);
         Assert.False(mcu.I2cStart(0x3D, read: false)); // SA0 low: 0x3D is nobody
         mcu.I2cStop();
     }

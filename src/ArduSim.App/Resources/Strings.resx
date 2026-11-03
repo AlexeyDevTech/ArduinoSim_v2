@@ -446,4 +446,38 @@
   <data name="Log_sd-soft-spi" xml:space="preserve"><value>{0}: карта подключена программным (bit-banged) SPI, он не моделируется; используйте аппаратные выводы SPI платы.</value></data>
   <data name="Accuracy_13_Title" xml:space="preserve"><value>Модули M9</value></data>
   <data name="Accuracy_13_Body" xml:space="preserve"><value>Сервопривод считает угол по длительности импульсов (544–2400 мкс), библиотека Servo формирует их таймером симулятора. Лента WS2812 получает кадр целиком (NeoPixel и FastLED через libraries/compat): время передачи учитывается, форма сигнала 800 кГц — нет. SD-карта — SDSC на 64 МБ с FAT16; её файлы берутся из папки проекта при запуске и записываются обратно при остановке (при сбое скетча изменения не сохраняются). DS3231 идёт по виртуальному времени от времени компьютера или заданного; меандр SQW только 1 Гц, выход 32 кГц не моделируется.</value></data>
+  <data name="Part_St7735" xml:space="preserve"><value>TFT-дисплей ST7735</value></data>
+  <data name="Part_St7789" xml:space="preserve"><value>IPS-дисплей ST7789</value></data>
+  <data name="Part_Ili9341" xml:space="preserve"><value>TFT-дисплей ILI9341 2.8&quot;</value></data>
+  <data name="Part_Pcd8544" xml:space="preserve"><value>ЖКИ Nokia 5110 (PCD8544)</value></data>
+  <data name="Preset_St7735_18" xml:space="preserve"><value>TFT 1.8&quot; 128x160 SPI (ST7735)</value></data>
+  <data name="Preset_St7735_144" xml:space="preserve"><value>TFT 1.44&quot; 128x128 SPI (ST7735)</value></data>
+  <data name="Preset_St7735_096" xml:space="preserve"><value>TFT 0.96&quot; 80x160 SPI (ST7735)</value></data>
+  <data name="Preset_St7789_130" xml:space="preserve"><value>IPS 1.3&quot; 240x240 SPI без CS (ST7789)</value></data>
+  <data name="Preset_St7789_200" xml:space="preserve"><value>IPS 2.0&quot; 240x320 SPI (ST7789)</value></data>
+  <data name="Preset_St7789_114" xml:space="preserve"><value>IPS 1.14&quot; 135x240 SPI (ST7789)</value></data>
+  <data name="Preset_Ssd1309Spi" xml:space="preserve"><value>OLED 2.42&quot; 128x64 SPI (SSD1309)</value></data>
+  <data name="Preset_Ssd1327I2c" xml:space="preserve"><value>OLED 1.5&quot; 128x128 I2C, оттенки серого (SSD1327)</value></data>
+  <data name="Property_module" xml:space="preserve"><value>Модуль</value></data>
+  <data name="Option_module_st7735-128x160" xml:space="preserve"><value>1.8&quot; 128x160, «black tab» (RGB)</value></data>
+  <data name="Option_module_st7735-128x160-green" xml:space="preserve"><value>1.8&quot; 128x160, «green tab» (BGR)</value></data>
+  <data name="Option_module_st7735-128x128" xml:space="preserve"><value>1.44&quot; 128x128</value></data>
+  <data name="Option_module_st7735-80x160" xml:space="preserve"><value>0.96&quot; 80x160</value></data>
+  <data name="Option_module_st7789-240x240" xml:space="preserve"><value>1.3&quot; 240x240, без CS</value></data>
+  <data name="Option_module_st7789-240x320" xml:space="preserve"><value>2.0&quot; 240x320</value></data>
+  <data name="Option_module_st7789-135x240" xml:space="preserve"><value>1.14&quot; 135x240</value></data>
+  <data name="Option_controller_ssd1309" xml:space="preserve"><value>SSD1309</value></data>
+  <data name="Option_controller_ssd1327" xml:space="preserve"><value>SSD1327 (16 оттенков серого)</value></data>
+  <data name="Property_light" xml:space="preserve"><value>Подсветка включается</value></data>
+  <data name="Option_light_high" xml:space="preserve"><value>уровнем HIGH</value></data>
+  <data name="Option_light_low" xml:space="preserve"><value>уровнем LOW</value></data>
+  <data name="Property_rom" xml:space="preserve"><value>Знакогенератор</value></data>
+  <data name="Option_rom_a00" xml:space="preserve"><value>A00 (японский)</value></data>
+  <data name="Option_rom_a02" xml:space="preserve"><value>A02 (европейский, с кириллицей)</value></data>
+  <data name="Log_tft-power" xml:space="preserve"><value>У {0} нет питания: подключите VCC к 5V (или 3V3) и GND к GND.</value></data>
+  <data name="Log_tft-light" xml:space="preserve"><value>{0}: вывод подсветки не подключён, поэтому экран тёмный; подключите его к 3V3 или к выходу платы.</value></data>
+  <data name="Log_lcd5110-power" xml:space="preserve"><value>У {0} нет питания: подключите VCC к 3V3 и GND к GND.</value></data>
+  <data name="Log_lcd5110-supply" xml:space="preserve"><value>{0}: на VCC {1} В — выше рабочего диапазона PCD8544 (2,7–3,3 В); симуляция всё равно продолжается.</value></data>
+  <data name="Accuracy_14_Title" xml:space="preserve"><value>Дисплеи M10</value></data>
+  <data name="Accuracy_14_Body" xml:space="preserve"><value>TFT-контроллеры ST7735, ST7789 и ILI9341 получают команды и пиксели по SPI так же, как настоящие; гамма, питание и частота кадров не влияют на картинку, многобайтные чтения выровнены по байтам. Каждый байт SPI — отдельный вызов симулятора, поэтому при быстрой шине (ESP32, 40 МГц) отрисовка большого экрана может идти медленнее реального времени. Контраст Nokia 5110 приближён по напряжению VOP; яркость оттенков SSD1327 — по длительности импульса из таблицы серого. Знакогенератор A02 нарисован по таблице даташита HD44780; отдельные точки могут отличаться от конкретной микросхемы.</value></data>
 </root>
