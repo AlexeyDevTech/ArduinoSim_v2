@@ -38,7 +38,8 @@ public sealed class FirmwareBuildService : IDisposable
             paths.BuildDirectoryFor(projectDirectory),
             board.Variant,
             board.Defines,
-            ArduSimPaths.LibraryRoots(project.LibraryDirectories(projectDirectory)));
+            ArduSimPaths.LibraryRoots(project.LibraryDirectories(projectDirectory)),
+            board.Core);
         return Task.Run(() => builder.BuildAsync(request, cancellationToken), cancellationToken);
     }
 

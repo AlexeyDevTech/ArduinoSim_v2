@@ -35,6 +35,12 @@ public enum HostCall : uint
     SetInterruptsEnabled,
     Log,
     Fatal,
+    PwmConfig,
+    DacWrite,
+    Preferences,
+    Restart,
+    WiFi,
+    Network,
 }
 
 /// <param name="TimeNs">Virtual time of the call.</param>

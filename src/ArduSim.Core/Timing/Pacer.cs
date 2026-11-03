@@ -11,6 +11,7 @@ public sealed class Pacer(Func<TimeSpan> wallClock, Action<TimeSpan> sleep)
     private static readonly TimeSpan MaxLag = TimeSpan.FromMilliseconds(250);
 
     private double _speed = double.PositiveInfinity;
+    private double _limit = double.PositiveInfinity;
     private ulong _anchorVirtual;
     private TimeSpan _anchorWall;
     private ulong _lastCheck;
@@ -30,7 +31,22 @@ public sealed class Pacer(Func<TimeSpan> wallClock, Action<TimeSpan> sleep)
         }
     }
 
-    public bool IsUnlimited => double.IsPositiveInfinity(_speed);
+    /// <summary>An upper bound on the speed: the real network holds a run at real time (ADR-010).</summary>
+    public double Limit => _limit;
+
+    /// <summary>Sets <see cref="Limit"/>; pacing restarts from <paramref name="virtualNow"/> when it changes.</summary>
+    public void SetLimit(double limit, ulong virtualNow)
+    {
+        if (limit != _limit)
+        {
+            _limit = limit;
+            Reset(virtualNow);
+        }
+    }
+
+    public bool IsUnlimited => double.IsPositiveInfinity(EffectiveSpeed);
+
+    public double EffectiveSpeed => Math.Min(_speed, _limit);
 
     public void Reset(ulong virtualNow)
     {
@@ -47,7 +63,7 @@ public sealed class Pacer(Func<TimeSpan> wallClock, Action<TimeSpan> sleep)
         }
 
         _lastCheck = virtualNow;
-        TimeSpan due = TimeSpan.FromSeconds((virtualNow - _anchorVirtual) / (double)VirtualTime.Second / _speed);
+        TimeSpan due = TimeSpan.FromSeconds((virtualNow - _anchorVirtual) / (double)VirtualTime.Second / EffectiveSpeed);
         TimeSpan ahead = due - (wallClock() - _anchorWall);
         if (ahead > SleepThreshold)
         {

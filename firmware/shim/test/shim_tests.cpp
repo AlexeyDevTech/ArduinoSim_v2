@@ -95,6 +95,8 @@ int32_t h_digital_read(int32_t pin)
 }
 int32_t h_analog_read(int32_t pin) { return pin * 10; }
 void h_analog_write(int32_t pin, int32_t value) { record("analog_write", pin, value); }
+void h_pwm_config(int32_t pin, uint32_t, int32_t bits) { record("pwm_config", pin, bits); }
+void h_dac_write(int32_t pin, int32_t value) { record("dac_write", pin, value); }
 void h_analog_reference(int32_t) {}
 void h_tone(int32_t pin, uint32_t frequency, uint32_t) { record("tone", pin, static_cast<int32_t>(frequency)); }
 void h_no_tone(int32_t pin) { record("no_tone", pin); }
@@ -105,7 +107,7 @@ void h_delay_us(uint32_t us)
     record("delay_us", static_cast<int32_t>(us));
 }
 void h_yield() {}
-void h_serial_begin(int32_t, uint32_t baud, uint32_t config) { record("serial_begin", static_cast<int32_t>(baud), static_cast<int32_t>(config)); }
+void h_serial_begin(int32_t, uint32_t baud, uint32_t config, int32_t, int32_t) { record("serial_begin", static_cast<int32_t>(baud), static_cast<int32_t>(config)); }
 void h_serial_end(int32_t) {}
 int32_t h_serial_write(int32_t, const uint8_t* data, int32_t length)
 {
@@ -122,29 +124,29 @@ int32_t h_serial_available_for_write(int32_t) { return 64; }
 void h_serial_flush(int32_t) {}
 // One fake I2C device at 0x27: it ACKs, NACKs a data byte of 0xEE, and answers reads with 0x10, 0x11, ...
 uint8_t g_i2c_next_read = 0x10;
-void h_i2c_begin() { record("i2c_begin"); }
-void h_i2c_end() {}
-void h_i2c_set_clock(uint32_t hz) { record("i2c_set_clock", static_cast<int32_t>(hz)); }
-int32_t h_i2c_start(uint8_t address, int32_t read)
+void h_i2c_begin(int32_t, int32_t, int32_t) { record("i2c_begin"); }
+void h_i2c_end(int32_t) {}
+void h_i2c_set_clock(int32_t, uint32_t hz) { record("i2c_set_clock", static_cast<int32_t>(hz)); }
+int32_t h_i2c_start(int32_t, uint8_t address, int32_t read)
 {
     record("i2c_start", address, read);
     return address == 0x27 ? 1 : 0;
 }
-int32_t h_i2c_write(uint8_t value)
+int32_t h_i2c_write(int32_t, uint8_t value)
 {
     record("i2c_write", value);
     return value == 0xEE ? 0 : 1;
 }
-uint8_t h_i2c_read(int32_t ack)
+uint8_t h_i2c_read(int32_t, int32_t ack)
 {
     record("i2c_read", ack);
     return g_i2c_next_read++;
 }
-void h_i2c_stop() { record("i2c_stop"); }
-void h_spi_begin() {}
-void h_spi_end() {}
-void h_spi_settings(uint32_t, int32_t, int32_t) {}
-uint8_t h_spi_transfer(uint8_t) { return 0xFF; }
+void h_i2c_stop(int32_t) { record("i2c_stop"); }
+void h_spi_begin(int32_t, int32_t, int32_t, int32_t, int32_t) {}
+void h_spi_end(int32_t) {}
+void h_spi_settings(int32_t, uint32_t, int32_t, int32_t) {}
+uint8_t h_spi_transfer(int32_t, uint8_t) { return 0xFF; }
 uint8_t h_eeprom_read(int32_t address) { return g_eeprom[address]; }
 void h_eeprom_write(int32_t address, uint8_t value)
 {
@@ -177,6 +179,8 @@ SimHostApi make_api()
     api.digital_read = h_digital_read;
     api.analog_read = h_analog_read;
     api.analog_write = h_analog_write;
+    api.pwm_config = h_pwm_config;
+    api.dac_write = h_dac_write;
     api.analog_reference = h_analog_reference;
     api.tone = h_tone;
     api.no_tone = h_no_tone;

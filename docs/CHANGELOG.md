@@ -1,5 +1,17 @@
 # Changelog
 
+## M6 — ESP32 DevKit v1 (2026-11-03)
+
+- Firmware ABI 2.0 (ADR-009): numbered I2C and SPI buses on chosen pins, UART pins, `INPUT_PULLDOWN` and `OUTPUT_OPEN_DRAIN`, PWM with a frequency and resolution, the DAC, a key-value store, restart, and the Wi-Fi and network calls. The Nano behaves exactly as before.
+- The shim is split by board family: shared code in `firmware/shim/include` and `src`, the AVR core in `cores/avr`, the ESP32 core in `cores/esp32`.
+- ESP32 DevKit v1 board: 30-pin map with GPIO numbers, 3.3 V logic, input-only GPIO 34–39, a 12-bit ADC (ADC2 pins read 0 while Wi-Fi is on), DAC on 25/26, the blue LED on GPIO 2, a board drawing with a Wi-Fi indicator. The toolbar's board picker now switches a project's board; wires to pins the other board lacks go, undo brings the old board back.
+- ESP32 core (Arduino-ESP32 3.x API): LEDC (`ledcAttach`/`ledcWrite`, and the 2.x channel functions), `analogReadResolution`, `analogReadMilliVolts`, `dacWrite`, `Serial1`/`Serial2` with pins, `Wire.begin(sda, scl)` and `Wire1`, SPI on any pins (VSPI, HSPI), `Serial.printf`, `ESP.*`, `esp_random()` (deterministic), `log_e`. Hardware timers, touch and the temperature sensor fail to compile with a clear message.
+- FreeRTOS as cooperative tasks: `xTaskCreate`, delays, queues, semaphores, mutexes, notifications; each task is a thread, only one runs at a time.
+- `Preferences` (kept in the project's `preferences.json`), `EEPROM.begin/commit`, `ESP.restart()` (a fresh copy of the firmware runs `setup()` again, `millis()` from 0) and `ESP.deepSleep()`.
+- Wi-Fi: a simulated radio (scan, connect with a password check, addresses, events, soft AP) with the networks in the project settings (default: one open network, `ArduSim`); `WiFiClient`, `WiFiClientSecure` (TLS by the computer), `WiFiServer` (127.0.0.1 only), `WiFiUDP` and `HTTPClient` over the computer's real network. While connections are open the run is held at 1×. The headless Runner takes `--no-network`.
+- Examples Esp32Blink, Esp32Fade, Esp32Tasks, Esp32WiFi, Esp32Preferences, Esp32Oled; the bundled display libraries run on the ESP32 unchanged.
+- Fixed: switching the pacing limit restarted pacing from a stale time, so the run slept for seconds.
+
 ## M5 — OLED and polish, MVP (2026-11-02)
 
 - SPI: the board's SCK/MOSI nets form a bus; a byte reaches the device whose CS is LOW, at 8 bit times of the SPI clock (F_CPU/2 to /128). Nobody selected reads 0xFF, two selected is a conflict warning, modes 1 and 2 warn. SPI library in the shim with the AVR constants, `SPISettings` and transactions. Bit-banged SPI works on any pins.

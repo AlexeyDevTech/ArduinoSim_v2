@@ -19,7 +19,7 @@
 
   <!-- Bundled examples open as copies (ADR-008). -->
   <ItemGroup>
-    <None Include="..\..\examples\**\*" Exclude="..\..\examples\**\eeprom.bin" LinkBase="examples" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="..\..\examples\**\*" Exclude="..\..\examples\**\eeprom.bin;..\..\examples\**\preferences.json" LinkBase="examples" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>

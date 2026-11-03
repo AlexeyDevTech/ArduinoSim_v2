@@ -41,7 +41,7 @@ public sealed class I2cBus
 
     private readonly Circuit _circuit;
     private readonly SimulationLog _log;
-    private readonly List<II2cDevice> _devices = [];
+    private readonly List<II2cDevice> _devices;
     private II2cDevice? _active;
     private bool _reading;
     private bool _pullUpsChecked;
@@ -52,6 +52,16 @@ public sealed class I2cBus
         ArgumentNullException.ThrowIfNull(log);
         _circuit = circuit;
         _log = log;
+        _devices = [];
+        Sda = sda;
+        Scl = scl;
+    }
+
+    private I2cBus(I2cBus devices, PinRef sda, PinRef scl)
+    {
+        _circuit = devices._circuit;
+        _log = devices._log;
+        _devices = devices._devices;
         Sda = sda;
         Scl = scl;
     }
@@ -67,6 +77,9 @@ public sealed class I2cBus
         ArgumentNullException.ThrowIfNull(device);
         _devices.Add(device);
     }
+
+    /// <summary>A bus on other nets that reaches the same devices (Wire1, or Wire moved to other pins on an ESP32).</summary>
+    public I2cBus WithPins(PinRef sda, PinRef scl) => sda == Sda && scl == Scl ? this : new I2cBus(this, sda, scl);
 
     /// <summary>START (or repeated START) and the address byte; true when a device ACKs.</summary>
     public bool Start(int address, bool read)

@@ -7,7 +7,7 @@ using sim::host;
 
 HardwareSerial Serial(0);
 
-void HardwareSerial::begin(unsigned long baud, uint8_t config) { host().serial_begin(port_, static_cast<uint32_t>(baud), config); }
+void HardwareSerial::begin(unsigned long baud, uint8_t config) { host().serial_begin(port_, static_cast<uint32_t>(baud), config, SIM_PIN_DEFAULT, SIM_PIN_DEFAULT); }
 
 void HardwareSerial::end() { host().serial_end(port_); }
 

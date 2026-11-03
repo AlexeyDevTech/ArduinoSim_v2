@@ -74,4 +74,7 @@ public sealed class BoardComponent : SimComponent
     }
 
     private string? BuiltinLedPin => _board.BuiltinLed is int number ? _board.PinName(number) : null;
+
+    /// <summary>The Wi-Fi indicator on the board drawing (<see cref="Simulation.WifiRadio.Indicator"/>).</summary>
+    public void ShowWifi(int indicator) => SetState("wifi", indicator);
 }

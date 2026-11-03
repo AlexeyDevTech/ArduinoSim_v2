@@ -264,6 +264,26 @@ public sealed partial class SceneEditor
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Puts another board in the board's place (same id, position and orientation). Wires to pins the
+    /// new board lacks are removed; wires to pins with the same name stay. One undo step.
+    /// </summary>
+    public bool ChangeBoard(string boardType)
+    {
+        PartModel? board = Scene.Parts.FirstOrDefault(IsBoard);
+        if (board is null || board.Type == boardType || _registry.Find(boardType) is not { Category: "board" } definition)
+        {
+            return false;
+        }
+
+        Checkpoint();
+        Scene.Parts[Scene.Parts.IndexOf(board)] = new PartModel(board.Id, boardType) { X = board.X, Y = board.Y, Rotation = board.Rotation, Flip = board.Flip };
+        Scene.Wires.RemoveAll(w => (w.From.Component == board.Id && definition.FindPin(w.From.Pin) is null) ||
+                                   (w.To.Component == board.Id && definition.FindPin(w.To.Pin) is null));
+        Changed?.Invoke();
+        return true;
+    }
+
     /// <summary>Renames a part and the wire ends that refer to it; ids are lowercase letters, digits and dashes.</summary>
     public bool RenamePart(string oldId, string newId)
     {

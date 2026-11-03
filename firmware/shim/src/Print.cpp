@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 #include <math.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 size_t Print::write(const uint8_t* buffer, size_t size)
 {
@@ -122,3 +124,33 @@ size_t Print::printFloat(double number, uint8_t digits)
     }
     return n;
 }
+
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+size_t Print::printf(const char* format, ...)
+{
+    char small[64];
+    va_list args;
+    va_start(args, format);
+    int length = vsnprintf(small, sizeof small, format, args);
+    va_end(args);
+    if (length < 0) {
+        return 0;
+    }
+
+    if (static_cast<size_t>(length) < sizeof small) {
+        return write(reinterpret_cast<const uint8_t*>(small), static_cast<size_t>(length));
+    }
+
+    char* large = static_cast<char*>(malloc(static_cast<size_t>(length) + 1));
+    if (large == nullptr) {
+        return 0;
+    }
+
+    va_start(args, format);
+    vsnprintf(large, static_cast<size_t>(length) + 1, format, args);
+    va_end(args);
+    size_t written = write(reinterpret_cast<const uint8_t*>(large), static_cast<size_t>(length));
+    free(large);
+    return written;
+}
+#endif

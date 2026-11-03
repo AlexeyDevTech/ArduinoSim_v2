@@ -139,6 +139,65 @@
     </Canvas>
   </DataTemplate>
 
+  <!-- ESP32 DevKit v1: USB on the left, the WROOM module with its antenna on the right (pins from Esp32DevKit.cs). -->
+  <DataTemplate x:Key="Part.board.esp32-devkit-v1" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="230" Height="110">
+      <Rectangle Width="230" Height="110" RadiusX="3" RadiusY="3" Fill="#FF20242B" Stroke="#FF101216" />
+      <Rectangle Canvas.Left="-10" Canvas.Top="44" Width="22" Height="22" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
+      <Rectangle Canvas.Left="80" Canvas.Top="22" Width="140" Height="66" RadiusX="2" RadiusY="2" Fill="#FFA8AEB8" Stroke="#FF7D838E" />
+      <Path Canvas.Left="186" Canvas.Top="28" Stroke="#FFD9B45A" StrokeThickness="1.6" Data="M0,0 L0,48 L6,48 L6,6 L12,6 L12,48 L18,48 L18,6 L24,6 L24,54" />
+      <TextBlock Canvas.Left="90" Canvas.Top="44" FontSize="8" FontWeight="SemiBold" Foreground="#FF2B2F36" Text="ESP32-WROOM-32" />
+      <TextBlock Canvas.Left="20" Canvas.Top="49" FontSize="6" Foreground="#FFD8E2F4" Text="ESP32 DEVKIT V1" />
+      <Rectangle Canvas.Left="40" Canvas.Top="70" Width="7" Height="4" Fill="#FF0F2A4D" />
+      <Ellipse Canvas.Left="33.5" Canvas.Top="62" Width="20" Height="20" Opacity="{Binding OnboardLed}">
+        <Ellipse.Fill>
+          <RadialGradientBrush>
+            <GradientStop Color="#C03E8BFF" Offset="0" />
+            <GradientStop Color="#003E8BFF" Offset="1" />
+          </RadialGradientBrush>
+        </Ellipse.Fill>
+      </Ellipse>
+      <Rectangle Canvas.Left="40" Canvas.Top="70" Width="7" Height="4" Fill="#FF3E8BFF" Opacity="{Binding OnboardLed}" />
+      <TextBlock Canvas.Left="40" Canvas.Top="75" FontSize="4" Foreground="White" Text="D2" />
+      <Rectangle Canvas.Left="54" Canvas.Top="70" Width="7" Height="4" Fill="#FFE54848" />
+      <TextBlock Canvas.Left="53" Canvas.Top="75" FontSize="4" Foreground="White" Text="PWR" />
+      <!-- Wi-Fi state: grey off, amber connecting, green connected, blue access point. -->
+      <Ellipse x:Name="WifiDot" Canvas.Left="172" Canvas.Top="76" Width="6" Height="6" Fill="#FF5A606E" />
+      <TextBlock Canvas.Left="150" Canvas.Top="76" FontSize="4.5" Foreground="#FF2B2F36" Text="Wi-Fi" />
+      <ItemsControl ItemsSource="{Binding Pins}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:PinViewModel}">
+            <Canvas>
+              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+            </Canvas>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Canvas>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding WifiState}" Value="1">
+        <Setter TargetName="WifiDot" Property="Fill" Value="#FFF2C94C" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding WifiState}" Value="2">
+        <Setter TargetName="WifiDot" Property="Fill" Value="#FF3AE06A" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding WifiState}" Value="3">
+        <Setter TargetName="WifiDot" Property="Fill" Value="#FF3E8BFF" />
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </DataTemplate>
   <DataTemplate x:Key="Part.led" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="40" Height="70">
       <Line X1="10" Y1="40" X2="10" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />

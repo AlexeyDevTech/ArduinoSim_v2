@@ -1,9 +1,11 @@
 /*
  * Arduino.h - the Arduino core API for ArduSim.
  *
- * Behaviour follows the Arduino AVR core; every hardware access goes to the
- * simulator through sim_abi.h. Differences from AVR that a sketch can notice
- * are listed in README.md ("About simulation accuracy").
+ * The part every core shares; core_defs.h and core_api.h come from the board's
+ * core (firmware/shim/cores/<core>/include) and follow that core (AVR, ESP32).
+ * Every hardware access goes to the simulator through sim_abi.h. Differences
+ * from the hardware a sketch can notice are listed in README.md ("About
+ * simulation accuracy").
  */
 #ifndef Arduino_h
 #define Arduino_h
@@ -14,22 +16,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <avr/interrupt.h>
-#include <avr/io.h>
 #include <avr/pgmspace.h>
 
 #include "binary.h"
-
-#ifndef F_CPU
-#define F_CPU 16000000L
-#endif
+#include "core_defs.h"
 
 #define HIGH 0x1
 #define LOW 0x0
-
-#define INPUT 0x0
-#define OUTPUT 0x1
-#define INPUT_PULLUP 0x2
 
 #define PI 3.1415926535897932384626433832795
 #define HALF_PI 1.5707963267948966192313216916398
@@ -44,18 +37,6 @@
 #define LSBFIRST 0
 #define MSBFIRST 1
 
-#define CHANGE 1
-#define FALLING 2
-#define RISING 3
-
-#define DEFAULT 1
-#define EXTERNAL 0
-#define INTERNAL 3
-
-#define NOT_A_PIN 0
-#define NOT_A_PORT 0
-#define NOT_AN_INTERRUPT -1
-
 /* min/max are templates in C++ (as in ArduinoCore-API) so the C++ standard library stays usable. */
 #ifndef __cplusplus
 #define min(a, b) ((a) < (b) ? (a) : (b))
@@ -66,8 +47,6 @@
 #define degrees(rad) ((rad) * RAD_TO_DEG)
 #define sq(x) ((x) * (x))
 
-#define interrupts() sei()
-#define noInterrupts() cli()
 
 #define clockCyclesPerMicrosecond() (F_CPU / 1000000L)
 #define clockCyclesToMicroseconds(a) ((a) / clockCyclesPerMicrosecond())
@@ -87,7 +66,6 @@ typedef bool boolean;
 typedef uint8_t byte;
 /* ArduinoCore-API names the bit order type; portable library code (Adafruit BusIO) uses it. */
 typedef uint8_t BitOrder;
-typedef uint16_t word; /* 16 bits as on AVR, although int is 32 bits here */
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,7 +79,6 @@ void pinMode(uint8_t pin, uint8_t mode);
 void digitalWrite(uint8_t pin, uint8_t val);
 int digitalRead(uint8_t pin);
 int analogRead(uint8_t pin);
-void analogReference(uint8_t mode);
 void analogWrite(uint8_t pin, int val);
 
 unsigned long millis(void);
@@ -165,5 +142,6 @@ auto max(const T& a, const L& b) -> decltype((b < a) ? b : a)
 #endif
 
 #include "pins_arduino.h"
+#include "core_api.h"
 
 #endif /* Arduino_h */

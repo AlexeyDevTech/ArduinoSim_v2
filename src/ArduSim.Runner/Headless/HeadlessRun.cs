@@ -75,7 +75,7 @@ internal static class HeadlessRun
 
         using EepromMemory eeprom = EepromMemory.FileBacked(Path.Combine(options.ProjectDirectory, ProjectFile.EepromFileName), board.EepromSize);
         using CrashBlock crash = CrashBlock.CreatePrivate();
-        var host = new SimulationHost(board, project.Scene, eeprom, options.Seed, crash);
+        var host = new SimulationHost(board, project.Scene, eeprom, options.Seed, crash, KeyValueStore.FileBacked(Path.Combine(options.ProjectDirectory, ProjectFile.PreferencesFileName)), project.Settings, !options.NoNetwork);
         host.Pacer.Speed = options.Speed;
         Attach(host, options, output);
         if (options.RunForMilliseconds is double ms)
@@ -126,7 +126,8 @@ internal static class HeadlessRun
             buildDirectory ?? paths.BuildDirectoryFor(projectDirectory),
             board.Variant,
             board.Defines,
-            ArduSimPaths.LibraryRoots(project.LibraryDirectories(projectDirectory)));
+            ArduSimPaths.LibraryRoots(project.LibraryDirectories(projectDirectory)),
+            board.Core);
         return await builder.BuildAsync(request, CancellationToken.None);
     }
 

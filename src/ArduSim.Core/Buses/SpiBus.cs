@@ -34,7 +34,7 @@ public sealed class SpiBus
 
     private readonly Circuit _circuit;
     private readonly SimulationLog _log;
-    private readonly List<ISpiDevice> _devices = [];
+    private readonly List<ISpiDevice> _devices;
 
     public SpiBus(Circuit circuit, SimulationLog log, PinRef sck, PinRef mosi, PinRef miso)
     {
@@ -42,6 +42,17 @@ public sealed class SpiBus
         ArgumentNullException.ThrowIfNull(log);
         _circuit = circuit;
         _log = log;
+        _devices = [];
+        Sck = sck;
+        Mosi = mosi;
+        Miso = miso;
+    }
+
+    private SpiBus(SpiBus devices, PinRef sck, PinRef mosi, PinRef miso)
+    {
+        _circuit = devices._circuit;
+        _log = devices._log;
+        _devices = devices._devices;
         Sck = sck;
         Mosi = mosi;
         Miso = miso;
@@ -60,6 +71,10 @@ public sealed class SpiBus
         ArgumentNullException.ThrowIfNull(device);
         _devices.Add(device);
     }
+
+    /// <summary>A bus on other nets that reaches the same devices (HSPI, or SPI on chosen pins on an ESP32).</summary>
+    public SpiBus WithPins(PinRef sck, PinRef mosi, PinRef miso) =>
+        sck == Sck && mosi == Mosi && miso == Miso ? this : new SpiBus(this, sck, mosi, miso);
 
     /// <param name="lsbFirst">The master shifts LSB first; devices see the byte with its bits in wire order.</param>
     /// <param name="mode">SPI mode 0-3.</param>

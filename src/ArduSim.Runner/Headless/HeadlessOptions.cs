@@ -12,7 +12,8 @@ internal sealed record HeadlessOptions(
     bool TracePins,
     string? BuildDirectory,
     IReadOnlyList<ScheduledInput> Inputs,
-    string? DumpDisplay = null)
+    string? DumpDisplay = null,
+    bool NoNetwork = false)
 {
     public const string Usage = """
         Usage: ArduSim.Runner --project <folder> [options]
@@ -27,6 +28,7 @@ internal sealed record HeadlessOptions(
                                  apply a part input at a virtual time, e.g. 500:btn1:pressed=1 (repeatable)
           --quiet                do not print pin changes
           --build-dir <folder>   where to put firmware.dll (default: %LOCALAPPDATA%\ArduSim\builds\...)
+          --no-network           ESP boards: Wi-Fi is simulated but connections to the real network fail
           --version              print the version
         """;
 
@@ -40,6 +42,7 @@ internal sealed record HeadlessOptions(
         int seed = 1;
         bool trace = true;
         string? buildDirectory = null;
+        bool noNetwork = false;
         var inputs = new List<ScheduledInput>();
         for (int i = 0; i < args.Count; i++)
         {
@@ -74,6 +77,9 @@ internal sealed record HeadlessOptions(
                 case "--build-dir":
                     buildDirectory = Path.GetFullPath(Value(args, ref i, arg));
                     break;
+                case "--no-network":
+                    noNetwork = true;
+                    break;
                 default:
                     throw new UsageException($"Unknown argument: {arg}");
             }
@@ -89,7 +95,7 @@ internal sealed record HeadlessOptions(
             throw new UsageException("--run-for and --speed must be positive.");
         }
 
-        return new HeadlessOptions(Path.GetFullPath(project), runFor, speed, dumpSerial is null ? null : Path.GetFullPath(dumpSerial), seed, trace, buildDirectory, inputs, dumpDisplay);
+        return new HeadlessOptions(Path.GetFullPath(project), runFor, speed, dumpSerial is null ? null : Path.GetFullPath(dumpSerial), seed, trace, buildDirectory, inputs, dumpDisplay, noNetwork);
     }
 
     private static string Value(IReadOnlyList<string> args, ref int i, string name) =>

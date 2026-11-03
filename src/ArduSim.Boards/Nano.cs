@@ -53,9 +53,8 @@ public static class Nano
         Width: 180,
         Height: 70,
         Timing: Timing,
-        I2cSda: 18,
-        I2cScl: 19,
-        Spi: new SpiPins(Mosi: 11, Miso: 12, Sck: 13, Ss: 10));
+        I2c: [new I2cPins(Sda: 18, Scl: 19)],
+        Spi: [new SpiPins(Mosi: 11, Miso: 12, Sck: 13, Ss: 10)]);
 
     private static (double X, double Y) Position(string name)
     {
@@ -90,7 +89,7 @@ public static class Nano
 /// <summary>All boards the simulator knows, by project id.</summary>
 public static class BoardCatalog
 {
-    public static IReadOnlyList<BoardProfile> All { get; } = [Nano.Profile];
+    public static IReadOnlyList<BoardProfile> All { get; } = [Nano.Profile, Esp32DevKit.Profile];
 
     public static BoardProfile? Find(string id) => All.FirstOrDefault(b => string.Equals(b.Id, id, StringComparison.OrdinalIgnoreCase));
 }

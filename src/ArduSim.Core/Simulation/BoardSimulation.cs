@@ -35,7 +35,7 @@ public sealed class BoardSimulation
 
     public SimComponent? FindComponent(string id) => _components.GetValueOrDefault(id);
 
-    public static BoardSimulation Create(SceneDocument scene, BoardProfile board, ComponentRegistry registry, SimulationEngine engine, EepromMemory eeprom, int seed)
+    public static BoardSimulation Create(SceneDocument scene, BoardProfile board, ComponentRegistry registry, SimulationEngine engine, EepromMemory eeprom, int seed, KeyValueStore? kv = null, WifiSettings? wifi = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(board);
@@ -81,10 +81,11 @@ public sealed class BoardSimulation
             components.Insert(0, boardComponent);
         }
 
-        I2cBus? i2c = board.I2cSda is { } sda && board.I2cScl is { } scl
-            ? new I2cBus(circuit, log, boardComponent.Pin(board.PinName(sda)), boardComponent.Pin(board.PinName(scl)))
+        // Bus 0 on its default pins; devices register on it and other buses (or other pins) reach them too.
+        I2cBus? i2c = board.I2c.Count > 0 && board.I2c[0] is { Sda: >= 0, Scl: >= 0 } i2cPins
+            ? new I2cBus(circuit, log, boardComponent.Pin(board.PinName(i2cPins.Sda)), boardComponent.Pin(board.PinName(i2cPins.Scl)))
             : null;
-        SpiBus? spi = board.Spi is { } pins
+        SpiBus? spi = board.Spi.Count > 0 && board.Spi[0] is { Sck: >= 0, Mosi: >= 0, Miso: >= 0 } pins
             ? new SpiBus(circuit, log, boardComponent.Pin(board.PinName(pins.Sck)), boardComponent.Pin(board.PinName(pins.Mosi)), boardComponent.Pin(board.PinName(pins.Miso)))
             : null;
         var context = new ComponentContext(circuit, engine, i2c, spi);
@@ -102,7 +103,13 @@ public sealed class BoardSimulation
             }
         }
 
-        var mcu = new Mcu(board, engine, eeprom, seed, circuit, boardComponent.Id, i2c, spi);
+        var mcu = new Mcu(board, engine, eeprom, seed, circuit, boardComponent.Id, i2c, spi, kv);
+        if (board.HasWifi)
+        {
+            var radio = new WifiRadio(engine, wifi);
+            radio.Changed += () => boardComponent.ShowWifi(radio.Indicator);
+            mcu.Wifi = radio;
+        }
         circuit.Build();
         foreach (SimComponent component in components)
         {

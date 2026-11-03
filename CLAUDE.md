@@ -23,21 +23,21 @@ powershell -ExecutionPolicy Bypass -File tools/toolchain-eval/Measure-Toolchains
 
 Requires the .NET 10 SDK. The first build of any sketch (or the first `dotnet test`) downloads the pinned llvm-mingw (182 MiB) into `%LOCALAPPDATA%\ArduSim\toolchain`; that takes a few minutes once. No Arduino IDE, no arduino-cli.
 
-Runner options: `--project <folder>` (required), `--run-for <ms>`, `--speed <x|max>` (default max), `--dump-serial <file>`, `--dump-display <file.png>` (displays at the end; several → `<file>-<id>.png`), `--seed <n>`, `--input <ms>:<part>:<name>=<value>` (repeatable), `--quiet`, `--build-dir <folder>`. Output lines are `[   1000.008 ms] D13 LOW`, `[ ... ms] led1 brightness=1`, `[ ... ms] Serial: text`, `[ ... ms] lcd1: "row 0" "row 1"` (display text 20 ms after a change; CGRAM glyphs as `\0`-`\7`), `[ ... ms] oled1: 1024 px on`, `[ ... ms] warning: ...`. Exit codes are in `src/ArduSim.Runner/ProcessExit.cs`. `--ipc ...` is the mode the app uses (PipeSimulationSession passes the arguments).
+Runner options: `--project <folder>` (required), `--run-for <ms>`, `--speed <x|max>` (default max), `--dump-serial <file>`, `--dump-display <file.png>` (displays at the end; several → `<file>-<id>.png`), `--seed <n>`, `--input <ms>:<part>:<name>=<value>` (repeatable), `--quiet`, `--build-dir <folder>`, `--no-network` (ESP boards: Wi-Fi simulated, real connections fail). Output lines are `[   1000.008 ms] D13 LOW`, `[ ... ms] led1 brightness=1`, `[ ... ms] Serial: text`, `[ ... ms] lcd1: "row 0" "row 1"` (display text 20 ms after a change; CGRAM glyphs as `\0`-`\7`), `[ ... ms] oled1: 1024 px on`, `[ ... ms] warning: ...`. Exit codes are in `src/ArduSim.Runner/ProcessExit.cs`. `--ipc ...` is the mode the app uses (PipeSimulationSession passes the arguments).
 
 ## Repository map
 
 ```
 ArduSim.sln, Directory.Build.props, Directory.Packages.props, global.json, .editorconfig
-src/ArduSim.Core       engine: Timing, Circuits (nets), Components (+ Parts), Simulation (engine, Mcu, BoardSimulation, UART, EEPROM, interrupts), Diagnostics, Boards (profile types), Projects (file, template), Editing (SceneModel, SceneEditor), Buses (I2cBus, SpiBus), Displays (HD44780, PCF8574, OledController, frames, DisplayImage)
-src/ArduSim.Boards     board profiles and timing tables (Nano)
+src/ArduSim.Core       engine: Timing, Circuits (nets), Components (+ Parts), Simulation (engine, Mcu, BoardSimulation, UART, EEPROM, interrupts, WifiRadio, KeyValueStore), Diagnostics, Boards (profile types), Projects (file, template), Editing (SceneModel, SceneEditor), Buses (I2cBus, SpiBus), Displays (HD44780, PCF8574, OledController, frames, DisplayImage)
+src/ArduSim.Boards     board profiles and timing tables (Nano, ESP32 DevKit v1)
 src/ArduSim.Build      Toolchains, Sketches (preprocessor), Libraries (resolver), Compilation (builder, object cache, diagnostics, FirmwareSymbols)
 src/ArduSim.Ipc        Messages (MessagePack), IpcChannel, ISimulationSession, PipeSimulationSession, CrashBlock
-src/ArduSim.Runner     Interop (SimHostApi mirror, callbacks, loader), SimulationHost, Session (SessionServer, PipeServer, InProcessSimulationSession), Headless (+ PngWriter)
+src/ArduSim.Runner     Interop (SimHostApi mirror, callbacks, loader), SimulationHost (+ restart), Network (NetworkService: real sockets for ESP Wi-Fi), Session (SessionServer, PipeServer, InProcessSimulationSession), Headless (+ PngWriter)
 src/ArduSim.App        WPF UI: MainWindow (chrome, panels), Views (SchematicCanvas, CodeEditor, LcdScreen, OledScreen, PlotterView, ExampleThumbnails, UnsavedDialog, SettingsDialog, AccuracySheet, converters), ViewModels (Main, Scene, Palette, Properties, CodeDocument, Plotter), Services (build, environment, UserState, Theme), Themes (Dark, Light, Controls, Parts), Localization (Strings, LogText), Resources/Strings.resx
-firmware/shim          C++ Arduino shim: include/ (Arduino.h, sim_abi.h, avr/, sim/), src/, variants/nano, libraries/EEPROM, Wire and SPI, test/ (harness)
+firmware/shim          C++ Arduino shim (ABI 2.0): shared include/ (Arduino.h, sim_abi.h, sim/) and src/; cores/avr and cores/esp32 (headers, sources, core libraries: EEPROM; ESP32 also WiFi, HTTPClient, Preferences); variants/nano and esp32-devkit; shared libraries Wire and SPI; test/ (harness)
 libraries/             vendored Arduino libraries (LiquidCrystal, LiquidCrystal_I2C, Adafruit_GFX, Adafruit_BusIO, Adafruit_SSD1306, Adafruit_SH110X, U8g2, GyverOLED), unmodified; libraries/compat/ per-library fixes (none needed yet)
-examples/              user-facing example projects (Blink, Button, FloatingInput, Potentiometer, LcdHello, LcdI2c, LcdCustomChars, OledAdafruit, OledU8g2, OledGyver, Sh1106); copied next to the app
+examples/              user-facing example projects (Blink, Button, FloatingInput, Potentiometer, LcdHello, LcdI2c, LcdCustomChars, OledAdafruit, OledU8g2, OledGyver, Sh1106, Esp32Blink, Esp32Fade, Esp32Tasks, Esp32WiFi, Esp32Preferences, Esp32Oled); copied next to the app
 tests/                 ArduSim.Core.Tests, ArduSim.Build.Tests, ArduSim.App.Tests (view models, no window), ArduSim.Integration.Tests (+ Projects/ fixture sketches; PerformanceTests run alone)
 tools/                 dev-only: toolchain-eval (ADR-002), nano-timing-bench (ADR-005 calibration)
 docs/                  BRIEF (spec), ARCHITECTURE, UI, PLAN, DECISIONS, CHANGELOG, adr/
@@ -55,15 +55,17 @@ docs/                  BRIEF (spec), ARCHITECTURE, UI, PLAN, DECISIONS, CHANGELO
 - Bus devices implement `II2cDevice` / `ISpiDevice` and register on `ComponentContext.I2c` / `.Spi` in `OnAttach`; displays expose `SimComponent.Display` and call `NotifyDisplayChanged()`.
 - Colors: XAML uses `DynamicResource` tokens (both themes have the same keys); a color picked in code follows `Services.Theme` (`IsLight`, `Changed`).
 - NuGet licenses: MIT, BSD, Apache or Microsoft only; list every dependency in `THIRD_PARTY.md`. Versions only in `Directory.Packages.props`.
-- C++ shim: C++17, warning-clean under clang `-Wall -Wextra -Werror` (the harness test enforces it), one `.cpp` per module, `<windows.h>` only in `src/host_bootstrap.cpp`. ABI changes: `sim_abi.h` and `src/ArduSim.Runner/Interop/SimHostApi.cs` together, same field order.
+- C++ shim: C++17, warning-clean under clang `-Wall -Wextra -Werror` (the harness tests enforce it for the AVR and ESP32 cores), one `.cpp` per module, `<windows.h>` only in `src/host_bootstrap.cpp` (it also wraps threads and events for the ESP32 tasks). Board-family code goes to `cores/<core>`; shared libraries branch on `ARDUINO_ARCH_ESP32`. ABI changes: `sim_abi.h` and `src/ArduSim.Runner/Interop/SimHostApi.cs` together, same field order.
 - Host callbacks never let an exception reach native code (each one catches and ends the run with an internal-error report).
 - Vendored libraries are never patched silently; fixes go to `libraries/compat/`.
 - Conventional commits on `main`.
 
-## Known limitations (current state: M5, MVP)
+## Known limitations (current state: M6, ESP32)
+
+- ESP32: FreeRTOS tasks are cooperative (no preemption, core number ignored); Wi-Fi networks and the real-network switch are edited in `project.simproj.json` only (`settings.wifi`, `settings.network`); Serial1/Serial2 output is not shown anywhere; hardware timers, touch, the temperature sensor, deep-sleep wake-ups other than the timer, client TLS certificates are not simulated; every ESP.restart() loads another copy of firmware.dll and parks a thread.
 
 - The brief §7 acceptance pass on a clean Windows VM has not been done (everything was checked on the dev machine only).
-- Not in the UI yet: live levels in the properties pin list, common properties for a multi-selection. Параметры holds only the theme. Only one board exists, so the board picker cannot switch boards.
+- Not in the UI yet: live levels in the properties pin list, common properties for a multi-selection. Параметры holds only the theme.
 - Canvas mouse gestures and palette drag and drop have no automated checks; the automated checks drive the view models and render the window offscreen. Canvas fps and App memory are measured by offscreen scenario runs, not in `dotnet test`.
 - I2C and SPI are master-only; I2C is hardware-only (no bit-banged I2C, no slave mode). SPI modes 1 and 2 warn (device models sample on the rising edge).
 - HD44780: no 5x10 font (drawn as 5x8), no A02 ROM. LiquidCrystal_I2C has no license of its own (bundled on the owner's decision; see THIRD_PARTY.md).

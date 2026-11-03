@@ -68,7 +68,7 @@ public sealed class PartTemplateSelector : DataTemplateSelector
 {
     public override DataTemplate? SelectTemplate(object item, DependencyObject container) =>
         item is PartViewModel part && container is FrameworkElement element
-            ? (element.TryFindResource("Part." + part.Type) ?? element.TryFindResource("Part.unknown")) as DataTemplate
+            ? (element.TryFindResource("Part." + part.TemplateKey) ?? element.TryFindResource("Part." + part.Type) ?? element.TryFindResource("Part.unknown")) as DataTemplate
             : null;
 }
 

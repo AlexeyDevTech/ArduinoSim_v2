@@ -62,6 +62,11 @@ public:
     size_t println(const Printable&);
     size_t println(void);
 
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+    /* The ESP cores' Print::printf (not in the AVR core). */
+    size_t printf(const char* format, ...) __attribute__((format(printf, 2, 3)));
+#endif
+
 protected:
     void setWriteError(int err = 1) { write_error_ = err; }
 

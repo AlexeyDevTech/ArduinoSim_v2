@@ -72,6 +72,30 @@ Done when every item of brief §7 passes. All of them pass on the development ma
 - [x] Performance: ≥ 2 M host calls/s (4 M measured, in `dotnet test`), canvas 60 fps zooming and dragging with 50 parts/200 wires, ≤ 300 MB working set (234–278 MB) — see DECISIONS.
 - Not yet: the acceptance pass on a clean Windows VM (no VM here); first-launch toolchain download on a machine that never had it was last exercised in M1; canvas mouse gestures are still checked by hand only.
 
+## M6+ — agreed with the owner on 2026-11-02 (brief §6)
+
+In the order of brief §4 "Later". Each milestone ends in examples that build and run in `dotnet test`, like the MVP. Carried over: the MVP pass on a clean VM, the Nano timing calibration (ADR-005).
+
+**M6 — ESP32 DevKit v1 ✅ (2026-11-03).** Done when ESP32 versions of Blink, an `ledc` fade, a Wi-Fi scan and connect, a Preferences boot counter, two FreeRTOS tasks and an OLED example run on the canvas and headless. All six run, headless in `dotnet test` and on the canvas. Not yet: editing the Wi-Fi networks and the real-network switch in the UI (they are `settings.wifi` and `settings.network` in `project.simproj.json`); a port selector for Serial1/Serial2 in the Serial Monitor (their output is drained but shown nowhere); ESP32 SPI displays are not in the tests.
+- Board profile: the 30-pin DevKit v1 pin map, 3.3 V logic, input-only GPIO 34–39, 12-bit ADC (ADC2 pins warn while Wi-Fi is on), DAC on 25/26, the on-board LED on GPIO 2, board art; a timing table of marked estimates.
+- Shim (the Arduino-ESP32 core 3.x API, plus the 2.x `ledcSetup`/`ledcAttachPin` still common in tutorials): `INPUT_PULLDOWN`, `analogReadResolution`, `analogWrite`, `ledcAttach`/`ledcWrite`/`ledcWriteTone`, `dacWrite`, `Serial1`/`Serial2` with pin arguments, `Wire.begin(sda, scl)` and `Wire1`, SPI on any pins (HSPI/VSPI), `ESP.restart()`, `ESP.getFreeHeap()` and friends (fixed documented values), `esp_random()`, `esp_timer_get_time()`, `EEPROM.begin/commit`, `Preferences`, the `WiFi.h` mock, cooperative FreeRTOS tasks (see the questions).
+- Predefined macros as the real core sets them (`ESP32`, `ARDUINO_ARCH_ESP32`, `ARDUINO_ESP32_DEV`, `F_CPU=240000000L`), because sketches choose `WiFi.h` with them; library code behind them that calls ESP-IDF functions gets a compat shim, never a silent patch.
+- UI: the board picker switches boards (wires to pins the new board lacks are removed, in one undo step); the properties panel of the board lists its Wi-Fi networks.
+- The bundled display libraries run on ESP32 pins (I2C 21/22, VSPI 18/23/5) in the tests.
+
+**M7 — ESP8266: NodeMCU v3 and Wemos D1 mini.** Done when ESP8266 versions of Blink, PWM fade, Wi-Fi connect, EEPROM commit and an OLED example run.
+- D-pin names mapped to GPIO, A0 with the boards' 0–3.3 V divider, `analogWriteRange`/`analogWriteFreq`, Serial1 TX-only on GPIO 2, `ESP8266WiFi.h` mock, `EEPROM.begin/commit`, `ESP.*`; a warning when `loop()` blocks for seconds without `yield()` (the soft watchdog would reset a real board).
+
+**M8 — Components I: inputs and sensors.** Rotary encoder, 4x4 keypad, joystick, DHT11/DHT22, DS18B20 on a 1-Wire bus model, HC-SR04, IR receiver; the libraries people use with them (Keypad, DHT sensor library, OneWire and DallasTemperature, IRremote), each with an example. OneWire and IRremote need compat shims (direct register access, timer interrupts).
+
+**M9 — Components II: outputs and modules.** Servo (a Servo library shim), relay, WS2812 strip (Adafruit_NeoPixel and FastLED shims: both use inline asm on AVR), 7-segment, TM1637, MAX7219 matrix, DS3231 RTC (time from the host clock, settable), SD card (SPI and FAT over a host folder in the project).
+
+**M10 — Displays.** SSD1309, SSD1327 (grayscale), ST7735/ST7789, ILI9341, PCD8544 (Nokia 5110), the HD44780 A02 ROM; with Adafruit_ST7735/ST7789, Adafruit_ILI9341, Adafruit_PCD8544 and U8g2 examples.
+
+**M11 — Tools and boards.** Pin timeline / logic analyzer with I2C, SPI and UART decoders; buzzer audio; Uno, Mega 2560 and Pro Mini profiles; PlatformIO project import; self-contained publish (one folder, no .NET SDK needed).
+
+Questions answered by the owner on 2026-11-02: the order above as in the brief; firmware ABI 2.0 (a clean major version, ADR-009); cooperative FreeRTOS tasks (ADR-009); a Wi-Fi mock plus a real network through the host (ADR-010), networks in the project settings and Preferences in `preferences.json`.
+
 ## Risks
 
 | Risk | Mitigation |

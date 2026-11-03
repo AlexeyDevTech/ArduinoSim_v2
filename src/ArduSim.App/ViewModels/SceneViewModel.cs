@@ -44,7 +44,10 @@ public sealed partial class SceneViewModel : ObservableObject
 
     public SceneEditor Editor { get; }
 
-    public BoardProfile Board { get; }
+    public BoardProfile Board { get; private set; }
+
+    /// <summary>After the project switched boards; the scene itself changes through <see cref="SceneEditor.ChangeBoard"/>.</summary>
+    public void UseBoard(BoardProfile board) => Board = board;
 
     public ObservableCollection<PartViewModel> Parts { get; } = [];
 
@@ -819,6 +822,13 @@ public sealed partial class PartViewModel : ObservableObject
     [ObservableProperty]
     public partial double OnboardLed { get; set; }
 
+    /// <summary>The board's Wi-Fi indicator: 0 off, 1 connecting, 2 connected, 3 access point.</summary>
+    [ObservableProperty]
+    public partial double WifiState { get; set; }
+
+    /// <summary>Template key: every board has its own drawing (<c>Part.board.&lt;id&gt;</c>), falling back to <c>Part.board</c>.</summary>
+    public string TemplateKey => Type == "board" ? "board." + Model.Type : Type;
+
     [ObservableProperty]
     public partial Color RgbColor { get; set; } = Colors.Black;
 
@@ -995,6 +1005,7 @@ public sealed partial class PartViewModel : ObservableObject
 
             Set("brightness", 0, v => Brightness = v);
             Set("L", 0, v => OnboardLed = v);
+        Set("wifi", 0, v => WifiState = v);
             Set("pressed", 0, v => Pressed = v != 0);
             Set("position", Number("position", 0), v => SwitchRight = v != 0);
             Set("frequency", 0, v => Frequency = v);

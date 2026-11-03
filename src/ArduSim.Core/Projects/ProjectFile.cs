@@ -10,6 +10,9 @@ public sealed record ProjectFile
     public const string FileName = "project.simproj.json";
     public const string EepromFileName = "eeprom.bin";
 
+    /// <summary>The ESP Preferences store (ADR-009).</summary>
+    public const string PreferencesFileName = "preferences.json";
+
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -145,8 +148,28 @@ public sealed record ProjectSettings
     public SerialSettings Serial { get; init; } = new();
 
     public IReadOnlyList<string> LibraryPaths { get; init; } = [];
+
+    /// <summary>The simulated Wi-Fi networks of ESP boards (ADR-010); absent means one open network, "ArduSim".</summary>
+    public WifiSettings? Wifi { get; init; }
+
+    /// <summary>Whether ESP sketches reach the real network (ADR-010); absent means yes.</summary>
+    public NetworkSettings? Network { get; init; }
+
     [JsonExtensionData]
     public IDictionary<string, JsonElement>? Unknown { get; init; }
+}
+
+public sealed record WifiSettings
+{
+    public IReadOnlyList<WifiNetworkSettings> Networks { get; init; } = [];
+}
+
+/// <param name="Password">Empty for an open network.</param>
+public sealed record WifiNetworkSettings(string Ssid, string Password = "", int Rssi = -55, int Channel = 6);
+
+public sealed record NetworkSettings
+{
+    public bool Real { get; init; } = true;
 }
 
 public sealed record SerialSettings

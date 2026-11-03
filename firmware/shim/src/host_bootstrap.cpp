@@ -44,6 +44,41 @@ const SimHostApi* resolve_host()
 
 namespace {
 
+struct ThreadStart {
+    void (*entry)(void*);
+    void* argument;
+};
+
+DWORD WINAPI thread_main(LPVOID parameter)
+{
+    ThreadStart start = *static_cast<ThreadStart*>(parameter);
+    delete static_cast<ThreadStart*>(parameter);
+    start.entry(start.argument);
+    return 0;
+}
+
+}  // namespace
+
+void* signal_create() { return CreateEventW(nullptr, FALSE, FALSE, nullptr); }
+
+void signal_set(void* signal) { SetEvent(static_cast<HANDLE>(signal)); }
+
+void signal_wait(void* signal) { WaitForSingleObject(static_cast<HANDLE>(signal), INFINITE); }
+
+bool thread_start(void (*entry)(void*), void* argument, size_t stack_bytes)
+{
+    // x64 code needs far more stack than the task's ESP32 size; this only reserves it.
+    HANDLE thread = CreateThread(nullptr, stack_bytes, thread_main, new ThreadStart{entry, argument}, STACK_SIZE_PARAM_IS_A_RESERVATION, nullptr);
+    if (thread == nullptr) {
+        return false;
+    }
+
+    CloseHandle(thread);
+    return true;
+}
+
+namespace {
+
 constexpr uint32_t CrashMagic = 0x48535253;
 
 SimCrashInfo* g_crash = nullptr;

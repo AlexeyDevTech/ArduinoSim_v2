@@ -43,7 +43,7 @@ public sealed class InProcessSimulationSession : ISimulationSession
             () =>
         {
             var eeprom = EepromMemory.FileBacked(Path.Combine(start.ProjectDirectory, ProjectFile.EepromFileName), board.EepromSize);
-            _host = new SimulationHost(board, project.Scene, eeprom, start.Seed, CrashBlock.CreatePrivate());
+            _host = new SimulationHost(board, project.Scene, eeprom, start.Seed, CrashBlock.CreatePrivate(), KeyValueStore.FileBacked(Path.Combine(start.ProjectDirectory, ProjectFile.PreferencesFileName)), project.Settings);
             _host.Pacer.Speed = start.Speed;
             _host.Exit = code =>
             {

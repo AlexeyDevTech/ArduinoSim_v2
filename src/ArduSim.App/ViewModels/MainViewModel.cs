@@ -592,7 +592,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             SaveDocuments();
             if (_revision != _savedRevision || _settingsDirty)
             {
-                _project = _project with { Scene = Scene.Editor.Scene.ToDocument(_registry), Settings = _settings };
+                _project = _project with { Board = _board?.Id ?? _project.Board, Scene = Scene.Editor.Scene.ToDocument(_registry), Settings = _settings };
                 _project.Save(_projectDirectory);
                 _savedRevision = _revision;
                 _settingsDirty = false;
@@ -626,6 +626,18 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void OnSceneChanged()
     {
+        // Undo and redo can bring the other board back: the toolbar and the build follow the scene.
+        if (Scene?.Editor.Scene.Parts.FirstOrDefault(Scene.Editor.IsBoard) is { } boardPart && boardPart.Type != _board?.Id
+            && BoardCatalog.Find(boardPart.Type) is { } sceneBoard)
+        {
+            _board = sceneBoard;
+            Scene.UseBoard(sceneBoard);
+            bool loading = _loading;
+            _loading = true;
+            SelectedBoard = sceneBoard;
+            _loading = loading;
+        }
+
         _revision++;
         UpdateDirty();
         UndoCommand.NotifyCanExecuteChanged();
@@ -656,6 +668,23 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         Toast = text;
         _toastTimer.Stop();
         _toastTimer.Start();
+    }
+
+    // The toolbar's board picker switches the open project's board (ADR-009): the scene keeps its
+    // parts and the wires to pins the new board also has; the change is undoable.
+    partial void OnSelectedBoardChanged(BoardProfile value)
+    {
+        if (_loading || Scene is null || _board is null || value.Id == _board.Id)
+        {
+            return;
+        }
+
+        if (Scene.Editor.ChangeBoard(value.Id))
+        {
+            _board = value;
+            Scene.UseBoard(value);
+            ShowToast(Strings.Format("Toast_BoardChanged", value.DisplayName));
+        }
     }
 
     partial void OnSelectedSpeedChanged(SpeedOption value)

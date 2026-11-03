@@ -5,30 +5,75 @@
 
 using sim::host;
 
-TwoWire::TwoWire()
-    : rxBuffer_{}, rxIndex_(0), rxLength_(0), txAddress_(0), txBuffer_{}, txLength_(0), transmitting_(false), overflowReported_(false)
+TwoWire::TwoWire(int32_t bus)
+    : bus_(bus), rxBuffer_{}, rxIndex_(0), rxLength_(0), txAddress_(0), txBuffer_{}, txLength_(0), transmitting_(false), overflowReported_(false)
 {
 }
 
+#if defined(ARDUINO_ARCH_ESP32)
+bool TwoWire::begin() { return begin(sda_, scl_, 0); }
+
+bool TwoWire::begin(int sda, int scl, uint32_t frequency)
+{
+    rxIndex_ = 0;
+    rxLength_ = 0;
+    txLength_ = 0;
+    sda_ = sda;
+    scl_ = scl;
+    host().i2c_begin(bus_, sda, scl);
+    if (frequency != 0) {
+        setClock(frequency);
+    }
+    return true;
+}
+
+bool TwoWire::begin(uint8_t address, int sda, int scl, uint32_t frequency)
+{
+    (void)address;
+    sim::log_warning("Wire.begin(address, sda, scl, frequency): I2C slave mode is not simulated; the board stays a master.");
+    return begin(sda, scl, frequency);
+}
+
+bool TwoWire::setPins(int sda, int scl)
+{
+    sda_ = sda;
+    scl_ = scl;
+    return true;
+}
+
+bool TwoWire::end()
+{
+    host().i2c_end(bus_);
+    return true;
+}
+
+bool TwoWire::setClock(uint32_t clock)
+{
+    clock_ = clock;
+    host().i2c_set_clock(bus_, clock);
+    return true;
+}
+#else
 void TwoWire::begin()
 {
     rxIndex_ = 0;
     rxLength_ = 0;
     txLength_ = 0;
-    host().i2c_begin();
+    host().i2c_begin(bus_, SIM_PIN_DEFAULT, SIM_PIN_DEFAULT);
 }
+
+void TwoWire::end() { host().i2c_end(bus_); }
+
+void TwoWire::setClock(uint32_t clock) { host().i2c_set_clock(bus_, clock); }
+#endif
 
 void TwoWire::begin(uint8_t)
 {
     sim::log_warning("Wire.begin(address): I2C slave mode is not simulated; the board stays a master.");
-    begin();
+    (void)begin();
 }
 
 void TwoWire::begin(int address) { begin(static_cast<uint8_t>(address)); }
-
-void TwoWire::end() { host().i2c_end(); }
-
-void TwoWire::setClock(uint32_t clock) { host().i2c_set_clock(clock); }
 
 // The simulated bus never hangs, so the timeout is accepted and never fires.
 void TwoWire::setWireTimeout(uint32_t, bool) {}
@@ -52,11 +97,11 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
 {
     const SimHostApi& api = host();
     uint8_t result = 0;
-    if (!api.i2c_start(txAddress_, 0)) {
+    if (!api.i2c_start(bus_, txAddress_, 0)) {
         result = 2;
     } else {
         for (uint8_t i = 0; i < txLength_; i++) {
-            if (!api.i2c_write(txBuffer_[i])) {
+            if (!api.i2c_write(bus_, txBuffer_[i])) {
                 result = 3;
                 break;
             }
@@ -66,7 +111,7 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
     // As the AVR TWI driver: a NACK always ends with STOP; otherwise sendStop decides,
     // and a missing STOP makes the next start a repeated start.
     if (result != 0 || sendStop) {
-        api.i2c_stop();
+        api.i2c_stop(bus_);
     }
 
     txLength_ = 0;
@@ -95,16 +140,16 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddres
 
     const SimHostApi& api = host();
     uint8_t read = 0;
-    if (quantity > 0 && api.i2c_start(address, 1)) {
+    if (quantity > 0 && api.i2c_start(bus_, address, 1)) {
         for (; read < quantity; read++) {
-            rxBuffer_[read] = api.i2c_read(read + 1 < quantity ? 1 : 0);
+            rxBuffer_[read] = api.i2c_read(bus_, read + 1 < quantity ? 1 : 0);
         }
 
         if (sendStop) {
-            api.i2c_stop();
+            api.i2c_stop(bus_);
         }
     } else {
-        api.i2c_stop();
+        api.i2c_stop(bus_);
     }
 
     rxIndex_ = 0;
@@ -136,7 +181,11 @@ size_t TwoWire::write(uint8_t value)
     if (txLength_ >= BUFFER_LENGTH) {
         if (!overflowReported_) {
             overflowReported_ = true;
+            #if defined(ARDUINO_ARCH_ESP32)
+            sim::log_warning("Wire: more than 128 bytes in one transmission; as on the ESP32 core the extra bytes are dropped.");
+#else
             sim::log_warning("Wire: more than 32 bytes in one transmission; as on the AVR the extra bytes are dropped.");
+#endif
         }
 
         setWriteError();
@@ -170,3 +219,6 @@ void TwoWire::onReceive(void (*)(int)) { sim::log_warning("Wire.onReceive(): I2C
 void TwoWire::onRequest(void (*)(void)) { sim::log_warning("Wire.onRequest(): I2C slave mode is not simulated; the handler is never called."); }
 
 TwoWire Wire;
+#if defined(ARDUINO_ARCH_ESP32)
+TwoWire Wire1(1);
+#endif

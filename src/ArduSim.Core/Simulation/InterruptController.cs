@@ -35,6 +35,15 @@ public sealed class InterruptController(Func<int, bool?> levelOf)
         _pending.Remove(number);
     }
 
+    /// <summary>A reboot: nothing attached, nothing pending, interrupts enabled.</summary>
+    public void Reset()
+    {
+        _attached.Clear();
+        _pending.Clear();
+        Enabled = true;
+        InHandler = false;
+    }
+
     internal void OnLevelChanged(int pin, bool? before, bool? after)
     {
         if (before is null || after is null || before == after)

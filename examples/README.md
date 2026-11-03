@@ -15,3 +15,9 @@ One folder per example project (ADR-008 layout). Every example is built and run 
 | OledU8g2 | U8g2 in full-buffer mode on an SSD1306 128x64 over I2C: text, a frame, a bouncing ball and a seconds counter |
 | OledGyver | GyverOLED (buffered) on an SSD1306 128x64 over I2C: big text, a frame and a counter |
 | Sh1106 | Adafruit_SH110X on a 1.3" SH1106 over hardware SPI (D13 SCK, D11 MOSI, D10 CS, D9 DC, D8 RES) |
+| Esp32Blink | ESP32 DevKit v1: the on-board LED (GPIO 2) and an LED on GPIO 4 |
+| Esp32Fade | LEDC PWM at 5 kHz, 10 bits: a breathing LED on GPIO 4 |
+| Esp32Tasks | two FreeRTOS tasks and a queue beside loop() |
+| Esp32WiFi | Wi-Fi scan and connect (simulated radio), an HTTP GET over the real network |
+| Esp32Preferences | a boot counter in Preferences across ESP.restart() and across runs |
+| Esp32Oled | U8g2 on an SSD1306 at the ESP32's default I2C pins (21/22) |

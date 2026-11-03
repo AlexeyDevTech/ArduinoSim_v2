@@ -1,0 +1,12 @@
+/* esp_arduino_version.h - the Arduino-ESP32 core version the shim follows (3.x API). */
+#ifndef ESP_ARDUINO_VERSION_H
+#define ESP_ARDUINO_VERSION_H
+
+#define ESP_ARDUINO_VERSION_MAJOR 3
+#define ESP_ARDUINO_VERSION_MINOR 0
+#define ESP_ARDUINO_VERSION_PATCH 0
+#define ESP_ARDUINO_VERSION_VAL(major, minor, patch) ((major << 16) | (minor << 8) | (patch))
+#define ESP_ARDUINO_VERSION ESP_ARDUINO_VERSION_VAL(ESP_ARDUINO_VERSION_MAJOR, ESP_ARDUINO_VERSION_MINOR, ESP_ARDUINO_VERSION_PATCH)
+#define ESP_ARDUINO_VERSION_STR "3.0.0"
+
+#endif /* ESP_ARDUINO_VERSION_H */

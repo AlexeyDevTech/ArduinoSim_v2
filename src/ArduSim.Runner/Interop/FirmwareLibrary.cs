@@ -60,6 +60,14 @@ internal sealed unsafe class FirmwareLibrary
         return firmware;
     }
 
+    /// <summary>A copy of the firmware for the <paramref name="generation"/>-th restart: Windows loads a path only once per process.</summary>
+    public static string CopyFor(string path, int generation)
+    {
+        string copy = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, $"firmware.restart{generation.ToString(CultureInfo.InvariantCulture)}.dll");
+        File.Copy(path, copy, overwrite: true);
+        return copy;
+    }
+
     public void Setup() => _setup();
 
     public void Loop() => _loop();

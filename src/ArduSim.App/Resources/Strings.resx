@@ -322,4 +322,37 @@
   <data name="Accuracy_9_Body" xml:space="preserve"><value>LCD: знакогенератор A00, шрифт 5×8 (режим 5×10 рисуется как 5×8). OLED: SSD1306 (128×64, 128×32, 64×48, 96×16) и SH1106; прокрутка идёт с кадровой частотой контроллера.</value></data>
   <data name="Accuracy_10_Title" xml:space="preserve"><value>Сон и сторожевой таймер</value></data>
   <data name="Accuracy_10_Body" xml:space="preserve"><value>Режимы сна и сторожевой таймер не моделируются: sleep_cpu() сразу возвращается, wdt_enable() не перезагружает плату; каждый вызов выдаёт предупреждение.</value></data>
+  <data name="Board_esp32-devkit-v1" xml:space="preserve"><value>ESP32 DevKit v1</value></data>
+  <data name="Toast_BoardChanged" xml:space="preserve"><value>Плата заменена на {0}</value></data>
+  <data name="Log_fixed-pins.serial" xml:space="preserve"><value>Последовательный порт {0} на {1} работает только на своих выводах; заданные выводы не используются.</value></data>
+  <data name="Log_fixed-pins.i2c" xml:space="preserve"><value>Шина I2C {0} на {1} работает только на своих выводах; заданные выводы не используются.</value></data>
+  <data name="Log_fixed-pins.spi" xml:space="preserve"><value>Шина SPI {0} на {1} работает только на своих выводах; заданные выводы не используются.</value></data>
+  <data name="Log_bus-pins.i2c" xml:space="preserve"><value>{0}.begin(): SDA {1} и SCL {2} не подходят для I2C на {3}; нужны два вывода, которые могут быть выходами.</value></data>
+  <data name="Log_bus-pins.spi" xml:space="preserve"><value>Шина SPI {0}: SCK {1}, MISO {2} и MOSI {3} не подходят для SPI на {4}.</value></data>
+  <data name="Log_pwm-fixed" xml:space="preserve"><value>У {0} ШИМ фиксированный, 8 бит; заданные частота и разрядность не используются.</value></data>
+  <data name="Log_pwm-resolution" xml:space="preserve"><value>Разрядность ШИМ {0} бит на {1} вне диапазона 1..20; используется 8 бит.</value></data>
+  <data name="Log_invalid-pin.dac" xml:space="preserve"><value>dacWrite({0}): у {1} нет ЦАП на этом выводе, вызов пропущен.</value></data>
+  <data name="Log_pin-mode.output" xml:space="preserve"><value>pinMode({0}): {1} на {2} работает только как вход; он остаётся входом.</value></data>
+  <data name="Log_pin-mode.pullup" xml:space="preserve"><value>pinMode({0}): у {1} на {2} нет внутренней подтяжки к питанию; он остаётся входом без подтяжки.</value></data>
+  <data name="Log_pin-mode.pulldown" xml:space="preserve"><value>pinMode({0}): у {1} на {2} нет внутренней подтяжки к земле; он остаётся входом без подтяжки.</value></data>
+  <data name="Log_pin-mode.open-drain" xml:space="preserve"><value>pinMode({0}): у {1} на {2} нет режима открытого стока; он остаётся входом.</value></data>
+  <data name="Log_pin-mode.input-only" xml:space="preserve"><value>{0}({1}): {2} на {3} работает только как вход, вызов пропущен.</value></data>
+  <data name="Log_kv-name" xml:space="preserve"><value>Preferences: пространство «{0}» или ключ «{1}» пустые или длиннее {2} байт; NVS их не принимает, ничего не записано.</value></data>
+  <data name="Log_restart" xml:space="preserve"><value>Плата перезагрузилась (ESP.restart()), setup() выполняется заново.</value></data>
+  <data name="Log_wifi-unavailable" xml:space="preserve"><value>У {0} нет Wi‑Fi; вызовы Wi‑Fi ничего не делают.</value></data>
+  <data name="Log_wifi-ap-password" xml:space="preserve"><value>WiFi.softAP(&quot;{0}&quot;): пароль должен быть не короче 8 символов; точка доступа не запускается, как и на плате.</value></data>
+  <data name="Log_wifi-no-ssid" xml:space="preserve"><value>WiFi.begin(&quot;{0}&quot;): сети с таким именем нет; плата видит {1}. Добавьте её в settings.wifi.networks в project.simproj.json.</value></data>
+  <data name="Log_wifi-password" xml:space="preserve"><value>WiFi.begin(&quot;{0}&quot;): неверный пароль, подключение не удаётся, как и на плате. Пароль задаётся в settings.wifi.networks в project.simproj.json.</value></data>
+  <data name="Log_adc2-wifi" xml:space="preserve"><value>analogRead({0}): {1} относится к ADC2, который занят Wi‑Fi, пока тот включён; на ESP32 он читает 0. Используйте вывод ADC1 (GPIO 32–39).</value></data>
+  <data name="Log_net-connect" xml:space="preserve"><value>Сеть: скетч подключается к {0}:{1}{2} через настоящую сеть.</value></data>
+  <data name="Log_net-listen" xml:space="preserve"><value>Сеть: сервер скетча слушает http://127.0.0.1:{0}/ — откройте этот адрес в браузере.</value></data>
+  <data name="Log_net-listen.moved" xml:space="preserve"><value>Сеть: порт {0} на этом компьютере занят, поэтому сервер скетча слушает http://127.0.0.1:{1}/ — откройте этот адрес в браузере.</value></data>
+  <data name="Log_net-listen-failed" xml:space="preserve"><value>Сеть: на 127.0.0.1 нет свободного порта от {0} до {1}; сервер не запускается.</value></data>
+  <data name="Log_net-udp" xml:space="preserve"><value>Сеть: UDP-порт {0} на этом компьютере открыть нельзя ({1}).</value></data>
+  <data name="Log_net-udp-send" xml:space="preserve"><value>Сеть: скетч отправляет UDP на {0}:{1} через настоящую сеть.</value></data>
+  <data name="Log_net-off" xml:space="preserve"><value>Сеть: настоящая сеть для этого проекта выключена, поэтому {0} недоступен (settings.network.real в project.simproj.json или --no-network).</value></data>
+  <data name="Log_net-connect-failed" xml:space="preserve"><value>Сеть: подключение к {0} не удалось ({1}).</value></data>
+  <data name="Log_net-real-time" xml:space="preserve"><value>Сеть: пока у скетча открыты соединения, симуляция идёт не быстрее реального времени (1×).</value></data>
+  <data name="Accuracy_11_Title" xml:space="preserve"><value>ESP32: задачи и сеть</value></data>
+  <data name="Accuracy_11_Body" xml:space="preserve"><value>Задачи FreeRTOS кооперативные: задача уступает процессор только в vTaskDelay, delay, yield и при ожидании очереди, семафора или уведомления, поэтому задача без таких вызовов не даёт работать остальным. Номер ядра в xTaskCreatePinnedToCore не учитывается. Радио Wi‑Fi имитируется (сети задаются в проекте), а соединения идут через настоящую сеть компьютера; пока они открыты, симуляция идёт не быстрее 1×. Свободная куча и размеры флеш-памяти — фиксированные числа типичного ESP32-WROOM-32. Аппаратные таймеры, сенсорные входы и внутренний датчик температуры не моделируются: такой скетч не соберётся.</value></data>
 </root>

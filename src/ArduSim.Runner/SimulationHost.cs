@@ -9,6 +9,7 @@ using ArduSim.Core.Simulation;
 using ArduSim.Core.Timing;
 using ArduSim.Ipc;
 using ArduSim.Runner.Interop;
+using ArduSim.Runner.Network;
 
 namespace ArduSim.Runner;
 
@@ -29,10 +30,18 @@ internal sealed unsafe class SimulationHost : IDisposable
 {
     private static readonly TimeSpan BusyLimit = TimeSpan.FromSeconds(2);
 
+    private const int MaxRestarts = 100;
+    private const int RestartStackSize = 8 * 1024 * 1024;
+
     private readonly Stopwatch _wall = new();
     private readonly CrashBlock _crash;
     private readonly BlockingCollection<Action> _commands = new(new ConcurrentQueue<Action>());
     private FirmwareLibrary? _firmware;
+    private SimHostApi* _api;
+    private string? _firmwarePath;
+    private int _restarts;
+    private ulong _networkCheckedAt;
+    private bool _networkLimitReported;
     private long _progress;
     private volatile bool _stopRequested;
     private volatile bool _waiting;
@@ -41,11 +50,14 @@ internal sealed unsafe class SimulationHost : IDisposable
     private bool _pauseRequested;
     private bool _pauseAfterLoop;
 
-    public SimulationHost(BoardProfile board, SceneDocument scene, EepromMemory eeprom, int seed, CrashBlock crash)
+    /// <param name="settings">Project settings: the Wi-Fi networks and whether the real network is on (ADR-010).</param>
+    /// <param name="network">False turns the real network off whatever the project says (headless <c>--no-network</c>).</param>
+    public SimulationHost(BoardProfile board, SceneDocument scene, EepromMemory eeprom, int seed, CrashBlock crash, KeyValueStore? kv = null, ProjectSettings? settings = null, bool network = true)
     {
         _crash = crash;
         Engine = new SimulationEngine();
-        Simulation = BoardSimulation.Create(scene, board, ComponentRegistry.CreateDefault(BoardCatalog.All), Engine, eeprom, seed);
+        Simulation = BoardSimulation.Create(scene, board, ComponentRegistry.CreateDefault(BoardCatalog.All), Engine, eeprom, seed, kv, settings?.Wifi);
+        Network = new NetworkService(Engine.Log, network && (settings?.Network?.Real ?? true));
         Pacer = new Pacer(() => _wall.Elapsed, Thread.Sleep);
         Engine.SchedulingPoint = OnSchedulingPoint;
     }
@@ -55,6 +67,9 @@ internal sealed unsafe class SimulationHost : IDisposable
     public BoardSimulation Simulation { get; }
 
     public Mcu Mcu => Simulation.Mcu;
+
+    /// <summary>The real network behind the simulated Wi-Fi of ESP boards.</summary>
+    public NetworkService Network { get; }
 
     public Pacer Pacer { get; }
 
@@ -89,7 +104,19 @@ internal sealed unsafe class SimulationHost : IDisposable
         return Simulation.Mcu;
     }
 
-    public void Dispose() => _commands.Dispose();
+    /// <summary>A network call: counted like any host call, charged its lwIP cost, and a scheduling point.</summary>
+    public NetworkService EnterNetwork(int a = 0, int b = 0)
+    {
+        Enter(HostCall.Network, a, b);
+        Engine.Finish(Mcu.Board.Timing.NetworkCall);
+        return Network;
+    }
+
+    public void Dispose()
+    {
+        _commands.Dispose();
+        Network.Dispose();
+    }
 
     /// <summary>Queues work for the simulation thread (any thread may call this).</summary>
     public void Post(Action command) => _commands.Add(command);
@@ -133,18 +160,56 @@ internal sealed unsafe class SimulationHost : IDisposable
     /// <summary>Loads the firmware and runs setup() and loop() until the run ends. Never returns.</summary>
     public void Run(string firmwarePath, bool startPaused = false)
     {
-        SimHostApi* api = HostCallbacks.Create(this, (SimCrashInfo*)_crash.Address);
+        _api = HostCallbacks.Create(this, (SimCrashInfo*)_crash.Address);
+        _firmwarePath = firmwarePath;
 
         // Static constructors run while the DLL loads and may already wait (LiquidCrystal's
         // constructor calls begin(), which delays 50 ms): the clock and the pacer start first.
         _wall.Start();
         Pacer.Reset(Engine.Clock.Now);
         StartWatchdog();
-        _firmware = FirmwareLibrary.Load(firmwarePath, api);
+        _firmware = FirmwareLibrary.Load(firmwarePath, _api);
         _paused = startPaused;
         OnSchedulingPoint();
+        RunSketch();
+    }
 
-        _firmware.Setup();
+    /// <summary>
+    /// ESP.restart(): the board reboots. Native frames cannot be unwound, so a fresh copy of the
+    /// firmware (new globals, static constructors again) runs setup() on a new thread, and the
+    /// calling thread, inside the old copy, stays parked. Never returns.
+    /// </summary>
+    public void Restart()
+    {
+        if (++_restarts > MaxRestarts)
+        {
+            Fail($"firmware: the board restarted more than {MaxRestarts} times in one run; the run is stopped.", ProcessExit.FirmwareError);
+        }
+
+        Engine.Log.Report(SimSeverity.Info, "restart", $"The board restarted (ESP.restart()); setup() runs again.");
+        Mcu.Reset();
+        string copy = FirmwareLibrary.CopyFor(_firmwarePath!, _restarts);
+        var next = new Thread(() => RunGeneration(copy), RestartStackSize) { IsBackground = true, Name = "firmware after restart" };
+        next.Start();
+        Thread.Sleep(Timeout.Infinite);
+    }
+
+    private void RunGeneration(string firmwarePath)
+    {
+        try
+        {
+            _firmware = FirmwareLibrary.Load(firmwarePath, _api);
+            RunSketch();
+        }
+        catch (Exception e) when (e is FirmwareException)
+        {
+            Fail("firmware: " + e.Message, ProcessExit.FirmwareError);
+        }
+    }
+
+    private void RunSketch()
+    {
+        _firmware!.Setup();
         while (true)
         {
             _firmware.Loop();
@@ -218,8 +283,29 @@ internal sealed unsafe class SimulationHost : IDisposable
             }
         }
 
+        LimitSpeedForNetwork();
         Pacer.Pace(Engine.Clock.Now);
         Tick?.Invoke();
+    }
+
+    // While sockets are open the sketch's timeouts must mean wall-clock time (ADR-010). Checked
+    // once per millisecond of virtual time; the network's state changes far more slowly.
+    private void LimitSpeedForNetwork()
+    {
+        ulong now = Engine.Clock.Now;
+        if (now - _networkCheckedAt < VirtualTime.Millisecond)
+        {
+            return;
+        }
+
+        _networkCheckedAt = now;
+        bool active = Network.Active;
+        Pacer.SetLimit(active ? 1 : double.PositiveInfinity, now);
+        if (active && Pacer.Speed > 1 && !_networkLimitReported)
+        {
+            _networkLimitReported = true;
+            Engine.Log.Report(SimSeverity.Info, "net-real-time", $"Network: the run is held at real time (1×) while the sketch has network connections open.");
+        }
     }
 
     private void WaitWhilePaused()

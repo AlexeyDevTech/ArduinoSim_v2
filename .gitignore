@@ -19,4 +19,5 @@ TestResults/
 
 # Per-run state that never belongs in the repo
 eeprom.bin
+preferences.json
 *.log

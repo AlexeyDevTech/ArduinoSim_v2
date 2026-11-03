@@ -1,0 +1,1 @@
+{ "schemaVersion": 1, "board": "esp32-devkit-v1", "sketchPath": "sketch", "scene": { "components": [ { "id": "board", "type": "esp32-devkit-v1", "x": 0, "y": 0, "rotation": 0, "flip": false } ], "wires": [] }, "settings": { "speed": 1.0, "serial": { "baud": 115200, "lineEnding": "LF" }, "libraryPaths": [] } }
