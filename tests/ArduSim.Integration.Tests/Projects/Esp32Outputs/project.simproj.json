@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "board": "esp32-devkit-v1",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "esp32-devkit-v1", "x": 0, "y": 0, "rotation": 0, "flip": false },
+      { "id": "servo1", "type": "servo", "x": 300, "y": 0, "rotation": 0, "flip": false },
+      { "id": "strip1", "type": "ws2812", "x": 300, "y": 100, "rotation": 0, "flip": false, "properties": { "layout": "strip", "count": 3 } },
+      { "id": "strip2", "type": "ws2812", "x": 300, "y": 160, "rotation": 0, "flip": false, "properties": { "layout": "strip", "count": 2 } },
+      { "id": "sd1", "type": "sd-card", "x": 300, "y": 220, "rotation": 0, "flip": false }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "board", "pin": "D13" }, "to": { "component": "servo1", "pin": "PWM" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "board", "pin": "VIN" }, "to": { "component": "servo1", "pin": "V+" }, "waypoints": [], "color": "auto" },
+      { "id": "w3", "from": { "component": "board", "pin": "GND" }, "to": { "component": "servo1", "pin": "GND" }, "waypoints": [], "color": "auto" },
+      { "id": "w4", "from": { "component": "board", "pin": "D4" }, "to": { "component": "strip1", "pin": "DIN" }, "waypoints": [], "color": "auto" },
+      { "id": "w5", "from": { "component": "board", "pin": "VIN" }, "to": { "component": "strip1", "pin": "VCC" }, "waypoints": [], "color": "auto" },
+      { "id": "w6", "from": { "component": "board", "pin": "GND" }, "to": { "component": "strip1", "pin": "GND" }, "waypoints": [], "color": "auto" },
+      { "id": "w7", "from": { "component": "board", "pin": "D2" }, "to": { "component": "strip2", "pin": "DIN" }, "waypoints": [], "color": "auto" },
+      { "id": "w8", "from": { "component": "board", "pin": "VIN" }, "to": { "component": "strip2", "pin": "VCC" }, "waypoints": [], "color": "auto" },
+      { "id": "w9", "from": { "component": "board", "pin": "GND" }, "to": { "component": "strip2", "pin": "GND" }, "waypoints": [], "color": "auto" },
+      { "id": "w10", "from": { "component": "board", "pin": "D5" }, "to": { "component": "sd1", "pin": "CS" }, "waypoints": [], "color": "auto" },
+      { "id": "w11", "from": { "component": "board", "pin": "D23" }, "to": { "component": "sd1", "pin": "MOSI" }, "waypoints": [], "color": "auto" },
+      { "id": "w12", "from": { "component": "board", "pin": "D19" }, "to": { "component": "sd1", "pin": "MISO" }, "waypoints": [], "color": "auto" },
+      { "id": "w13", "from": { "component": "board", "pin": "D18" }, "to": { "component": "sd1", "pin": "SCK" }, "waypoints": [], "color": "auto" },
+      { "id": "w14", "from": { "component": "board", "pin": "3V3" }, "to": { "component": "sd1", "pin": "VCC" }, "waypoints": [], "color": "auto" },
+      { "id": "w15", "from": { "component": "board", "pin": "GND.2" }, "to": { "component": "sd1", "pin": "GND" }, "waypoints": [], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 115200, "lineEnding": "LF" }, "libraryPaths": [] }
+}

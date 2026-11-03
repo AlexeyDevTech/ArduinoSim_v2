@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 100, "y": 300, "rotation": 0, "flip": false },
+      { "id": "rtc1", "type": "ds3231", "x": 320, "y": 180, "rotation": 0, "flip": false, "properties": { "start": "computer", "temperature": 23.5 } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "rtc1", "pin": "SQW" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [[350, 280], [220, 280]], "color": "auto" },
+      { "id": "w2", "from": { "component": "rtc1", "pin": "SCL" }, "to": { "component": "board", "pin": "A5" }, "waypoints": [[360, 420], [200, 420]], "color": "auto" },
+      { "id": "w3", "from": { "component": "rtc1", "pin": "SDA" }, "to": { "component": "board", "pin": "A4" }, "waypoints": [[370, 430], [190, 430]], "color": "auto" },
+      { "id": "w4", "from": { "component": "rtc1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[380, 400], [230, 400]], "color": "auto" },
+      { "id": "w5", "from": { "component": "rtc1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[390, 410], [250, 410]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

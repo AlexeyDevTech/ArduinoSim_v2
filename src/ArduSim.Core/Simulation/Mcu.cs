@@ -130,6 +130,9 @@ public sealed class Mcu
     /// <summary>The simulated Wi-Fi radio of ESP boards; null on boards without one.</summary>
     public WifiRadio? Wifi { get; set; }
 
+    /// <summary>Where WS2812 frames go (the scene's strips); null in tests without parts.</summary>
+    public LedStripBus? LedStrips { get; set; }
+
     /// <summary>Why the board last booted (the ESP cores' reset reason).</summary>
     public BootReason ResetReason { get; private set; } = BootReason.PowerOn;
 
@@ -874,6 +877,27 @@ public sealed class Mcu
     {
         Interrupts.Enabled = enabled;
         _engine.Finish(0);
+    }
+
+    /// <summary>
+    /// A WS2812 frame on <paramref name="pin"/> (ABI 2.3): the strips on its net get the bytes; the
+    /// call costs the wire time, 8 bits per byte at 1.25 µs (800 kHz) or 2.5 µs (400 kHz).
+    /// </summary>
+    public void LedStripWrite(int pin, ReadOnlySpan<byte> data, int khz)
+    {
+        if (Digital(pin, "show") is { } state)
+        {
+            if (state.Mode is not (Simulation.PinMode.Output or Simulation.PinMode.OutputOpenDrain))
+            {
+                Log.ReportOnce($"led-strip-pin-{pin}", SimSeverity.Warning, "led-strip-pin", $"show(): {Board.PinName(pin)} is not an output; the LED frame does not leave the board.");
+            }
+            else
+            {
+                LedStrips?.Send(state.Reference, data);
+            }
+        }
+
+        _engine.Finish((ulong)data.Length * 8 * (khz == 400 ? 2_500UL : 1_250UL));
     }
 
     /// <summary>Starts periodic timer interrupt <paramref name="timer"/> (ABI 2.2); a period below 5 µs is raised to 5 µs.</summary>

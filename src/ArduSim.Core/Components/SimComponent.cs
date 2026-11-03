@@ -1,5 +1,6 @@
 using ArduSim.Core.Buses;
 using ArduSim.Core.Circuits;
+using ArduSim.Core.Components.Parts;
 using ArduSim.Core.Diagnostics;
 using ArduSim.Core.Displays;
 using ArduSim.Core.Simulation;
@@ -21,6 +22,12 @@ public sealed class ComponentContext(Circuit circuit, SimulationEngine engine, I
 
     /// <summary>The scene's infrared light: remotes send on it, IR receivers listen (no wires).</summary>
     public InfraredLink Infrared { get; } = new();
+
+    /// <summary>WS2812 frames from the board (ABI 2.3) and on from strip to strip.</summary>
+    public LedStripBus LedStrips { get; } = new(circuit);
+
+    /// <summary>Folders of the project that parts keep files in (the SD card's), or null without a project.</summary>
+    public IPartFiles? Files { get; init; }
 
     public SimulationLog Log => Engine.Log;
 }
@@ -70,6 +77,11 @@ public abstract class SimComponent
 
     /// <summary>Called once the circuit is built and resolved.</summary>
     public virtual void OnCircuitReady() => Refresh();
+
+    /// <summary>The run ends normally (time limit or Stop): what outlives it is saved here (the SD card's files).</summary>
+    public virtual void OnRunEnding()
+    {
+    }
 
     /// <summary>User input from the view (press a button, turn a knob).</summary>
     public virtual void ApplyInput(string name, double value) =>

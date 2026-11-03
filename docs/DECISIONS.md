@@ -123,3 +123,14 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-03 — Encoder: one full quadrature cycle per detent, a transition every 2 ms, CLK leading clockwise; detents queue. Joystick: right and up raise VRX/VRY. IR remote: the 21-key kit remote, NEC address 0x00, repeats every 108 ms; frames reach every powered IR receiver, and a receiver busy with one frame drops another.
 - 2026-11-03 — Live sensor readings while running: properties marked `Live`; Properties shows a slider beside the text field; a vertical drag on the part (Shift: the second reading) or the wheel changes them; inputs, not saved, not undoable. A click without movement on an encoder or joystick presses it for 150 ms; holding still for 250 ms holds it.
 - 2026-11-03 — Example folder names: Keypad4x4 (not Keypad, the library's name), Dht22, Ds18b20, Ultrasonic, RotaryEncoder, Joystick, IrRemote.
+- 2026-11-03 — Firmware ABI 2.3 appends `led_strip_write(pin, data, length, khz)`: one WS2812 frame, charged 8 bit times per byte; strips on the net take it (ADR-012).
+- 2026-11-03 — `SimulationEngine.Finish` ends a host call's cost at every scheduled event inside it with a scheduling point, so a timer interrupt is never held up by a long call.
+- 2026-11-03 — The shim's own Servo library (Arduino API, 544–2400 µs, 12 servos, one timer interrupt walking them as Timer1 does) and an ESP32Servo.h over it; the SG90 part uses the Arduino default calibration (544 µs = 0°, 2400 µs = 180°).
+- 2026-11-03 — FastLED 3.9.20, the last release before the 3.10 source tree grew to 34 MB; its stub platform does the output on every simulated board.
+- 2026-11-03 — Seven-segment brightness is averaged over 20 ms frames; the digits' text counts segments at least half as bright as the brightest.
+- 2026-11-03 — MAX7219 parts follow MD_MAX72XX's hardware types: "fc16" (digit = row, bit 7 = left column) and "generic" (digit = column from the right, bit 7 = top row); device 0 is the rightmost module.
+- 2026-11-03 — Relay modules switch 10 ms after the coil pulls in and 5 ms after it drops out (SRD-05VDC datasheet).
+- 2026-11-03 — DS3231: the time starts from the computer's clock or a fixed time and is not kept between runs; OSF reads clear; only the 1 Hz square wave on SQW.
+- 2026-11-03 — SD card: a 64 MB SDSC card in SPI mode with one FAT16 partition at block 2048 and 2 KB clusters, built from the project folder (property `folder`, default `sd`) at run start and synced back when the run ends normally; only files the card was loaded with can be deleted from the folder.
+- 2026-11-03 — The library resolver reads a compat replacement's `#include` lines in place of the vendored file's.
+- 2026-11-03 — ESP32 core: `esp_idf_version.h` (ESP-IDF 5.1.4, as Arduino-ESP32 3.0), `esp_log.h`, `esp_system.h`, `esp_heap_caps.h` (one heap for every capability) and an `sdkconfig.h` with no target, so ESP-IDF driver code in libraries stays out.

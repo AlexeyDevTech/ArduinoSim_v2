@@ -77,7 +77,7 @@ Panels collapse to a 24 px strip with a vertical label, so they can be reopened 
 ┌──────────────────────┐
 │ 🔍 Поиск деталей     │   Ctrl+F focuses; filters names and keywords live
 ├──────────────────────┤
-│ ▾ Вывод              │   categories: Платы, Вывод, Ввод, Пассивные, Дисплеи
+│ ▾ Вывод              │   categories: Платы, Вывод, Ввод, Датчики (M8), Дисплеи, Модули (M9), Пассивные
 │  ◖ Светодиод         │   row 32 px: 20 px icon + name
 │  ◖ RGB-светодиод     │   hover: surface-hover; tooltip: one-line description + pin list
 │  ◉ Пищалка           │
@@ -109,6 +109,7 @@ Panels collapse to a 24 px strip with a vertical label, so they can be reopened 
 - Nothing selected → project properties: board, sketch folder, baud and line ending defaults, speed, library paths, EEPROM (size, "Очистить EEPROM").
 - Several parts selected → common properties only, with "—" for mixed values.
 - A wire selected → color swatches, its two ends, Delete.
+- An SD card module → its folder (a path in the project, default `sd`) and a button «Открыть папку» that opens it in Explorer; the folder is the card's contents *(M9)*.
 - Every edit is one undo step; invalid input keeps the old value and shows the reason under the field.
 
 ### 2.5 Code tabs
@@ -226,7 +227,7 @@ Fluent UI System Icons, Regular, 20 px in the toolbar and 16 px in lists; Filled
 - Background `Canvas` with a dot every 0.1 inch (the pin pitch); dots fade out below 50 % zoom.
 - Parts are flat, slightly stylized drawings of the real part (Wokwi-like, not schematic symbols), drawn from vector art in their definitions (ADR-007), crisp at every zoom.
 - Board pins: gold rings with labels; other parts' pins appear as small rings on hover and while wiring.
-- Live state: LED glow scaled by brightness, pushbutton cap pressed, slide-switch knob position, pot knob angle, buzzer frequency label, encoder knob angle, keypad and remote keys held, joystick cap leaning, sensor readings above the part *(M8)*, displays from framebuffers *(M4/M5)*: LCD with a visible 5×8 dot grid and backlight variants, OLED with pixel glow and color variants, nearest-neighbor scaling.
+- Live state: LED glow scaled by brightness, pushbutton cap pressed, slide-switch knob position, pot knob angle, buzzer frequency label, encoder knob angle, keypad and remote keys held, joystick cap leaning, sensor readings above the part *(M8)*, servo horn angle, relay LED and contact, seven-segment and TM1637 digits, MAX7219 matrices and WS2812 LEDs from their frames *(M9)*, displays from framebuffers *(M4/M5)*: LCD with a visible 5×8 dot grid and backlight variants, OLED with pixel glow and color variants, nearest-neighbor scaling.
 - Selection: 1 px `Accent` outline 3 px outside the part's bounds; multi-selection draws the union box too.
 - Hover on a pin or wire: the whole net is highlighted (other wires dim to 40 %), tooltip "D13 · выход · HIGH" (running) or "D13 · цифровой, ШИМ нет" (stopped).
 - Zoom indicator bottom-right of the canvas: percentage (click = 100 %) and "Вписать" (fit).

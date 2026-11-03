@@ -10,7 +10,7 @@ namespace ArduSim.Runner.Interop;
 internal unsafe struct SimHostApi
 {
     public const uint AbiMajor = 2;
-    public const uint AbiMinor = 2;
+    public const uint AbiMinor = 3;
     public const uint AbiVersion = (AbiMajor << 16) | AbiMinor;
 
     public uint StructSize;
@@ -101,6 +101,8 @@ internal unsafe struct SimHostApi
 
     public delegate* unmanaged<int, ulong, void> TimerStart;
     public delegate* unmanaged<int, void> TimerStop;
+
+    public delegate* unmanaged<int, byte*, int, int, void> LedStripWrite;
 }
 
 [StructLayout(LayoutKind.Sequential)]

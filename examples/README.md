@@ -33,3 +33,13 @@ One folder per example project (ADR-008 layout). Every example is built and run 
 | Ds18b20 | OneWire and DallasTemperature: two DS18B20 on one bus with a 4.7 kΩ pull-up, their addresses and readings |
 | Ultrasonic | an HC-SR04 with pulseIn: the distance, "Out of range" beyond 4 m, the LED on D13 under 20 cm |
 | IrRemote | IRremote decoding the kit remote's NEC keys and repeats; the play key toggles the LED on D13 |
+| ServoKnob | the Servo library: an SG90 on D9 follows the potentiometer on A0 |
+| Relay | a 5 V relay module on D7 (low-level trigger) switches an LED once a second |
+| SevenSegment | SevSeg multiplexes a 4-digit common-cathode display and counts tenths of a second |
+| Tm1637 | TM1637Display: a minutes:seconds timer with a blinking colon |
+| MatrixParola | MD_Parola scrolls text on an FC-16 board (four MAX7219 matrices) over hardware SPI |
+| MatrixLedControl | LedControl draws a beating heart on one MAX7219 matrix, bit-banged on D12/D11/D10 |
+| NeoPixelRing | Adafruit_NeoPixel: a rainbow around a 16-LED WS2812 ring on D6 |
+| FastLedMatrix | FastLED: a moving rainbow on an 8x8 serpentine WS2812 panel on D5 |
+| Ds3231Clock | RTClib: date, time and temperature from a DS3231 every second; its alarm on SQW interrupts D2 |
+| SdCardLog | the SD library: reads config.txt from the card, logs A0 to log.csv; the card is the project's sd folder |

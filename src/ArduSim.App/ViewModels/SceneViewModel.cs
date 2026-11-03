@@ -902,6 +902,45 @@ public sealed partial class PartViewModel : ObservableObject
 
     public bool IsDht11 => Text("model", "dht22") == "dht11";
 
+    // ---- M9 outputs and modules (ADR-012) --------------------------------------------------------
+
+    /// <summary>The servo horn's angle from the middle position (-90° to 90°).</summary>
+    [ObservableProperty]
+    public partial double HornAngle { get; set; }
+
+    [ObservableProperty]
+    public partial bool RelayOn { get; set; }
+
+    /// <summary>The relay's COM-NO contact is closed.</summary>
+    [ObservableProperty]
+    public partial bool RelayClosed { get; set; }
+
+    public bool LowTrigger => Text("trigger", "low") == "low";
+
+    public bool IsRing => Text("layout", "strip") == "ring";
+
+    public bool IsMatrixLayout => Text("layout", "strip") == "matrix";
+
+    /// <summary>The ring's board: a circle the part's width across.</summary>
+    public double RingSize => Width;
+
+    public double RingHole => Width - 44;
+
+    public double RingHoleOffset => (Width - RingHole) / 2;
+
+    public string SdFolder => Text("folder", "sd");
+
+    public bool CardInserted => Text("inserted", "yes") == "yes";
+
+    /// <summary>The seven-segment body (it leaves the pins at the top and bottom edges free).</summary>
+    public double BodyHeight => Height - 8;
+
+    /// <summary>The LED area of the MAX7219 modules: 80 units per module.</summary>
+    public double MatrixWidth => Width - 8;
+
+    /// <summary>A strip's board; the matrix panel fills the part.</summary>
+    public double BoardHeight => IsMatrixLayout ? Height : 40;
+
     /// <summary>Raised when a live sensor value changes, from the sim or from a gesture.</summary>
     public event Action<string, double>? LiveChanged;
 
@@ -912,7 +951,7 @@ public sealed partial class PartViewModel : ObservableObject
     public string Readout => Type switch
     {
         "dht" => string.Create(CultureInfo.CurrentCulture, $"{LiveValue("temperature"):0.0} °C  {LiveValue("humidity"):0} %"),
-        "ds18b20" => string.Create(CultureInfo.CurrentCulture, $"{LiveValue("temperature"):0.0#} °C"),
+        "ds18b20" or "ds3231" => string.Create(CultureInfo.CurrentCulture, $"{LiveValue("temperature"):0.0#} °C"),
         "hc-sr04" => string.Create(CultureInfo.CurrentCulture, $"{LiveValue("distance"):0} {Strings.Get("Unit_cm")}"),
         _ => "",
     };
@@ -1117,6 +1156,20 @@ public sealed partial class PartViewModel : ObservableObject
             ScreenWidth = _screen.Width;
             ScreenHeight = _screen.Height;
         }
+        else if (Type is "seven-segment" or "tm1637" or "max7219" or "ws2812")
+        {
+            var part = new Size(Width, Height);
+            Color color = WirePalette.PartColor(Text("color", "red"));
+            Screen = Type switch
+            {
+                "seven-segment" => Views.LedScreens.Segments(_display, Text("digits", "1") == "4" ? 4 : 1, color, colon: false, part, Text("digits", "1") == "4" ? new Rect(12, 12, 106, 46) : new Rect(10, 14, 40, 52)),
+                "tm1637" => Views.LedScreens.Segments(_display, 4, color, colon: true, part, new Rect(12, 8, 96, 36)),
+                "max7219" => Views.LedScreens.Matrix(_display, (int)Math.Round((Width - 10) / 80) * 8, color, part),
+                _ => Views.LedScreens.Rgb(_display, Views.LedScreens.LedCenters(Text("layout", "strip"), (int)Number("count", 8), part), 7, part),
+            };
+            ScreenWidth = Width;
+            ScreenHeight = Height;
+        }
         else if (Type == "oled")
         {
             _oled ??= new Views.OledScreen();
@@ -1180,6 +1233,9 @@ public sealed partial class PartViewModel : ObservableObject
             Set("x", 0, v => StickX = v);
             Set("y", 0, v => StickY = v);
             Set("receiving", 0, v => Receiving = v != 0);
+            Set("angle", 90, v => HornAngle = v - 90);
+            Set("coil", 0, v => RelayOn = v != 0);
+            Set("closed", 0, v => RelayClosed = v != 0);
             if (reset)
             {
                 _live.Clear();

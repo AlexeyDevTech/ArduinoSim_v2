@@ -35,7 +35,7 @@ public sealed class BoardSimulation
 
     public SimComponent? FindComponent(string id) => _components.GetValueOrDefault(id);
 
-    public static BoardSimulation Create(SceneDocument scene, BoardProfile board, ComponentRegistry registry, SimulationEngine engine, EepromMemory eeprom, int seed, KeyValueStore? kv = null, WifiSettings? wifi = null)
+    public static BoardSimulation Create(SceneDocument scene, BoardProfile board, ComponentRegistry registry, SimulationEngine engine, EepromMemory eeprom, int seed, KeyValueStore? kv = null, WifiSettings? wifi = null, IPartFiles? files = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(board);
@@ -88,7 +88,7 @@ public sealed class BoardSimulation
         SpiBus? spi = board.Spi.Count > 0 && board.Spi[0] is { Sck: >= 0, Mosi: >= 0, Miso: >= 0 } pins
             ? new SpiBus(circuit, log, boardComponent.Pin(board.PinName(pins.Sck)), boardComponent.Pin(board.PinName(pins.Mosi)), boardComponent.Pin(board.PinName(pins.Miso)))
             : null;
-        var context = new ComponentContext(circuit, engine, i2c, spi);
+        var context = new ComponentContext(circuit, engine, i2c, spi) { Files = files };
         foreach (SimComponent component in components)
         {
             component.Attach(context);
@@ -103,7 +103,7 @@ public sealed class BoardSimulation
             }
         }
 
-        var mcu = new Mcu(board, engine, eeprom, seed, circuit, boardComponent.Id, i2c, spi, kv);
+        var mcu = new Mcu(board, engine, eeprom, seed, circuit, boardComponent.Id, i2c, spi, kv) { LedStrips = context.LedStrips };
         if (board.HasWifi)
         {
             var radio = new WifiRadio(engine, wifi);

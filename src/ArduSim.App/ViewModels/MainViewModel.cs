@@ -464,6 +464,33 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    /// <summary>A folder of the project (the SD card's) in Explorer, created when missing; only inside the project.</summary>
+    private void OpenProjectFolder(string folder)
+    {
+        if (_projectDirectory is null)
+        {
+            return;
+        }
+
+        string project = Path.GetFullPath(_projectDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        string path = Path.GetFullPath(Path.Combine(project, folder));
+        if (!(path + Path.DirectorySeparatorChar).StartsWith(project, StringComparison.OrdinalIgnoreCase))
+        {
+            ShowToast(Strings.Get("Toast_FolderOutside"));
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(path);
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true })?.Dispose();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        {
+            ShowToast(Strings.Format("Toast_FolderFailed", e.Message));
+        }
+    }
+
     /// <summary>The example's scene, not editable or runnable, for a gallery thumbnail; null when it cannot be read.</summary>
     public SceneViewModel? PreviewScene(ExampleItem example)
     {
@@ -512,7 +539,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         var editor = new SceneEditor(SceneModel.FromDocument(project.Scene), _registry);
         editor.Changed += OnSceneChanged;
         Scene = new SceneViewModel(editor, board, (id, name, value) => _session?.Send(new ComponentInput(id, name, value)));
-        Properties = new PropertiesViewModel(Scene, () => _settings, UpdateSettings);
+        Properties = new PropertiesViewModel(Scene, () => _settings, UpdateSettings, OpenProjectFolder);
 
         Tabs.Add(SceneTab.Instance);
         string sketch = project.SketchDirectory(_projectDirectory);

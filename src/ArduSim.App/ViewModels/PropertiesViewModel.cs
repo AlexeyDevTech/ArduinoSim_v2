@@ -124,13 +124,16 @@ public sealed partial class PropertiesViewModel : ObservableObject
     private readonly SceneViewModel _scene;
     private readonly Func<ProjectSettings> _settings;
     private readonly Action<ProjectSettings> _updateSettings;
+    private readonly Action<string>? _openFolder;
     private Action? _unsubscribe;
 
-    public PropertiesViewModel(SceneViewModel scene, Func<ProjectSettings> settings, Action<ProjectSettings> updateSettings)
+    /// <param name="openFolder">Opens a folder of the project in Explorer (the SD card's), creating it; null without a project.</param>
+    public PropertiesViewModel(SceneViewModel scene, Func<ProjectSettings> settings, Action<ProjectSettings> updateSettings, Action<string>? openFolder = null)
     {
         _scene = scene;
         _settings = settings;
         _updateSettings = updateSettings;
+        _openFolder = openFolder;
         scene.SelectionChanged += Rebuild;
         scene.Editor.Changed += Rebuild;
         scene.PropertyChanged += (_, e) =>
@@ -188,6 +191,18 @@ public sealed partial class PropertiesViewModel : ObservableObject
         }
     }
 
+    /// <summary>The selected part keeps files in a project folder (the SD card).</summary>
+    public bool HasCardFolder => _openFolder is not null && _scene.SinglePart is { Type: "sd-card" };
+
+    [RelayCommand]
+    private void OpenCardFolder()
+    {
+        if (_scene.SinglePart is { Type: "sd-card" } card)
+        {
+            _openFolder?.Invoke(card.SdFolder);
+        }
+    }
+
     [RelayCommand]
     private void Rotate() => _scene.RotateSelection(clockwise: true);
 
@@ -209,6 +224,7 @@ public sealed partial class PropertiesViewModel : ObservableObject
     {
         _unsubscribe?.Invoke();
         _unsubscribe = null;
+        OnPropertyChanged(nameof(HasCardFolder));
         Fields.Clear();
         Pins.Clear();
         IdError = "";

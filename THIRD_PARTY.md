@@ -37,8 +37,19 @@ Sources only, unmodified, in `libraries/`; compiled by the user's builds.
 | OneWire | 2.3.8 (72249e2) | github.com/PaulStoffregen/OneWire | MIT-style permission notice in OneWire.cpp |
 | DallasTemperature | 4.0.6 (3f570bb) | github.com/milesburton/Arduino-Temperature-Control-Library | MIT (LICENSE) |
 | IRremote | 4.7.1 (498dc59) | github.com/Arduino-IRremote/Arduino-IRremote | MIT (LICENSE) |
+| Adafruit_NeoPixel | 1.15.5 (d514fc3) | github.com/adafruit/Adafruit_NeoPixel | LGPL-3.0 (COPYING) |
+| FastLED | 3.9.20 (a7dda76) | github.com/FastLED/FastLED | MIT (LICENSE) |
+| SevSeg | 3.7.2 (82f18e3) | github.com/DeanIsMe/SevSeg | MIT (LICENSE.txt) |
+| TM1637 | 1.2.0 (82214be) | github.com/avishorp/TM1637 | LGPL-3.0 (LICENSE) |
+| LedControl | 1.0.6 (2714e8b) | github.com/wayoda/LedControl | MIT-style permission notice (LICENSE) |
+| MD_MAX72XX | 3.5.1 (0409270) | github.com/MajicDesigns/MD_MAX72XX | LGPL-2.1 (LICENSE) |
+| MD_Parola | 3.7.7 (0cf3b50) | github.com/MajicDesigns/MD_Parola | LGPL-2.1 (LICENSE) |
+| RTClib | 2.1.4 (5298434) | github.com/adafruit/RTClib | MIT (license.txt) |
+| SdFat | 2.3.1 (cda0573) | github.com/greiman/SdFat | MIT (LICENSE.md) |
 
-Images, archives, CI and editor files (`.github`, `.devcontainer`, `.gitignore`, IRremote's `pictures/`) of these repositories are left out; nothing else is changed. Fixes for the simulator live in `libraries/compat/` (OneWire, IRremote, U8g2), never in the vendored files.
+Images, archives, CI and editor files (`.github`, `.devcontainer`, `.gitignore`, IRremote's `pictures/`), documentation sites, tooling and test folders (FastLED's `ci`, `tests`, `docs` and its `.rgb` data files; SdFat's `doc`) of these repositories are left out; nothing else is changed. Fixes for the simulator live in `libraries/compat/` (OneWire, IRremote, U8g2, Adafruit_NeoPixel, FastLED, SdFat), never in the vendored files; a compat file copied from a library and changed keeps that library's license (LGPL-3.0 for `Adafruit_NeoPixel.cpp`, MIT for the FastLED and SdFat copies).
+
+The Arduino `SD` and `Servo` libraries are not bundled; the shim has its own implementations of their APIs (`firmware/shim/libraries/SD` on SdFat, `firmware/shim/libraries/Servo`).
 
 ## Icons
 

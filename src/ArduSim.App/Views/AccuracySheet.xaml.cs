@@ -8,7 +8,7 @@ namespace ArduSim.App.Views;
 public partial class AccuracySheet : Window
 {
     /// <summary>The limits, <c>Accuracy_N_Title</c> / <c>Accuracy_N_Body</c> in the strings, in this order.</summary>
-    private const int Limits = 12;
+    private const int Limits = 13;
 
     private AccuracySheet()
     {

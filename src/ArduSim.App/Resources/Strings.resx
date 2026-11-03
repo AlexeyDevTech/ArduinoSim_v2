@@ -392,4 +392,58 @@
   <data name="Log_ds18b20-parasite" xml:space="preserve"><value>{0} работает на паразитном питании, но плата не держала DQ в HIGH во время преобразования; показание осталось прежним.</value></data>
   <data name="Accuracy_12_Title" xml:space="preserve"><value>Датчики</value></data>
   <data name="Accuracy_12_Body" xml:space="preserve"><value>DHT11/DHT22, HC-SR04 и ИК-приёмник отвечают с типичными таймингами из даташитов. DS18B20 читает бит записи через 30 мкс после спада и держит 0 45 мкс: это внутри окон даташита и с запасом для библиотеки OneWire, которая здесь работает через digitalWrite/digitalRead (на Nano по 4 мкс). IRremote получает свой тик 50 мкс от таймера симулятора; отправка ИК не моделируется. EEPROM DS18B20 живёт только до конца запуска.</value></data>
+  <data name="Part_Servo" xml:space="preserve"><value>Сервопривод SG90</value></data>
+  <data name="Part_Relay" xml:space="preserve"><value>Реле 5 В (модуль)</value></data>
+  <data name="Part_SevenSegment" xml:space="preserve"><value>Семисегментный индикатор</value></data>
+  <data name="Part_Tm1637" xml:space="preserve"><value>Индикатор TM1637 (4 цифры)</value></data>
+  <data name="Part_Max7219" xml:space="preserve"><value>Матрица MAX7219</value></data>
+  <data name="Part_Max7219x4" xml:space="preserve"><value>Матрица MAX7219 32×8 (FC-16)</value></data>
+  <data name="Part_Max7219x1" xml:space="preserve"><value>Матрица MAX7219 8×8</value></data>
+  <data name="Part_Ws2812" xml:space="preserve"><value>Адресные светодиоды WS2812</value></data>
+  <data name="Part_Ws2812Strip" xml:space="preserve"><value>Лента WS2812</value></data>
+  <data name="Part_Ws2812Ring" xml:space="preserve"><value>Кольцо WS2812</value></data>
+  <data name="Part_Ws2812Matrix" xml:space="preserve"><value>Матрица WS2812 8×8</value></data>
+  <data name="Part_Ds3231" xml:space="preserve"><value>Часы DS3231 (модуль)</value></data>
+  <data name="Part_SdCard" xml:space="preserve"><value>Модуль microSD</value></data>
+  <data name="Category_module" xml:space="preserve"><value>Модули</value></data>
+  <data name="Property_trigger" xml:space="preserve"><value>Срабатывает по уровню</value></data>
+  <data name="Option_trigger_low" xml:space="preserve"><value>LOW</value></data>
+  <data name="Option_trigger_high" xml:space="preserve"><value>HIGH</value></data>
+  <data name="Property_digits" xml:space="preserve"><value>Цифр</value></data>
+  <data name="Property_modules" xml:space="preserve"><value>Модулей</value></data>
+  <data name="Property_hardware" xml:space="preserve"><value>Тип платы</value></data>
+  <data name="Option_hardware_fc16" xml:space="preserve"><value>FC-16</value></data>
+  <data name="Option_hardware_generic" xml:space="preserve"><value>Generic</value></data>
+  <data name="Property_layout" xml:space="preserve"><value>Форма</value></data>
+  <data name="Option_layout_strip" xml:space="preserve"><value>Лента</value></data>
+  <data name="Option_layout_ring" xml:space="preserve"><value>Кольцо</value></data>
+  <data name="Option_layout_matrix" xml:space="preserve"><value>Матрица 8×8</value></data>
+  <data name="Property_count" xml:space="preserve"><value>Светодиодов</value></data>
+  <data name="Property_serpentine" xml:space="preserve"><value>Змейкой</value></data>
+  <data name="Option_serpentine_no" xml:space="preserve"><value>Нет</value></data>
+  <data name="Option_serpentine_yes" xml:space="preserve"><value>Да</value></data>
+  <data name="Property_start" xml:space="preserve"><value>Время при запуске</value></data>
+  <data name="Option_start_computer" xml:space="preserve"><value>Как на компьютере</value></data>
+  <data name="Option_start_fixed" xml:space="preserve"><value>Заданное</value></data>
+  <data name="Property_time" xml:space="preserve"><value>Заданное время (ГГГГ-ММ-ДД чч:мм:сс)</value></data>
+  <data name="Property_folder" xml:space="preserve"><value>Папка проекта с файлами карты</value></data>
+  <data name="Property_inserted" xml:space="preserve"><value>Карта вставлена</value></data>
+  <data name="Option_inserted_yes" xml:space="preserve"><value>Да</value></data>
+  <data name="Option_inserted_no" xml:space="preserve"><value>Нет</value></data>
+  <data name="Properties_OpenCardFolder" xml:space="preserve"><value>Открыть папку карты</value></data>
+  <data name="Toast_FolderOutside" xml:space="preserve"><value>Папка карты должна быть внутри проекта.</value></data>
+  <data name="Toast_FolderFailed" xml:space="preserve"><value>Не удалось открыть папку: {0}</value></data>
+  <data name="Log_servo-pwm" xml:space="preserve"><value>{0}: на сигнальном проводе ШИМ (analogWrite), длительность его импульсов симуляция не моделирует; управляйте сервоприводом через библиотеку Servo.</value></data>
+  <data name="Log_sensor-power.servo" xml:space="preserve"><value>{0} (сервопривод) без питания: подключите V+ к 5 В, а GND к GND.</value></data>
+  <data name="Log_sensor-power.ws2812" xml:space="preserve"><value>{0} (WS2812) без питания: подключите VCC к 5 В, а GND к GND.</value></data>
+  <data name="Log_tm1637-keys" xml:space="preserve"><value>{0}: опрос кнопок TM1637 не моделируется; чтение кнопок возвращает «нет нажатия».</value></data>
+  <data name="Log_max7219-decode" xml:space="preserve"><value>{0}: режим декодирования 0x{1} предназначен для семисегментных цифр; на светодиодной матрице биты данных показываются как есть.</value></data>
+  <data name="Log_led-strip-pin" xml:space="preserve"><value>show(): {0} не настроен как выход; кадр для светодиодов не выходит с платы.</value></data>
+  <data name="Log_rtc-time" xml:space="preserve"><value>{0}: в DS3231 записана несуществующая дата; часы продолжают идти по прежнему времени.</value></data>
+  <data name="Log_rtc-sqw" xml:space="preserve"><value>{0}: на SQW моделируется только меандр 1 Гц; при более высоких частотах SQW остаётся в HIGH.</value></data>
+  <data name="Log_rtc-start" xml:space="preserve"><value>{0}: «{1}» — не дата и время (2026-01-01 12:00:00); часы стартуют по времени компьютера.</value></data>
+  <data name="Log_sd-skipped" xml:space="preserve"><value>{0}: {1} файл(ов) из папки «{2}» не попали на карту (не хватило места или имя недопустимо в FAT), например {3}.</value></data>
+  <data name="Log_sd-soft-spi" xml:space="preserve"><value>{0}: карта подключена программным (bit-banged) SPI, он не моделируется; используйте аппаратные выводы SPI платы.</value></data>
+  <data name="Accuracy_13_Title" xml:space="preserve"><value>Модули M9</value></data>
+  <data name="Accuracy_13_Body" xml:space="preserve"><value>Сервопривод считает угол по длительности импульсов (544–2400 мкс), библиотека Servo формирует их таймером симулятора. Лента WS2812 получает кадр целиком (NeoPixel и FastLED через libraries/compat): время передачи учитывается, форма сигнала 800 кГц — нет. SD-карта — SDSC на 64 МБ с FAT16; её файлы берутся из папки проекта при запуске и записываются обратно при остановке (при сбое скетча изменения не сохраняются). DS3231 идёт по виртуальному времени от времени компьютера или заданного; меандр SQW только 1 Гц, выход 32 кГц не моделируется.</value></data>
 </root>

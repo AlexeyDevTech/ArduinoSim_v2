@@ -75,7 +75,7 @@ internal static class HeadlessRun
 
         using EepromMemory eeprom = EepromMemory.FileBacked(Path.Combine(options.ProjectDirectory, ProjectFile.EepromFileName), board.EepromSize);
         using CrashBlock crash = CrashBlock.CreatePrivate();
-        var host = new SimulationHost(board, project.Scene, eeprom, options.Seed, crash, KeyValueStore.FileBacked(Path.Combine(options.ProjectDirectory, ProjectFile.PreferencesFileName)), project.Settings, !options.NoNetwork);
+        var host = new SimulationHost(board, project.Scene, eeprom, options.Seed, crash, KeyValueStore.FileBacked(Path.Combine(options.ProjectDirectory, ProjectFile.PreferencesFileName)), project.Settings, !options.NoNetwork, new ProjectFolderFiles(options.ProjectDirectory));
         host.Pacer.Speed = options.Speed;
         Attach(host, options, output);
         if (options.RunForMilliseconds is double ms)
@@ -159,15 +159,41 @@ internal static class HeadlessRun
     }
 
     /// <summary>
-    /// What a display shows, as one line: LCD rows as <c>"row 0" "row 1"</c> (escaped as in
-    /// <c>Hd44780.RowText</c>), an OLED as the number of lit pixels.
+    /// What a display shows, as one line: LCD rows and seven-segment digits as <c>"row 0" "row 1"</c>
+    /// (escaped as in <c>Hd44780.RowText</c>), an OLED or LED matrix as the number of lit pixels, RGB
+    /// LEDs as their colors (up to 16) or the number lit.
     /// </summary>
     private static string Rows(SimComponent component) => component.Display switch
     {
-        { Kind: DisplayKind.Oled } frame => string.Create(CultureInfo.InvariantCulture, $"{frame.Dots.ToArray().Sum(b => System.Numerics.BitOperations.PopCount(b))} px on"),
+        { Kind: DisplayKind.Oled or DisplayKind.LedMatrix } frame => string.Create(CultureInfo.InvariantCulture, $"{frame.Dots.ToArray().Sum(b => System.Numerics.BitOperations.PopCount(b))} px on"),
+        { Kind: DisplayKind.RgbLeds } frame => Colors(frame),
         { } frame => string.Join(" ", frame.Text.Select(row => "\"" + row + "\"")),
         null => "",
     };
+
+    private static string Colors(DisplayFrame frame)
+    {
+        ReadOnlySpan<byte> rgb = frame.Dots.Span;
+        int count = rgb.Length / 3;
+        if (count <= 16)
+        {
+            var colors = new string[count];
+            for (int i = 0; i < count; i++)
+            {
+                colors[i] = string.Create(CultureInfo.InvariantCulture, $"#{rgb[3 * i]:X2}{rgb[(3 * i) + 1]:X2}{rgb[(3 * i) + 2]:X2}");
+            }
+
+            return string.Join(" ", colors);
+        }
+
+        int lit = 0;
+        for (int i = 0; i < count; i++)
+        {
+            lit += rgb[3 * i] + rgb[(3 * i) + 1] + rgb[(3 * i) + 2] > 0 ? 1 : 0;
+        }
+
+        return string.Create(CultureInfo.InvariantCulture, $"{lit} of {count} lit");
+    }
 
     /// <summary>--dump-display: one PNG per display at the end of the run.</summary>
     private static void DumpDisplays(SimulationHost host, string path, TextWriter output)

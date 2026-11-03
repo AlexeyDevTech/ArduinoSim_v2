@@ -1,5 +1,16 @@
 # Changelog
 
+## M9 — Outputs and modules (2026-11-03)
+
+- New parts: SG90 servo, 5 V relay module, seven-segment display (1 or 4 digits, common cathode or anode), TM1637 4-digit module, MAX7219 8x8 matrix (one module or the FC-16 chain of four), WS2812B strip, ring and 8x8 matrix, DS3231 RTC module, microSD module; a "Модули" palette group.
+- Servo library in the shim (Arduino API, pulses from a timer interrupt) and ESP32Servo.h; the servo horn follows the pulse width.
+- Firmware ABI 2.3: one call per WS2812 frame, timed as on the wire; frames go through DOUT to chained strips. Adafruit_NeoPixel and FastLED work on every board through `libraries/compat`.
+- Seven-segment digits glow with their multiplexing duty; TM1637 and MAX7219 follow their datasheets and MD_MAX72XX's module wiring; displays print their digits or lit pixels in headless runs.
+- DS3231: time from the computer or a fixed start, alarms on SQW/INT, temperature; RTClib works unchanged.
+- SD card: the SD library's API (the shim's own, on SdFat) on a simulated 64 MB card in SPI mode; its files are the project's `sd/` folder, read at Run and written back at Stop; a Properties button opens the folder.
+- Interrupts from timers run at their time even inside long calls (analogRead).
+- Bundled libraries Adafruit_NeoPixel 1.15.5, FastLED 3.9.20, SevSeg 3.7.2, TM1637 1.2.0, LedControl 1.0.6, MD_MAX72XX 3.5.1, MD_Parola 3.7.7, RTClib 2.1.4, SdFat 2.3.1. `libraries/compat` replacements now also count for library detection.
+- Examples ServoKnob, Relay, SevenSegment, Tm1637, MatrixParola, MatrixLedControl, NeoPixelRing, FastLedMatrix, Ds3231Clock, SdCardLog; the LED and SD libraries also run on the ESP32 in the tests.
 ## M8 — Inputs and sensors (2026-11-03)
 
 - New parts: KY-040 rotary encoder, 4x4 membrane keypad, analog joystick, DHT22 and DHT11, DS18B20, HC-SR04, IR receiver and the 21-key IR remote, with their drawings; a "Датчики" palette group.

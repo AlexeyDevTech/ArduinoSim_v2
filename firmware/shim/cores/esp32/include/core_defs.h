@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "esp_arduino_version.h"
+#include "esp_idf_version.h"
 
 #ifndef F_CPU
 #define F_CPU 240000000L

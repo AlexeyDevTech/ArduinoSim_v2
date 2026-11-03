@@ -258,7 +258,7 @@ public partial class SchematicCanvas : UserControl
                     break;
                 case "keypad" or "ir-remote":
                     break;
-                case "dht" or "ds18b20" or "hc-sr04":
+                case "dht" or "ds18b20" or "hc-sr04" or "ds3231":
                     _activePart = part;
                     _liveName = part.LiveDragProperty(Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
                     _knobStart = _liveName is null ? 0 : part.LiveValue(_liveName);
@@ -448,7 +448,7 @@ public partial class SchematicCanvas : UserControl
 
         Cursor = pin is not null && !scene.IsLocked ? Cursors.Cross
             : scene.IsLocked && scene.PartAt(world)?.Type is "pushbutton" or "slide-switch" or "rotary-encoder" or "joystick" or "keypad" or "ir-remote" ? Cursors.Hand
-            : scene.IsLocked && scene.PartAt(world)?.Type is "potentiometer" or "dht" or "ds18b20" or "hc-sr04" ? Cursors.SizeNS
+            : scene.IsLocked && scene.PartAt(world)?.Type is "potentiometer" or "dht" or "ds18b20" or "hc-sr04" or "ds3231" ? Cursors.SizeNS
             : _spaceDown ? Cursors.Hand : null;
     }
 
@@ -518,7 +518,7 @@ public partial class SchematicCanvas : UserControl
         {
             encoder.Turn(e.Delta > 0 ? 1 : -1);
         }
-        else if (Scene is { IsLocked: true } && Scene.PartAt(ToWorld(screen)) is { Type: "dht" or "ds18b20" or "hc-sr04" } sensor &&
+        else if (Scene is { IsLocked: true } && Scene.PartAt(ToWorld(screen)) is { Type: "dht" or "ds18b20" or "hc-sr04" or "ds3231" } sensor &&
                  sensor.LiveDragProperty(Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) is { } name)
         {
             double step = name == "temperature" ? 0.5 : PartViewModel.LiveStep(name) * (name == "humidity" ? 2 : 1);

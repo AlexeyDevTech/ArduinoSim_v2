@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 100, "y": 300, "rotation": 0, "flip": false },
+      { "id": "seg1", "type": "seven-segment", "x": 340, "y": 160, "rotation": 0, "flip": false, "properties": { "digits": "4", "common": "cathode", "color": "red" } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "seg1", "pin": "D1" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [[380, 140], [300, 140], [300, 290], [220, 290]], "color": "auto" },
+      { "id": "w2", "from": { "component": "seg1", "pin": "A" }, "to": { "component": "board", "pin": "D6" }, "waypoints": [[390, 135], [295, 135], [295, 285], [180, 285]], "color": "auto" },
+      { "id": "w3", "from": { "component": "seg1", "pin": "F" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [[400, 130], [290, 130], [290, 280], [130, 280]], "color": "auto" },
+      { "id": "w4", "from": { "component": "seg1", "pin": "D2" }, "to": { "component": "board", "pin": "D3" }, "waypoints": [[410, 125], [305, 125], [305, 295], [210, 295]], "color": "auto" },
+      { "id": "w5", "from": { "component": "seg1", "pin": "D3" }, "to": { "component": "board", "pin": "D4" }, "waypoints": [[420, 120], [310, 120], [310, 300], [200, 300]], "color": "auto" },
+      { "id": "w6", "from": { "component": "seg1", "pin": "B" }, "to": { "component": "board", "pin": "D7" }, "waypoints": [[430, 115], [285, 115], [285, 275], [170, 275]], "color": "auto" },
+      { "id": "w7", "from": { "component": "seg1", "pin": "E" }, "to": { "component": "board", "pin": "D10" }, "waypoints": [[380, 250], [140, 250]], "color": "auto" },
+      { "id": "w8", "from": { "component": "seg1", "pin": "D" }, "to": { "component": "board", "pin": "D9" }, "waypoints": [[390, 255], [150, 255]], "color": "auto" },
+      { "id": "w9", "from": { "component": "seg1", "pin": "DP" }, "to": { "component": "board", "pin": "D13" }, "waypoints": [[400, 440], [120, 440]], "color": "auto" },
+      { "id": "w10", "from": { "component": "seg1", "pin": "C" }, "to": { "component": "board", "pin": "D8" }, "waypoints": [[410, 260], [160, 260]], "color": "auto" },
+      { "id": "w11", "from": { "component": "seg1", "pin": "G" }, "to": { "component": "board", "pin": "D12" }, "waypoints": [[420, 245], [120, 245]], "color": "auto" },
+      { "id": "w12", "from": { "component": "seg1", "pin": "D4" }, "to": { "component": "board", "pin": "D5" }, "waypoints": [[430, 265], [190, 265]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

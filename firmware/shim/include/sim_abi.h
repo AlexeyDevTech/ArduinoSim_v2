@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #define SIM_ABI_VERSION_MAJOR 2
-#define SIM_ABI_VERSION_MINOR 2
+#define SIM_ABI_VERSION_MINOR 3
 #define SIM_ABI_VERSION ((uint32_t)((SIM_ABI_VERSION_MAJOR << 16) | SIM_ABI_VERSION_MINOR))
 
 #if defined(_WIN32)
@@ -187,6 +187,11 @@ typedef struct SimHostApi {
      * point (delay() included); a tick that finds the previous one still pending is lost. */
     void (*timer_start)(int32_t timer, uint64_t period_ns); /* restarts a running timer; at least 5 us */
     void (*timer_stop)(int32_t timer);
+
+    /* 2.3: one frame for WS2812-style LED strips on a pin: the bytes in wire order (GRB for a
+     * WS2812B), sent at khz (800 or 400); the host charges 8 bit times per byte and hands the frame
+     * to the strips on the pin's net, which pass what they do not use on from DOUT. */
+    void (*led_strip_write)(int32_t pin, const uint8_t* data, int32_t length, int32_t khz);
 } SimHostApi;
 
 #define SIM_TIMER_COUNT 4

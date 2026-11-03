@@ -32,7 +32,7 @@ public sealed partial class PaletteGroup(string name, IEnumerable<PaletteItem> i
 /// <summary>Parts by category with live search (docs/UI.md §2.3). Boards are chosen in the toolbar, not placed; presets are rows of their own.</summary>
 public sealed partial class PaletteViewModel : ObservableObject
 {
-    private static readonly string[] CategoryOrder = ["output", "input", "sensor", "display", "passive"];
+    private static readonly string[] CategoryOrder = ["output", "input", "sensor", "display", "module", "passive"];
     private readonly List<PaletteItem> _all;
 
     public PaletteViewModel(ComponentRegistry registry)

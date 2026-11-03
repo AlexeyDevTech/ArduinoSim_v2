@@ -10,8 +10,12 @@ public sealed record LibraryResolution(IReadOnlyList<ArduinoLibrary> Libraries, 
 /// (core shim libraries → sketch → project paths → Documents\Arduino\libraries → bundled).
 /// Within one root, a library whose folder is named after the header wins, then alphabetical order.
 /// </summary>
-/// <remarks>Detection is textual: an include inside an inactive <c>#if</c> branch still pulls its library in.</remarks>
-public sealed class LibraryResolver(IReadOnlyList<string> searchRoots, IReadOnlyList<string> builtinIncludeDirectories)
+/// <remarks>
+/// Detection is textual: an include inside an inactive <c>#if</c> branch still pulls its library in.
+/// <paramref name="replacement"/> maps a file to the one the build compiles in its place (a
+/// <c>libraries/compat</c> file), whose includes count instead.
+/// </remarks>
+public sealed class LibraryResolver(IReadOnlyList<string> searchRoots, IReadOnlyList<string> builtinIncludeDirectories, Func<string, string>? replacement = null)
 {
     private readonly Lazy<List<(ArduinoLibrary Library, int Root, HashSet<string> Headers)>> _candidates = new(() => Index(searchRoots));
 
@@ -28,7 +32,7 @@ public sealed class LibraryResolver(IReadOnlyList<string> searchRoots, IReadOnly
                 continue;
             }
 
-            foreach (string raw in IncludeScanner.Scan(File.ReadAllText(file)))
+            foreach (string raw in IncludeScanner.Scan(File.ReadAllText(replacement?.Invoke(file) ?? file)))
             {
                 string include = raw.Replace('\\', '/');
                 includes.Add(include);

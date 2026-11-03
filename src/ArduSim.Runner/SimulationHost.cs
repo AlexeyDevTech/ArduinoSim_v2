@@ -3,6 +3,7 @@ using System.Diagnostics;
 using ArduSim.Boards;
 using ArduSim.Core.Boards;
 using ArduSim.Core.Components;
+using ArduSim.Core.Components.Parts;
 using ArduSim.Core.Diagnostics;
 using ArduSim.Core.Projects;
 using ArduSim.Core.Simulation;
@@ -53,11 +54,12 @@ internal sealed unsafe class SimulationHost : IDisposable
 
     /// <param name="settings">Project settings: the Wi-Fi networks and whether the real network is on (ADR-010).</param>
     /// <param name="network">False turns the real network off whatever the project says (headless <c>--no-network</c>).</param>
-    public SimulationHost(BoardProfile board, SceneDocument scene, EepromMemory eeprom, int seed, CrashBlock crash, KeyValueStore? kv = null, ProjectSettings? settings = null, bool network = true)
+    /// <param name="files">The project folders parts keep files in (the SD card), or null.</param>
+    public SimulationHost(BoardProfile board, SceneDocument scene, EepromMemory eeprom, int seed, CrashBlock crash, KeyValueStore? kv = null, ProjectSettings? settings = null, bool network = true, IPartFiles? files = null)
     {
         _crash = crash;
         Engine = new SimulationEngine();
-        Simulation = BoardSimulation.Create(scene, board, ComponentRegistry.CreateDefault(BoardCatalog.All), Engine, eeprom, seed, kv, settings?.Wifi);
+        Simulation = BoardSimulation.Create(scene, board, ComponentRegistry.CreateDefault(BoardCatalog.All), Engine, eeprom, seed, kv, settings?.Wifi, files);
         Network = new NetworkService(Engine.Log, network && (settings?.Network?.Real ?? true));
         Pacer = new Pacer(() => _wall.Elapsed, Thread.Sleep);
         Engine.SchedulingPoint = OnSchedulingPoint;
@@ -290,6 +292,11 @@ internal sealed unsafe class SimulationHost : IDisposable
 
         if (_stopRequested)
         {
+            foreach (SimComponent component in Simulation.Components)
+            {
+                component.OnRunEnding();
+            }
+
             Stopping?.Invoke(_stopReason);
             Exit(ProcessExit.Success);
         }

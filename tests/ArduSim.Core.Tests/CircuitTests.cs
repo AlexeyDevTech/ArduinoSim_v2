@@ -12,8 +12,8 @@ internal static class Scenes
 {
     public static readonly ComponentRegistry Registry = ComponentRegistry.CreateDefault([Nano.Profile]);
 
-    public static BoardSimulation Create(SceneDocument scene, SimulationEngine engine, EepromMemory eeprom) =>
-        BoardSimulation.Create(scene, Nano.Profile, Registry, engine, eeprom, seed: 1);
+    public static BoardSimulation Create(SceneDocument scene, SimulationEngine engine, EepromMemory eeprom, ArduSim.Core.Components.Parts.IPartFiles? files = null) =>
+        BoardSimulation.Create(scene, Nano.Profile, Registry, engine, eeprom, seed: 1, files: files);
 
     public static SceneDocument Scene(IEnumerable<ComponentDocument> parts, params string[] wires) => new()
     {

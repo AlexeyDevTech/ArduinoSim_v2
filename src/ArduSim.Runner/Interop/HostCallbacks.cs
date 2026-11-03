@@ -91,6 +91,7 @@ internal static unsafe class HostCallbacks
         api->DeepSleep = &DeepSleep;
         api->TimerStart = &TimerStart;
         api->TimerStop = &TimerStop;
+        api->LedStripWrite = &LedStripWrite;
         return api;
     }
 
@@ -616,6 +617,13 @@ internal static unsafe class HostCallbacks
     private static void TimerStop(int timer)
     {
         try { _host.Enter(HostCall.Timer, timer, -1).StopTimer(timer); }
+        catch (Exception e) { _host.InternalError(e); }
+    }
+
+    [UnmanagedCallersOnly]
+    private static void LedStripWrite(int pin, byte* data, int length, int khz)
+    {
+        try { _host.Enter(HostCall.LedStrip, pin, length).LedStripWrite(pin, new ReadOnlySpan<byte>(data, Math.Max(length, 0)), khz); }
         catch (Exception e) { _host.InternalError(e); }
     }
 

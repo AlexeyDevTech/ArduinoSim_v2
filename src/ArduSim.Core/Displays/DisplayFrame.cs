@@ -7,6 +7,15 @@ public enum DisplayKind
 
     /// <summary>Monochrome OLED: Rows lines of Columns pixels, packed MSB-left.</summary>
     Oled = 2,
+
+    /// <summary>Seven-segment digits (and TM1637 modules): Columns digits, 8 bytes each (a-g, dp) of brightness 0-255.</summary>
+    Segments = 3,
+
+    /// <summary>LED matrix (MAX7219): Rows lines of Columns LEDs packed MSB-left, as <see cref="Oled"/>; Contrast is the intensity.</summary>
+    LedMatrix = 4,
+
+    /// <summary>Addressable RGB LEDs (WS2812): Rows x Columns LEDs, 3 bytes each (R, G, B), row by row.</summary>
+    RgbLeds = 5,
 }
 
 [Flags]
@@ -28,7 +37,8 @@ public enum DisplayStatus
 /// <see cref="Dots"/> holds rows x 8 dot rows of columns cells, each a 5-bit mask (bit 4 = leftmost
 /// dot) at <c>(row * 8 + line) * columns + column</c>, and <see cref="Text"/> the visible rows as text.
 /// For <see cref="DisplayKind.Oled"/>, <see cref="Dots"/> holds Rows lines of <c>(Columns + 7) / 8</c>
-/// bytes, MSB the leftmost pixel, and <see cref="Text"/> is empty.
+/// bytes, MSB the leftmost pixel, and <see cref="Text"/> is empty. The other kinds say their layout
+/// above; <see cref="DisplayKind.Segments"/> also gives the digits as text.
 /// </summary>
 /// <param name="Contrast">0 (nothing visible) to 1 (darkest).</param>
 /// <param name="Version">Grows with every change, so a view redraws only new frames.</param>

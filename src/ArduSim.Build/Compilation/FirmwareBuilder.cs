@@ -92,7 +92,8 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
 
         string[] cores = [shim.CoreDirectory(request.Core), .. request.CoreBase is { } shared ? [shim.CoreDirectory(shared)] : Array.Empty<string>()];
         string[] coreIncludes = [shim.IncludeDirectory, .. cores.Select(c => Path.Combine(c, "include")).Where(Directory.Exists), shim.VariantDirectory(request.Variant)];
-        var resolver = new LibraryResolver([.. cores.Select(c => Path.Combine(c, "libraries")).Where(Directory.Exists), shim.LibrariesDirectory, .. request.LibraryRoots], coreIncludes);
+        string[] roots = [.. cores.Select(c => Path.Combine(c, "libraries")).Where(Directory.Exists), shim.LibrariesDirectory, .. request.LibraryRoots];
+        var resolver = new LibraryResolver(roots, coreIncludes, file => CompatReplacement(roots, file));
         IEnumerable<string> sketchHeaders = Directory.EnumerateFiles(sketch.Directory, "*.h");
         LibraryResolution resolution = resolver.Resolve([.. sketch.InoFiles, .. sketch.SourceFiles, .. sketchHeaders]);
         string[] libraryIncludes = [.. coreIncludes, .. resolution.Libraries.SelectMany(l => l.IncludeDirectories)];
@@ -232,6 +233,22 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
 
         await File.WriteAllTextAsync(signatureFile, signature, cancellationToken);
         return (true, true, result.Output);
+    }
+
+    /// <summary>The compat file that replaces <paramref name="file"/> of a library under one of <paramref name="roots"/>, or the file itself.</summary>
+    private string CompatReplacement(IReadOnlyList<string> roots, string file)
+    {
+        foreach (string root in roots)
+        {
+            string prefix = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            if (file.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                string candidate = Path.Combine(shim.CompatDirectory, file[prefix.Length..]);
+                return File.Exists(candidate) ? candidate : file;
+            }
+        }
+
+        return file;
     }
 
     /// <summary>

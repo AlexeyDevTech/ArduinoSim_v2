@@ -438,6 +438,15 @@
                   <ListBox Style="{StaticResource ListBox.Swatches}" ItemsSource="{Binding WireColors}" SelectedItem="{Binding WireColor}" IsEnabled="{Binding IsEditable}" />
                 </StackPanel>
 
+                <!-- The SD card's folder in the project (ADR-012): open it while running too. -->
+                <Button Command="{Binding OpenCardFolderCommand}" HorizontalAlignment="Left" Margin="0,0,0,12"
+                        Visibility="{Binding HasCardFolder, Converter={StaticResource BoolToVisibility}}">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE838;" Margin="0,0,6,0" />
+                    <TextBlock Text="{l:Loc Properties_OpenCardFolder}" />
+                  </StackPanel>
+                </Button>
+
                 <!-- Pins / wire ends -->
                 <TextBlock Text="{l:Loc Properties_Pins}" Style="{StaticResource Caption}" Margin="0,4,0,4"
                            Visibility="{Binding Pins.Count, Converter={StaticResource PositiveToVisibility}}" />

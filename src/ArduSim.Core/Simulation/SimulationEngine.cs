@@ -28,10 +28,21 @@ public sealed class SimulationEngine
     /// <summary>Set by the host: interrupt dispatch, pacing, command processing, stop checks.</summary>
     public Action? SchedulingPoint { get; set; }
 
-    /// <summary>Charges the virtual cost of a host call and runs a scheduling point.</summary>
+    /// <summary>
+    /// Charges the virtual cost of a host call and runs a scheduling point. An event due inside the
+    /// cost (a timer tick during <c>analogRead</c>) gets a scheduling point of its own, so the interrupt
+    /// it raises runs at its time, as a hardware interrupt would preempt the call.
+    /// </summary>
     public void Finish(ulong cost)
     {
-        Clock.Advance(cost);
+        ulong end = Clock.Now + cost;
+        while (Clock.NextEventTime is { } due && due < end)
+        {
+            Clock.AdvanceTo(due);
+            SchedulingPoint?.Invoke();
+        }
+
+        Clock.AdvanceTo(Math.Max(end, Clock.Now));
         SchedulingPoint?.Invoke();
     }
 

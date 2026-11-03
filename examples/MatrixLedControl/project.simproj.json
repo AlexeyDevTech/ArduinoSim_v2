@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 100, "y": 300, "rotation": 0, "flip": false },
+      { "id": "mx1", "type": "max7219", "x": 330, "y": 150, "rotation": 0, "flip": false, "properties": { "modules": "1", "hardware": "fc16" } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "mx1", "pin": "DIN" }, "to": { "component": "board", "pin": "D12" }, "waypoints": [[440, 190], [440, 290], [120, 290]], "color": "auto" },
+      { "id": "w2", "from": { "component": "mx1", "pin": "CS" }, "to": { "component": "board", "pin": "D10" }, "waypoints": [[450, 200], [450, 280], [140, 280]], "color": "auto" },
+      { "id": "w3", "from": { "component": "mx1", "pin": "CLK" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [[430, 210], [430, 285], [130, 285]], "color": "auto" },
+      { "id": "w4", "from": { "component": "mx1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[470, 170], [470, 410], [230, 410]], "color": "auto" },
+      { "id": "w5", "from": { "component": "mx1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[460, 180], [460, 400], [250, 400]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

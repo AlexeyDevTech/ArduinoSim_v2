@@ -42,7 +42,7 @@ public sealed class ShimHarnessTests(ToolchainFixture toolchain)
         Assert.Contains(" 0 failed", text, StringComparison.Ordinal);
     }
 
-    /// <summary>The ESP32 core and its libraries (WiFi, Preferences, and the esp-common HTTPClient, EEPROM, WiFiNetwork) with the shared Wire and SPI, syntax only.</summary>
+    /// <summary>The ESP32 core and its libraries (WiFi, Preferences, ESP32Servo, and the esp-common HTTPClient, EEPROM, WiFiNetwork) with the shared Wire, SPI and Servo, syntax only.</summary>
     [Fact]
     public async Task Esp32_core_compiles_warning_free()
     {
@@ -50,7 +50,7 @@ public sealed class ShimHarnessTests(ToolchainFixture toolchain)
         string esp32 = Path.Combine(shim, "cores", "esp32");
         string common = Path.Combine(shim, "cores", "esp-common");
         string[] libraries = [.. new[] { esp32, common }.SelectMany(c => Directory.EnumerateDirectories(Path.Combine(c, "libraries"))).Select(d => Path.Combine(d, "src")),
-            Path.Combine(shim, "libraries", "Wire", "src"), Path.Combine(shim, "libraries", "SPI", "src")];
+            Path.Combine(shim, "libraries", "Wire", "src"), Path.Combine(shim, "libraries", "SPI", "src"), Path.Combine(shim, "libraries", "Servo", "src")];
         var compile = new ProcessStartInfo(toolchain.Toolchain.CxxCompiler)
         {
             RedirectStandardOutput = true,
@@ -75,7 +75,7 @@ public sealed class ShimHarnessTests(ToolchainFixture toolchain)
         Assert.True(exit == 0, output);
     }
 
-    /// <summary>The ESP8266 core and its libraries (ESP8266WiFi, and the esp-common HTTPClient, EEPROM, WiFiNetwork) with the shared Wire and SPI, syntax only.</summary>
+    /// <summary>The ESP8266 core and its libraries (ESP8266WiFi, and the esp-common HTTPClient, EEPROM, WiFiNetwork) with the shared Wire, SPI and Servo, syntax only.</summary>
     [Fact]
     public async Task Esp8266_core_compiles_warning_free()
     {
@@ -83,7 +83,7 @@ public sealed class ShimHarnessTests(ToolchainFixture toolchain)
         string esp8266 = Path.Combine(shim, "cores", "esp8266");
         string common = Path.Combine(shim, "cores", "esp-common");
         string[] libraries = [.. new[] { esp8266, common }.SelectMany(c => Directory.EnumerateDirectories(Path.Combine(c, "libraries"))).Select(d => Path.Combine(d, "src")),
-            Path.Combine(shim, "libraries", "Wire", "src"), Path.Combine(shim, "libraries", "SPI", "src")];
+            Path.Combine(shim, "libraries", "Wire", "src"), Path.Combine(shim, "libraries", "SPI", "src"), Path.Combine(shim, "libraries", "Servo", "src")];
         var compile = new ProcessStartInfo(toolchain.Toolchain.CxxCompiler)
         {
             RedirectStandardOutput = true,

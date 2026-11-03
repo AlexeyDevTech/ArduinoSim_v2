@@ -70,7 +70,7 @@ internal static class PipeServer
 
         using EepromMemory eeprom = EepromMemory.FileBacked(Path.Combine(options.ProjectDirectory, ProjectFile.EepromFileName), board.EepromSize);
         using CrashBlock crash = CrashBlock.OpenNamed(options.CrashBlock);
-        var host = new SimulationHost(board, project.Scene, eeprom, options.Seed, crash, KeyValueStore.FileBacked(Path.Combine(options.ProjectDirectory, ProjectFile.PreferencesFileName)), project.Settings);
+        var host = new SimulationHost(board, project.Scene, eeprom, options.Seed, crash, KeyValueStore.FileBacked(Path.Combine(options.ProjectDirectory, ProjectFile.PreferencesFileName)), project.Settings, files: new ProjectFolderFiles(options.ProjectDirectory));
         host.Pacer.Speed = options.Speed;
         host.Exit = code =>
         {
