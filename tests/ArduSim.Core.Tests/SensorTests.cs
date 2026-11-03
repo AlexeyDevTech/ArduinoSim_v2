@@ -269,6 +269,8 @@ public sealed class SensorTests : IDisposable
         Assert.Equal((1, 1), (mcu.DigitalRead(2), mcu.DigitalRead(3)));
     }
 
+    private static readonly int[] KeypadRows = [9, 8, 7, 6];
+
     [Fact]
     public void Keypad_key_joins_its_row_and_column()
     {
@@ -276,7 +278,7 @@ public sealed class SensorTests : IDisposable
             Scenes.Part("kp1", "keypad"),
             "board.D9 kp1.R1", "board.D8 kp1.R2", "board.D7 kp1.R3", "board.D6 kp1.R4", "board.D5 kp1.C1", "board.D4 kp1.C2", "board.D3 kp1.C3", "board.D2 kp1.C4");
         Mcu mcu = sim.Mcu;
-        foreach (int row in new[] { 9, 8, 7, 6 })
+        foreach (int row in KeypadRows)
         {
             mcu.PinMode(row, 2);
         }
@@ -284,11 +286,11 @@ public sealed class SensorTests : IDisposable
         sim.FindComponent("kp1")!.ApplyInput("k5", 1); // row 2, column 2: '5'
         mcu.PinMode(4, 1);
         mcu.DigitalWrite(4, 0);
-        Assert.Equal([1, 0, 1, 1], new[] { 9, 8, 7, 6 }.Select(mcu.DigitalRead));
+        Assert.Equal([1, 0, 1, 1], KeypadRows.Select(mcu.DigitalRead));
         mcu.PinMode(4, 0);
         mcu.PinMode(5, 1);
         mcu.DigitalWrite(5, 0);
-        Assert.Equal([1, 1, 1, 1], new[] { 9, 8, 7, 6 }.Select(mcu.DigitalRead));
+        Assert.Equal([1, 1, 1, 1], KeypadRows.Select(mcu.DigitalRead));
         Assert.Equal(5, sim.FindComponent("kp1")!.State["key"]);
         Assert.Equal('5', MatrixKeypad.Labels[5]);
     }
