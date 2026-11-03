@@ -359,4 +359,37 @@
   <data name="Board_wemos-d1-mini" xml:space="preserve"><value>Wemos D1 mini (ESP8266)</value></data>
   <data name="Log_soft-wdt" xml:space="preserve"><value>loop() работает {0} мс без возврата, delay() и yield(); настоящий ESP8266 здесь перезагрузился бы (soft WDT). Симуляция продолжается.</value></data>
   <data name="Log_deep-sleep" xml:space="preserve"><value>Плата спит {0} мс, затем загружается заново и выполняет setup().</value></data>
+  <data name="Part_RotaryEncoder" xml:space="preserve"><value>Энкодер (KY-040)</value></data>
+  <data name="Part_Keypad" xml:space="preserve"><value>Клавиатура 4×4</value></data>
+  <data name="Part_Joystick" xml:space="preserve"><value>Джойстик</value></data>
+  <data name="Part_Dht" xml:space="preserve"><value>Датчик DHT</value></data>
+  <data name="Part_Dht22" xml:space="preserve"><value>DHT22 (температура и влажность)</value></data>
+  <data name="Part_Dht11" xml:space="preserve"><value>DHT11 (температура и влажность)</value></data>
+  <data name="Part_Ds18b20" xml:space="preserve"><value>Термометр DS18B20 (1-Wire)</value></data>
+  <data name="Part_HcSr04" xml:space="preserve"><value>Дальномер HC-SR04</value></data>
+  <data name="Part_IrReceiver" xml:space="preserve"><value>ИК-приёмник</value></data>
+  <data name="Part_IrRemote" xml:space="preserve"><value>ИК-пульт</value></data>
+  <data name="Category_sensor" xml:space="preserve"><value>Датчики</value></data>
+  <data name="Property_model" xml:space="preserve"><value>Модель</value></data>
+  <data name="Option_model_dht22" xml:space="preserve"><value>DHT22</value></data>
+  <data name="Option_model_dht11" xml:space="preserve"><value>DHT11</value></data>
+  <data name="Property_temperature" xml:space="preserve"><value>Температура</value></data>
+  <data name="Property_humidity" xml:space="preserve"><value>Влажность</value></data>
+  <data name="Property_distance" xml:space="preserve"><value>Расстояние</value></data>
+  <data name="Unit_cm" xml:space="preserve"><value>см</value></data>
+  <data name="Properties_LiveHint" xml:space="preserve"><value>Показание датчика: во время работы меняется сразу и не сохраняется в проект.</value></data>
+  <data name="Log_timer-invalid" xml:space="preserve"><value>Прерывания таймера {0} нет (есть 0–{1}); вызов пропущен.</value></data>
+  <data name="Log_timer-period" xml:space="preserve"><value>Прерывание таймера {0}: период {1} нс короче минимума симулятора (5 мкс); таймер срабатывает каждые 5 мкс.</value></data>
+  <data name="Log_sensor-power" xml:space="preserve"><value>{0} ({1}) без питания: подключите VCC к 3,3–5 В, а GND к GND.</value></data>
+  <data name="Log_sensor-power.hc-sr04" xml:space="preserve"><value>{0} (HC-SR04) без питания: подключите VCC к 5 В, а GND к GND.</value></data>
+  <data name="Log_sensor-power.ir-receiver" xml:space="preserve"><value>{0} (ИК-приёмник) без питания: подключите VCC к 3,3–5 В, а GND к GND.</value></data>
+  <data name="Log_dht-start" xml:space="preserve"><value>{0} ({1}): стартовый импульс длился {2} мс, а {3} нужно не меньше {4} мс, поэтому датчик не отвечает. Проверьте тип датчика в скетче (DHT dht(pin, {5})).</value></data>
+  <data name="Log_dht-range" xml:space="preserve"><value>{0}: {1} {2} вне диапазона DHT11 ({3}–{4} {5}); он сообщает {6} {7}.</value></data>
+  <data name="Log_sonar-trigger" xml:space="preserve"><value>{0}: импульс TRIG длился {1} мкс, а HC-SR04 нужно не меньше 10 мкс; импульс пропущен.</value></data>
+  <data name="Log_sonar-supply" xml:space="preserve"><value>{0}: HC-SR04 работает от 5 В; при {1} В настоящий модуль измеряет ненадёжно. Симуляция всё равно измеряет.</value></data>
+  <data name="Log_onewire-pullup" xml:space="preserve"><value>{0}: линия DQ остаётся неподключённой, когда плата её отпускает; шине 1-Wire нужен подтягивающий резистор (4,7 кОм от DQ к VDD).</value></data>
+  <data name="Log_ds18b20-power" xml:space="preserve"><value>{0} (DS18B20) без питания: подключите GND к GND, а VDD к 3,3–5 В (или VDD к GND для паразитного питания).</value></data>
+  <data name="Log_ds18b20-parasite" xml:space="preserve"><value>{0} работает на паразитном питании, но плата не держала DQ в HIGH во время преобразования; показание осталось прежним.</value></data>
+  <data name="Accuracy_12_Title" xml:space="preserve"><value>Датчики</value></data>
+  <data name="Accuracy_12_Body" xml:space="preserve"><value>DHT11/DHT22, HC-SR04 и ИК-приёмник отвечают с типичными таймингами из даташитов. DS18B20 читает бит записи через 30 мкс после спада и держит 0 45 мкс: это внутри окон даташита и с запасом для библиотеки OneWire, которая здесь работает через digitalWrite/digitalRead (на Nano по 4 мкс). IRremote получает свой тик 50 мкс от таймера симулятора; отправка ИК не моделируется. EEPROM DS18B20 живёт только до конца запуска.</value></data>
 </root>

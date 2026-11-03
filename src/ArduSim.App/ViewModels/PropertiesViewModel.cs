@@ -41,6 +41,37 @@ public sealed partial class PropertyField : ObservableObject
         _loading = false;
     }
 
+    /// <summary>A sensor reading while the simulation runs: a slider beside the text, applied at once (ADR-011).</summary>
+    public bool IsLive { get; init; }
+
+    public double Minimum { get; init; }
+
+    public double Maximum { get; init; }
+
+    /// <summary>The field can be edited: always for live readings, otherwise only while the scene is not locked.</summary>
+    [ObservableProperty]
+    public partial bool IsEnabled { get; set; } = true;
+
+    [ObservableProperty]
+    public partial double SliderValue { get; set; }
+
+    /// <summary>The simulation (or a drag on the part) changed the reading: show it without committing it back.</summary>
+    public void Show(double value)
+    {
+        _loading = true;
+        SliderValue = value;
+        Text = value.ToString("0.##", CultureInfo.CurrentCulture);
+        _loading = false;
+    }
+
+    partial void OnSliderValueChanged(double value)
+    {
+        if (!_loading)
+        {
+            _commit(this, value.ToString(CultureInfo.InvariantCulture));
+        }
+    }
+
     public string Name { get; }
 
     public string Label { get; }
@@ -93,6 +124,7 @@ public sealed partial class PropertiesViewModel : ObservableObject
     private readonly SceneViewModel _scene;
     private readonly Func<ProjectSettings> _settings;
     private readonly Action<ProjectSettings> _updateSettings;
+    private Action? _unsubscribe;
 
     public PropertiesViewModel(SceneViewModel scene, Func<ProjectSettings> settings, Action<ProjectSettings> updateSettings)
     {
@@ -106,6 +138,7 @@ public sealed partial class PropertiesViewModel : ObservableObject
             if (e.PropertyName == nameof(SceneViewModel.IsLocked))
             {
                 OnPropertyChanged(nameof(IsEditable));
+                Rebuild();
             }
         };
         Rebuild();
@@ -174,6 +207,8 @@ public sealed partial class PropertiesViewModel : ObservableObject
 
     private void Rebuild()
     {
+        _unsubscribe?.Invoke();
+        _unsubscribe = null;
         Fields.Clear();
         Pins.Clear();
         IdError = "";
@@ -198,7 +233,7 @@ public sealed partial class PropertiesViewModel : ObservableObject
             {
                 if (definition.ShownWhen is not { } condition || part.Text(condition.Property, "") == condition.Value)
                 {
-                    Fields.Add(Field(part, definition));
+                    Fields.Add(definition.Live && _scene.IsLocked ? LiveField(part, definition) : Field(part, definition));
                 }
             }
 
@@ -232,12 +267,52 @@ public sealed partial class PropertiesViewModel : ObservableObject
         ProjectSettings settings = _settings();
         Fields.Add(new PropertyField("baud", Strings.Get("Property_baud"), PropertyKind.Choice, settings.Serial.Baud.ToString(CultureInfo.InvariantCulture), null,
             [.. BaudRates.Select(b => new OptionItem(b.ToString(CultureInfo.InvariantCulture), b.ToString(CultureInfo.InvariantCulture), null))],
-            (f, v) => _updateSettings(_settings() with { Serial = _settings().Serial with { Baud = int.Parse(v, CultureInfo.InvariantCulture) } })));
+            (f, v) => _updateSettings(_settings() with { Serial = _settings().Serial with { Baud = int.Parse(v, CultureInfo.InvariantCulture) } }))
+        {
+            IsEnabled = !_scene.IsLocked,
+        });
         Fields.Add(new PropertyField("libraryPaths", Strings.Get("Property_libraryPaths"), PropertyKind.Text, string.Join("; ", settings.LibraryPaths), null, [],
-            (f, v) => _updateSettings(_settings() with { LibraryPaths = [.. v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)] })));
+            (f, v) => _updateSettings(_settings() with { LibraryPaths = [.. v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)] }))
+        {
+            IsEnabled = !_scene.IsLocked,
+        });
     }
 
     private static string Name(PinReference pin) => $"{pin.Component}.{pin.Pin}";
+
+    // While the run goes on, a reading goes to the part as an input: not saved, not undoable.
+    private PropertyField LiveField(PartViewModel part, PropertyDefinition definition)
+    {
+        var field = new PropertyField(definition.Name, Strings.Get("Property_" + definition.Name), definition.Kind, "", definition.Unit, [], (field, text) =>
+        {
+            field.Error = "";
+            if (!double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double number) ||
+                number < definition.Minimum || number > definition.Maximum)
+            {
+                field.Error = Strings.Format("Properties_Range", definition.Minimum, definition.Maximum);
+                return;
+            }
+
+            part.SetLive(definition.Name, number);
+        })
+        {
+            IsLive = true,
+            Minimum = definition.Minimum,
+            Maximum = definition.Maximum,
+        };
+        field.Show(part.LiveValue(definition.Name));
+        void OnLive(string name, double value)
+        {
+            if (name == definition.Name)
+            {
+                field.Show(value);
+            }
+        }
+
+        part.LiveChanged += OnLive;
+        _unsubscribe += () => part.LiveChanged -= OnLive;
+        return field;
+    }
 
     private PropertyField Field(PartViewModel part, PropertyDefinition definition)
     {
@@ -246,7 +321,7 @@ public sealed partial class PropertiesViewModel : ObservableObject
             o,
             Strings.TryGet(definition.Name == "color" ? "Color_" + o : $"Option_{definition.Name}_{o}") ?? o,
             definition.Name == "color" ? WirePalette.PartColor(o) : null)).ToList() ?? [];
-        return new PropertyField(definition.Name, Strings.Get("Property_" + definition.Name), definition.Kind, current, definition.Unit, options, (field, text) =>
+        var field = new PropertyField(definition.Name, Strings.Get("Property_" + definition.Name), definition.Kind, current, definition.Unit, options, (field, text) =>
         {
             field.Error = "";
             JsonElement value;
@@ -268,5 +343,7 @@ public sealed partial class PropertiesViewModel : ObservableObject
 
             _scene.Editor.SetProperty(part.Id, definition.Name, value);
         });
+        field.IsEnabled = !_scene.IsLocked;
+        return field;
     }
 }

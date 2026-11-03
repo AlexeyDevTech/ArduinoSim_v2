@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 100, "y": 300, "rotation": 0, "flip": false },
+      { "id": "enc1", "type": "rotary-encoder", "x": 190, "y": 150, "rotation": 0, "flip": false }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "enc1", "pin": "CLK" }, "to": { "component": "board", "pin": "D4" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "enc1", "pin": "DT" }, "to": { "component": "board", "pin": "D3" }, "waypoints": [], "color": "auto" },
+      { "id": "w3", "from": { "component": "enc1", "pin": "SW" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [], "color": "auto" },
+      { "id": "w4", "from": { "component": "enc1", "pin": "+" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[230, 260], [290, 260], [290, 390], [230, 390]], "color": "auto" },
+      { "id": "w5", "from": { "component": "enc1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[240, 250], [300, 250], [300, 400], [250, 400]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

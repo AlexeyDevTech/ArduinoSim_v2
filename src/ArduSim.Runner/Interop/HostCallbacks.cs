@@ -89,6 +89,8 @@ internal static unsafe class HostCallbacks
         api->UdpReceive = &UdpReceive;
         api->ResetReason = &ResetReason;
         api->DeepSleep = &DeepSleep;
+        api->TimerStart = &TimerStart;
+        api->TimerStop = &TimerStop;
         return api;
     }
 
@@ -600,6 +602,20 @@ internal static unsafe class HostCallbacks
             _host.Enter(HostCall.Restart, (int)Math.Min(microseconds / 1000, int.MaxValue));
             _host.DeepSleep(microseconds);
         }
+        catch (Exception e) { _host.InternalError(e); }
+    }
+
+    [UnmanagedCallersOnly]
+    private static void TimerStart(int timer, ulong periodNanoseconds)
+    {
+        try { _host.Enter(HostCall.Timer, timer, (int)Math.Min(periodNanoseconds, int.MaxValue)).StartTimer(timer, periodNanoseconds); }
+        catch (Exception e) { _host.InternalError(e); }
+    }
+
+    [UnmanagedCallersOnly]
+    private static void TimerStop(int timer)
+    {
+        try { _host.Enter(HostCall.Timer, timer, -1).StopTimer(timer); }
         catch (Exception e) { _host.InternalError(e); }
     }
 

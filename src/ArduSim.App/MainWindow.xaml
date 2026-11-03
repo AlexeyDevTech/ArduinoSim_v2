@@ -388,10 +388,10 @@
                            Visibility="{Binding IdError, Converter={StaticResource NullToVisibility}}" />
 
                 <!-- Fields -->
-                <ItemsControl ItemsSource="{Binding Fields}" IsEnabled="{Binding IsEditable}">
+                <ItemsControl ItemsSource="{Binding Fields}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:PropertyField}">
-                      <StackPanel Margin="0,0,0,10">
+                      <StackPanel Margin="0,0,0,10" IsEnabled="{Binding IsEnabled}">
                         <TextBlock Text="{Binding Label}" Style="{StaticResource Caption}" Margin="0,0,0,4" />
                         <DockPanel>
                           <TextBlock DockPanel.Dock="Right" Text="{Binding Unit}" Style="{StaticResource Caption}" Margin="8,0,0,0" />
@@ -420,6 +420,11 @@
                                      Visibility="{Binding Editor, Converter={StaticResource IsVisibleWhen}, ConverterParameter=swatches}" />
                           </Grid>
                         </DockPanel>
+                        <!-- A sensor reading while the run goes on (ADR-011): a slider beside the text, applied at once, not saved. -->
+                        <Slider Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Value="{Binding SliderValue}" Margin="0,6,0,0" IsMoveToPointEnabled="True"
+                                Visibility="{Binding IsLive, Converter={StaticResource BoolToVisibility}}" />
+                        <TextBlock Text="{l:Loc Properties_LiveHint}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Visibility="{Binding IsLive, Converter={StaticResource BoolToVisibility}}" />
                         <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Brush.Error}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Visibility="{Binding Error, Converter={StaticResource NullToVisibility}}" />
                       </StackPanel>

@@ -1,3 +1,5 @@
+using ArduSim.Core.Timing;
+
 namespace ArduSim.Core.Simulation;
 
 /// <summary>Arduino interrupt modes (values from the AVR core).</summary>
@@ -10,14 +12,24 @@ public enum InterruptMode
 }
 
 /// <summary>
-/// External interrupts. Edges mark an interrupt pending; the host dispatches pending ones at the
-/// next scheduling point, never while interrupts are disabled or an ISR is running (not preemptive).
-/// A LOW-level interrupt stays pending for as long as its pin reads LOW, as on the ATmega328P.
+/// External and timer interrupts. Edges and timer ticks mark an interrupt pending; the host
+/// dispatches pending ones at the next scheduling point, never while interrupts are disabled or an
+/// ISR is running (not preemptive). A LOW-level interrupt stays pending for as long as its pin reads
+/// LOW, as on the ATmega328P. A timer tick that finds its interrupt still pending is lost, as a
+/// hardware interrupt flag would lose it.
 /// </summary>
-public sealed class InterruptController(Func<int, bool?> levelOf)
+public sealed class InterruptController(Func<int, bool?> levelOf, SimulationClock clock)
 {
+    /// <summary>Interrupt id of timer 0 in <c>sim_fw_dispatch_interrupt</c> (SIM_TIMER_INTERRUPT_BASE).</summary>
+    public const int TimerBase = 64;
+
+    /// <summary>Periodic timers a firmware may run at once (SIM_TIMER_COUNT).</summary>
+    public const int TimerCount = 4;
+
     private readonly SortedDictionary<int, (int Pin, InterruptMode Mode)> _attached = [];
     private readonly SortedSet<int> _pending = [];
+    private readonly ScheduledEvent?[] _timers = new ScheduledEvent?[TimerCount];
+    private readonly bool[] _timerPending = new bool[TimerCount];
 
     public bool Enabled { get; set; } = true;
 
@@ -35,11 +47,43 @@ public sealed class InterruptController(Func<int, bool?> levelOf)
         _pending.Remove(number);
     }
 
-    /// <summary>A reboot: nothing attached, nothing pending, interrupts enabled.</summary>
+    /// <summary>Starts (or restarts) timer <paramref name="timer"/>: its interrupt is due every <paramref name="period"/> ns from now.</summary>
+    public void StartTimer(int timer, ulong period)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)timer, (uint)TimerCount, nameof(timer));
+        ArgumentOutOfRangeException.ThrowIfZero(period);
+        StopTimer(timer);
+        ulong start = clock.Now;
+        long ticks = 0;
+        void Tick()
+        {
+            _timerPending[timer] = true;
+            _timers[timer] = clock.ScheduleAt(start + ((ulong)++ticks * period), Tick);
+        }
+
+        _timers[timer] = clock.ScheduleAt(start + period, Tick);
+    }
+
+    public void StopTimer(int timer)
+    {
+        if ((uint)timer < TimerCount)
+        {
+            _timers[timer]?.Cancel();
+            _timers[timer] = null;
+            _timerPending[timer] = false;
+        }
+    }
+
+    /// <summary>A reboot: nothing attached, no timers, nothing pending, interrupts enabled.</summary>
     public void Reset()
     {
         _attached.Clear();
         _pending.Clear();
+        for (int timer = 0; timer < TimerCount; timer++)
+        {
+            StopTimer(timer);
+        }
+
         Enabled = true;
         InHandler = false;
     }
@@ -67,7 +111,10 @@ public sealed class InterruptController(Func<int, bool?> levelOf)
         }
     }
 
-    /// <summary>Takes the highest-priority pending interrupt (lowest number) if one may run now.</summary>
+    /// <summary>
+    /// Takes the highest-priority pending interrupt if one may run now: external interrupts (lowest
+    /// number first), then timers. Timer <c>n</c> is reported as <see cref="TimerBase"/> + n.
+    /// </summary>
     public bool TryBeginDispatch(out int number)
     {
         number = -1;
@@ -81,6 +128,17 @@ public sealed class InterruptController(Func<int, bool?> levelOf)
             if (_pending.Remove(candidate) || (mode == InterruptMode.Low && levelOf(pin) == false))
             {
                 number = candidate;
+                InHandler = true;
+                return true;
+            }
+        }
+
+        for (int timer = 0; timer < TimerCount; timer++)
+        {
+            if (_timerPending[timer])
+            {
+                _timerPending[timer] = false;
+                number = TimerBase + timer;
                 InHandler = true;
                 return true;
             }

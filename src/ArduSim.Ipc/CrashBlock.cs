@@ -41,6 +41,7 @@ public enum HostCall : uint
     Restart,
     WiFi,
     Network,
+    Timer,
 }
 
 /// <param name="TimeNs">Virtual time of the call.</param>

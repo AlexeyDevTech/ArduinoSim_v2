@@ -131,6 +131,12 @@ public sealed record BoardProfile(
     /// <summary>The on-board LED lights while its pin is LOW (ESP8266 modules).</summary>
     public bool BuiltinLedActiveLow { get; init; }
 
+    /// <summary>
+    /// GPIOs the chip has but the board does not bring out (the ESP32 DevKit's GPIO 0, on its BOOT
+    /// button): <c>pinMode</c> on them is ignored without a warning, as libraries set them up blindly.
+    /// </summary>
+    public IReadOnlyList<int> UnexposedPins { get; init; } = [];
+
     /// <summary>The board has a (simulated) Wi-Fi radio (ADR-010).</summary>
     public bool HasWifi { get; init; }
 

@@ -226,7 +226,7 @@ Fluent UI System Icons, Regular, 20 px in the toolbar and 16 px in lists; Filled
 - Background `Canvas` with a dot every 0.1 inch (the pin pitch); dots fade out below 50 % zoom.
 - Parts are flat, slightly stylized drawings of the real part (Wokwi-like, not schematic symbols), drawn from vector art in their definitions (ADR-007), crisp at every zoom.
 - Board pins: gold rings with labels; other parts' pins appear as small rings on hover and while wiring.
-- Live state: LED glow scaled by brightness, pushbutton cap pressed, slide-switch knob position, pot knob angle, buzzer frequency label, displays from framebuffers *(M4/M5)*: LCD with a visible 5×8 dot grid and backlight variants, OLED with pixel glow and color variants, nearest-neighbor scaling.
+- Live state: LED glow scaled by brightness, pushbutton cap pressed, slide-switch knob position, pot knob angle, buzzer frequency label, encoder knob angle, keypad and remote keys held, joystick cap leaning, sensor readings above the part *(M8)*, displays from framebuffers *(M4/M5)*: LCD with a visible 5×8 dot grid and backlight variants, OLED with pixel glow and color variants, nearest-neighbor scaling.
 - Selection: 1 px `Accent` outline 3 px outside the part's bounds; multi-selection draws the union box too.
 - Hover on a pin or wire: the whole net is highlighted (other wires dim to 40 %), tooltip "D13 · выход · HIGH" (running) or "D13 · цифровой, ШИМ нет" (stopped).
 - Zoom indicator bottom-right of the canvas: percentage (click = 100 %) and "Вписать" (fit).
@@ -272,7 +272,7 @@ Fluent UI System Icons, Regular, 20 px in the toolbar and 16 px in lists; Filled
 ### 4.4 Running
 
 - Run (F5) saves files, autosaves the scene, builds and starts; Stop (Shift+F5) ends the run; Pause/Resume (F6); F10 steps one `loop()`.
-- **While running, the scene's structure is locked** (no adding, deleting, moving or rewiring; properties read-only). The first such attempt shows a hint "Остановите симуляцию, чтобы изменить схему" next to the cursor. Interactive parts stay live: press buttons (mouse or their key), flip switches, drag pot knobs vertically (wheel for fine steps), type in the Serial Monitor.
+- **While running, the scene's structure is locked** (no adding, deleting, moving or rewiring; properties read-only). The first such attempt shows a hint "Остановите симуляцию, чтобы изменить схему" next to the cursor. Interactive parts stay live: press buttons (mouse or their key), flip switches, drag pot knobs vertically (wheel for fine steps), type in the Serial Monitor. *(M8, approved 2026-11-03)* Encoder: the wheel or a drag around the knob turns it one detent per notch / 18°, a click without moving presses the shaft (holding still holds it). Keypad and IR remote: press and hold keys with the mouse. Joystick: drag the cap (it springs back on release), a click without moving presses it. Sensor readings (temperature, humidity, distance) stay editable in Properties (text field and slider) and change by a vertical drag on the part (Shift: the second reading) or the wheel; while running they are inputs, not saved and not undoable.
 - Part keys work whenever no text field has focus.
 - Changing the speed applies immediately; stepping while running pauses first.
 - After a run ends, warning badges and the log stay until the next run.

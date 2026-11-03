@@ -1,5 +1,14 @@
 # Changelog
 
+## M8 — Inputs and sensors (2026-11-03)
+
+- New parts: KY-040 rotary encoder, 4x4 membrane keypad, analog joystick, DHT22 and DHT11, DS18B20, HC-SR04, IR receiver and the 21-key IR remote, with their drawings; a "Датчики" palette group.
+- Sensors answer in virtual time with the datasheet timings, so the libraries' own bit-banging runs unchanged: DHT start signal and 40-bit answer, the HC-SR04 echo (58.3 µs per cm, no echo beyond 4 m), NEC frames and repeats on the IR receiver.
+- 1-Wire bus model (ADR-011): reset and presence, read and write slots, wired-AND between devices, search and alarm search; the DS18B20 with its scratchpad, 9–12 bit conversions and their times, the 85 °C power-on value, EEPROM copy and parasite power. Warnings for a 1-Wire bus without a pull-up, a DHT start signal too short for its model, a short TRIG pulse, sensors without power.
+- Sensor readings stay live while running: in Properties (slider and field) and by dragging the part up and down (Shift: humidity) or the wheel; they are not saved. Encoder: wheel or drag to turn, click to press. Joystick: drag the cap, click to press. Keypad and remote: click and hold the keys.
+- Firmware ABI 2.2: periodic timer interrupts; `delay()` stops at scheduled events so timer ticks run on time.
+- Bundled libraries Keypad 3.1.1, DHT sensor library 1.4.7 with Adafruit Unified Sensor 1.1.15, OneWire 2.3.8, DallasTemperature 4.0.6 and IRremote 4.7.1. `libraries/compat` now replaces headers too (a clang VFS overlay): OneWire uses the Arduino pin calls on every board, IRremote takes its 50 µs tick from a simulated timer.
+- Examples RotaryEncoder, Keypad4x4, Joystick, Dht22, Ds18b20 (two sensors on one bus), Ultrasonic and IrRemote; the libraries also run on the ESP32 in the tests.
 ## M7 — ESP8266: NodeMCU v3 and Wemos D1 mini (2026-11-03)
 
 - Boards NodeMCU v3 and Wemos D1 mini (ESP-12E/F, 80 MHz, 3.3 V): D0–D8, A0, RX, TX with GPIO numbers; GPIO 16 has a pull-down and no pull-up or interrupt; A0 reads 0–3.3 V as 0–1023 and any other pin reads 0 or 1023, as the core does; the module's blue LED on GPIO 2 lights while the pin is LOW; board drawings with a Wi-Fi indicator.

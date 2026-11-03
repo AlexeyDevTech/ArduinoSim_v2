@@ -10,7 +10,10 @@ namespace ArduSim.Core.Simulation;
 /// </summary>
 public sealed class SimulationEngine
 {
-    /// <summary><c>delay()</c> advances in slices of this length, with a scheduling point after each.</summary>
+    /// <summary>
+    /// <c>delay()</c> advances in slices of at most this length, with a scheduling point after each;
+    /// a slice also ends at the next scheduled event, so the interrupts it raises run on time.
+    /// </summary>
     public const ulong DelaySlice = 100 * VirtualTime.Microsecond;
 
     public SimulationEngine()
@@ -37,7 +40,13 @@ public sealed class SimulationEngine
         ulong end = Clock.Now + nanoseconds;
         while (Clock.Now < end)
         {
-            Clock.AdvanceTo(Math.Min(end, Clock.Now + DelaySlice));
+            ulong next = Math.Min(end, Clock.Now + DelaySlice);
+            if (Clock.NextEventTime is { } due && due < next)
+            {
+                next = due;
+            }
+
+            Clock.AdvanceTo(next);
             SchedulingPoint?.Invoke();
         }
     }

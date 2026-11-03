@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 100, "y": 300, "rotation": 0, "flip": false },
+      { "id": "dht1", "type": "dht", "x": 150, "y": 160, "rotation": 0, "flip": false, "properties": { "model": "dht22", "temperature": 24, "humidity": 40 } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "dht1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[160, 270], [80, 270], [80, 400], [230, 400]], "color": "auto" },
+      { "id": "w2", "from": { "component": "dht1", "pin": "DATA" }, "to": { "component": "board", "pin": "D7" }, "waypoints": [], "color": "auto" },
+      { "id": "w3", "from": { "component": "dht1", "pin": "GND" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [[190, 260], [230, 260]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

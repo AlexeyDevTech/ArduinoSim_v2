@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json;
 using ArduSim.Build.Libraries;
 using ArduSim.Build.Processes;
 using ArduSim.Build.Sketches;
@@ -24,7 +25,7 @@ public sealed record ShimLayout(string Root)
     /// <summary>A board family's own part of the shim (<c>cores/avr</c>, <c>cores/esp32</c>): headers, sources, libraries.</summary>
     public string CoreDirectory(string core) => Path.Combine(Root, "cores", core);
 
-    /// <summary><c>libraries/compat</c> next to <c>firmware</c>: per-library replacement sources (libraries/compat/README.md).</summary>
+    /// <summary><c>libraries/compat</c> next to <c>firmware</c>: per-library replacement files (libraries/compat/README.md).</summary>
     public string CompatDirectory => Path.GetFullPath(Path.Combine(Root, "..", "..", "libraries", "compat"));
 }
 
@@ -57,6 +58,9 @@ public sealed record BuildResult(
 /// <param name="Quiet">Compile without warnings (library sources).</param>
 internal sealed record CompileUnit(string Source, IReadOnlyList<string> SystemIncludes, IReadOnlyList<string> Includes, bool Quiet);
 
+/// <param name="Fingerprint">Hash over every replacement file's content.</param>
+internal sealed record CompatOverlay(string Path, string Fingerprint);
+
 /// <summary>Preprocesses the sketch, resolves libraries, compiles every unit (cached, in parallel) and links <c>firmware.dll</c>.</summary>
 public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, ShimLayout shim)
 {
@@ -66,15 +70,6 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
 
     public const string FirmwareFileName = "firmware.dll";
 
-    // A file at libraries/compat/<library folder>/<same relative path> replaces the vendored source
-    // (the vendored file stays untouched); the original folder stays on the include path.
-    private CompileUnit LibraryUnit(ArduinoLibrary library, string source, string[] includes)
-    {
-        string compat = Path.Combine(shim.CompatDirectory, Path.GetFileName(library.Directory), Path.GetRelativePath(library.Directory, source));
-        return File.Exists(compat)
-            ? new CompileUnit(compat, [], [Path.GetDirectoryName(source)!, .. includes], Quiet: true)
-            : new CompileUnit(source, [], includes, Quiet: true);
-    }
     public async Task<BuildResult> BuildAsync(FirmwareBuildRequest request, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -110,9 +105,10 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
         units.AddRange(new[] { shim.SourceDirectory }.Concat(cores.Select(c => Path.Combine(c, "src"))).Where(Directory.Exists)
             .SelectMany(d => Directory.EnumerateFiles(d).Where(IsSource).Order(StringComparer.Ordinal))
             .Select(s => new CompileUnit(s, [], coreIncludes, Quiet: false)));
-        units.AddRange(resolution.Libraries.SelectMany(l => l.SourceFiles().Select(s => LibraryUnit(l, s, libraryIncludes))));
+        units.AddRange(resolution.Libraries.SelectMany(l => l.SourceFiles().Select(s => new CompileUnit(s, [], libraryIncludes, Quiet: true))));
 
         var hashes = new FileHashes();
+        CompatOverlay? overlay = WriteCompatOverlay(resolution.Libraries, request.OutputDirectory, hashes);
         var outputs = new ConcurrentDictionary<int, string>();
         var entries = new CacheEntry?[units.Count];
         int hits = 0;
@@ -123,7 +119,7 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
             {
                 CompileUnit unit = units[index];
                 string source = unit.Source;
-                (CacheEntry? entry, bool hit, string output) = await CompileAsync(unit, request.Defines, hashes, ct);
+                (CacheEntry? entry, bool hit, string output) = await CompileAsync(unit, request.Defines, overlay, hashes, ct);
                 entries[index] = entry;
                 if (hit)
                 {
@@ -172,7 +168,7 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
     }
 
     private async Task<(CacheEntry? Entry, bool Hit, string Output)> CompileAsync(
-        CompileUnit unit, IReadOnlyList<string> defines, FileHashes hashes, CancellationToken cancellationToken)
+        CompileUnit unit, IReadOnlyList<string> defines, CompatOverlay? overlay, FileHashes hashes, CancellationToken cancellationToken)
     {
         string source = unit.Source;
         bool isC = string.Equals(Path.GetExtension(source), ".c", StringComparison.OrdinalIgnoreCase);
@@ -186,8 +182,14 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
         arguments.AddRange(defines.Select(d => "-D" + d));
         arguments.AddRange(unit.Includes.Select(i => "-I" + i));
         arguments.AddRange(unit.SystemIncludes.SelectMany(i => new[] { "-isystem", i }));
+        if (overlay is not null)
+        {
+            arguments.AddRange(["-ivfsoverlay", overlay.Path]);
+        }
 
-        string key = ObjectCache.ComputeKey([toolchain.Id, .. arguments, source, hashes.Get(source)]);
+        // The overlay's fingerprint covers the replacement files: the dependency file may name a
+        // replaced source by its vendored path.
+        string key = ObjectCache.ComputeKey([toolchain.Id, .. arguments, overlay?.Fingerprint ?? "", source, hashes.Get(source)]);
         if (cache.TryGet(key, hashes) is { } cached)
         {
             return (cached, true, "");
@@ -230,6 +232,51 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
 
         await File.WriteAllTextAsync(signatureFile, signature, cancellationToken);
         return (true, true, result.Output);
+    }
+
+    /// <summary>
+    /// A file at <c>libraries/compat/&lt;library folder&gt;/&lt;relative path&gt;</c> replaces the vendored file
+    /// at that path, header or source (libraries/compat/README.md). Clang reads the replacement through
+    /// a VFS overlay, so the vendored tree stays untouched and the library's own quoted includes find it.
+    /// </summary>
+    private CompatOverlay? WriteCompatOverlay(IReadOnlyList<ArduinoLibrary> libraries, string outputDirectory, FileHashes hashes)
+    {
+        var roots = new List<Dictionary<string, string>>();
+        var fingerprint = new List<string>();
+        foreach (ArduinoLibrary library in libraries)
+        {
+            string compat = Path.Combine(shim.CompatDirectory, Path.GetFileName(library.Directory));
+            if (!Directory.Exists(compat))
+            {
+                continue;
+            }
+
+            foreach (string replacement in Directory.EnumerateFiles(compat, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+            {
+                string relative = Path.GetRelativePath(compat, replacement);
+                if (relative.Equals("README.md", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                roots.Add(new Dictionary<string, string>
+                {
+                    ["type"] = "file",
+                    ["name"] = Path.Combine(library.Directory, relative).Replace('\\', '/'),
+                    ["external-contents"] = replacement.Replace('\\', '/'),
+                });
+                fingerprint.Add(relative + "|" + hashes.Get(replacement));
+            }
+        }
+
+        if (roots.Count == 0)
+        {
+            return null;
+        }
+
+        string path = Path.Combine(outputDirectory, "compat-overlay.json");
+        WriteIfChanged(path, JsonSerializer.Serialize(new Dictionary<string, object> { ["version"] = 0, ["case-sensitive"] = "false", ["roots"] = roots }));
+        return new CompatOverlay(path, ObjectCache.ComputeKey(fingerprint));
     }
 
     private static bool IsSource(string file) =>

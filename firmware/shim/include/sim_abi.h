@@ -2,7 +2,7 @@
  * sim_abi.h - the versioned C ABI between firmware.dll (sketch + Arduino shim)
  * and ArduSim.Runner.
  *
- * Version 2 (docs/adr/ADR-001-simulation-approach.md, ADR-009-esp-boards.md):
+ * Version 2 (docs/adr/ADR-001-simulation-approach.md, ADR-009-esp-boards.md, ADR-011-sensors.md):
  * buses are numbered and may use chosen pins, PWM has a frequency and resolution.
  * Nothing outside firmware/shim and ArduSim.Runner may depend on this layout.
  *
@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 #define SIM_ABI_VERSION_MAJOR 2
-#define SIM_ABI_VERSION_MINOR 1
+#define SIM_ABI_VERSION_MINOR 2
 #define SIM_ABI_VERSION ((uint32_t)((SIM_ABI_VERSION_MAJOR << 16) | SIM_ABI_VERSION_MINOR))
 
 #if defined(_WIN32)
@@ -181,7 +181,16 @@ typedef struct SimHostApi {
      * given time, then the board boots with SIM_RESET_DEEP_SLEEP; never returns. */
     int32_t (*reset_reason)(void);
     void (*deep_sleep)(uint64_t microseconds);
+
+    /* 2.2: periodic timer interrupts, timer 0 to SIM_TIMER_COUNT - 1. The host calls
+     * sim_fw_dispatch_interrupt(SIM_TIMER_INTERRUPT_BASE + timer) every period at a scheduling
+     * point (delay() included); a tick that finds the previous one still pending is lost. */
+    void (*timer_start)(int32_t timer, uint64_t period_ns); /* restarts a running timer; at least 5 us */
+    void (*timer_stop)(int32_t timer);
 } SimHostApi;
+
+#define SIM_TIMER_COUNT 4
+#define SIM_TIMER_INTERRUPT_BASE 64
 
 typedef enum SimResetReason {
     SIM_RESET_POWER_ON = 0,

@@ -34,6 +34,13 @@ public sealed record PropertyDefinition(
 {
     /// <summary>Shown in the editor only while another property has a value (the LCD's I2C address with interface = i2c).</summary>
     public (string Property, string Value)? ShownWhen { get; init; }
+
+    /// <summary>
+    /// A sensor reading (temperature, distance): while the simulation runs it stays editable and goes
+    /// to the part as an input of the same name, without being saved; the saved value is where a run
+    /// starts (ADR-011).
+    /// </summary>
+    public bool Live { get; init; }
 }
 
 /// <summary>A palette entry that places a part with some properties preset (e.g. "LCD 1602 I2C", ADR-006).</summary>

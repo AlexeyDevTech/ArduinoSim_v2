@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include "sim/host.h"
+#include "sim/timers.h"
 
 void serialEvent() __attribute__((weak));
 
@@ -37,7 +38,12 @@ SIM_FW_EXPORT void sim_fw_loop(void)
     sim_task_switch_point();
 }
 
-SIM_FW_EXPORT void sim_fw_dispatch_interrupt(int32_t id) { sim::dispatch_interrupt(id); }
+SIM_FW_EXPORT void sim_fw_dispatch_interrupt(int32_t id)
+{
+    if (!sim::dispatch_timer(id)) {
+        sim::dispatch_interrupt(id);
+    }
+}
 
 void sim_log_printf(const char* format, ...)
 {

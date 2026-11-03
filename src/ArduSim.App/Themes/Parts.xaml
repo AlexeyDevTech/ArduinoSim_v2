@@ -422,6 +422,218 @@
     </Canvas>
   </DataTemplate>
 
+  <!-- ==== M8: inputs and sensors (ADR-011) ==== -->
+
+  <!-- Keys of the keypad and the IR remote: one cap per KeyCapViewModel, laid out by the template's grid. -->
+  <DataTemplate x:Key="KeyCap" DataType="{x:Type vm:KeyCapViewModel}">
+    <Border x:Name="Cap" Margin="1.5" CornerRadius="2" Background="#FFE9ECF1" BorderBrush="#FF9BA3B4" BorderThickness="0.5">
+      <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="9" FontWeight="SemiBold" Foreground="#FF1E1F24" Text="{Binding Label}" />
+    </Border>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding IsAccent}" Value="True">
+        <Setter TargetName="Cap" Property="Background" Value="#FFD9534F" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding IsDown}" Value="True">
+        <Setter TargetName="Cap" Property="Background" Value="#FF2BC4A9" />
+        <Setter TargetName="Cap" Property="Margin" Value="3" />
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </DataTemplate>
+
+  <DataTemplate x:Key="RemoteKeyCap" DataType="{x:Type vm:KeyCapViewModel}">
+    <Border x:Name="Cap" Margin="2" CornerRadius="5" Background="#FF3A3E48" BorderBrush="#FF15171C" BorderThickness="0.5">
+      <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="6.5" FontWeight="SemiBold" Foreground="#FFE9ECF1" Text="{Binding Label}" />
+    </Border>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding IsAccent}" Value="True">
+        <Setter TargetName="Cap" Property="Background" Value="#FFB23A36" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding IsDown}" Value="True">
+        <Setter TargetName="Cap" Property="Background" Value="#FF2BC4A9" />
+        <Setter TargetName="Cap" Property="Margin" Value="3.5" />
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </DataTemplate>
+
+  <!-- KY-040: blue module, the knob turns 18° per detent and sinks while its shaft is pressed. -->
+  <DataTemplate x:Key="Part.rotary-encoder" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="60" Height="80">
+      <Line X1="10" Y1="68" X2="10" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="20" Y1="68" X2="20" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="30" Y1="68" X2="30" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="40" Y1="68" X2="40" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="50" Y1="68" X2="50" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Rectangle Canvas.Left="2" Width="56" Height="70" RadiusX="3" RadiusY="3" Fill="#FF1F3F7A" Stroke="#FF15305E" />
+      <Rectangle Canvas.Left="12" Canvas.Top="12" Width="36" Height="36" RadiusX="2" RadiusY="2" Fill="#FF2A2E36" />
+      <Canvas x:Name="Knob" Canvas.Left="30" Canvas.Top="30">
+        <Canvas.RenderTransform>
+          <ScaleTransform />
+        </Canvas.RenderTransform>
+        <Ellipse Canvas.Left="-15" Canvas.Top="-15" Width="30" Height="30" Fill="#FF1E1F24" Stroke="#FF8A93A6" />
+        <Canvas>
+          <Canvas.RenderTransform>
+            <RotateTransform Angle="{Binding EncoderAngle}" />
+          </Canvas.RenderTransform>
+          <Ellipse Canvas.Left="-10" Canvas.Top="-10" Width="20" Height="20" Fill="#FFC9CED8" />
+          <Rectangle Canvas.Left="-1.5" Canvas.Top="-12" Width="3" Height="9" RadiusX="1" RadiusY="1" Fill="#FF1E1F24" />
+        </Canvas>
+      </Canvas>
+      <TextBlock Canvas.Left="4" Canvas.Top="58" FontSize="4.5" Foreground="#FFE9ECF1" Text="CLK  DT  SW   +  GND" />
+    </Canvas>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding Pressed}" Value="True">
+        <Setter TargetName="Knob" Property="RenderTransform">
+          <Setter.Value>
+            <ScaleTransform ScaleX="0.88" ScaleY="0.88" />
+          </Setter.Value>
+        </Setter>
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </DataTemplate>
+
+  <!-- 4x4 membrane keypad with its ribbon tail; the key held down shows pressed. -->
+  <DataTemplate x:Key="Part.keypad" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="120" Height="150">
+      <Rectangle Canvas.Left="15" Canvas.Top="128" Width="80" Height="16" Fill="#FF2A2E36" />
+      <Line X1="20" Y1="140" X2="20" Y2="150" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="30" Y1="140" X2="30" Y2="150" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="40" Y1="140" X2="40" Y2="150" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="50" Y1="140" X2="50" Y2="150" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="60" Y1="140" X2="60" Y2="150" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="70" Y1="140" X2="70" Y2="150" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="80" Y1="140" X2="80" Y2="150" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="90" Y1="140" X2="90" Y2="150" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Rectangle Width="120" Height="130" RadiusX="4" RadiusY="4" Fill="#FF15171C" Stroke="#FF454B58" />
+      <ItemsControl Canvas.Left="10" Canvas.Top="8" Width="100" Height="116" ItemsSource="{Binding KeyCaps}" ItemTemplate="{StaticResource KeyCap}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Rows="4" Columns="4" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+      </ItemsControl>
+      <TextBlock Canvas.Left="17" Canvas.Top="132" FontSize="4.5" Foreground="#FF9BA3B4" Text="R1 R2 R3 R4 C1 C2 C3 C4" />
+    </Canvas>
+  </DataTemplate>
+
+  <!-- Analog joystick: the cap leans with the stick and sinks while pressed. -->
+  <DataTemplate x:Key="Part.joystick" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="70" Height="80">
+      <Line X1="10" Y1="68" X2="10" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="20" Y1="68" X2="20" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="30" Y1="68" X2="30" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="40" Y1="68" X2="40" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="50" Y1="68" X2="50" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Rectangle Canvas.Left="2" Width="66" Height="70" RadiusX="3" RadiusY="3" Fill="#FF1F2A44" Stroke="#FF151D30" />
+      <Ellipse Canvas.Left="11" Canvas.Top="8" Width="48" Height="48" Fill="#FF15171C" Stroke="#FF454B58" />
+      <Ellipse x:Name="Cap" Canvas.Left="{Binding CapLeft}" Canvas.Top="{Binding CapTop}" Width="30" Height="30" Fill="#FF3A3E48" Stroke="#FF8A93A6" RenderTransformOrigin="0.5,0.5">
+        <Ellipse.RenderTransform>
+          <ScaleTransform />
+        </Ellipse.RenderTransform>
+      </Ellipse>
+      <TextBlock Canvas.Left="5" Canvas.Top="59" FontSize="4.5" Foreground="#FFE9ECF1" Text="GND +5V VRx VRy SW" />
+    </Canvas>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding Pressed}" Value="True">
+        <Setter TargetName="Cap" Property="RenderTransform">
+          <Setter.Value>
+            <ScaleTransform ScaleX="0.85" ScaleY="0.85" />
+          </Setter.Value>
+        </Setter>
+        <Setter TargetName="Cap" Property="Fill" Value="#FF2BC4A9" />
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </DataTemplate>
+
+  <!-- DHT22 (white) or DHT11 (blue) with its grille; the readings it reports sit above it. -->
+  <DataTemplate x:Key="Part.dht" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="50" Height="80">
+      <Line X1="10" Y1="62" X2="10" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="20" Y1="62" X2="20" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="30" Y1="62" X2="30" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="40" Y1="62" X2="40" Y2="80" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Rectangle x:Name="Body" Canvas.Left="4" Width="42" Height="62" RadiusX="2" RadiusY="2" Fill="#FFE9ECF1" Stroke="#FF9BA3B4" />
+      <Canvas Canvas.Left="10" Canvas.Top="6">
+        <Rectangle Width="30" Height="4" RadiusX="1" RadiusY="1" Fill="#FF6C7486" />
+        <Rectangle Canvas.Top="7" Width="30" Height="4" RadiusX="1" RadiusY="1" Fill="#FF6C7486" />
+        <Rectangle Canvas.Top="14" Width="30" Height="4" RadiusX="1" RadiusY="1" Fill="#FF6C7486" />
+        <Rectangle Canvas.Top="21" Width="30" Height="4" RadiusX="1" RadiusY="1" Fill="#FF6C7486" />
+        <Rectangle Canvas.Top="28" Width="30" Height="4" RadiusX="1" RadiusY="1" Fill="#FF6C7486" />
+      </Canvas>
+      <TextBlock x:Name="Model" Canvas.Left="4" Canvas.Top="46" Width="42" TextAlignment="Center" FontSize="6" FontWeight="SemiBold" Foreground="#FF1E1F24" Text="DHT22" />
+      <TextBlock Canvas.Left="-25" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" />
+    </Canvas>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding IsDht11}" Value="True">
+        <Setter TargetName="Body" Property="Fill" Value="#FF3F7FD0" />
+        <Setter TargetName="Body" Property="Stroke" Value="#FF2B5C99" />
+        <Setter TargetName="Model" Property="Text" Value="DHT11" />
+        <Setter TargetName="Model" Property="Foreground" Value="#FFE9ECF1" />
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </DataTemplate>
+
+  <!-- DS18B20 in its TO-92 case, flat face forward. -->
+  <DataTemplate x:Key="Part.ds18b20" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="40" Height="50">
+      <Line X1="10" Y1="30" X2="10" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="20" Y1="30" X2="20" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="30" Y1="30" X2="30" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Path Data="M 5,30 L 5,14 A 15,13 0 0 1 35,14 L 35,30 Z" Fill="#FF1E1F24" Stroke="#FF454B58" />
+      <TextBlock Canvas.Left="5" Canvas.Top="16" Width="30" TextAlignment="Center" FontSize="4.5" Foreground="#FF9BA3B4" Text="18B20" />
+      <TextBlock Canvas.Left="-30" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" />
+    </Canvas>
+  </DataTemplate>
+
+  <!-- HC-SR04: blue board with its two transducers; the distance it measures sits above it. -->
+  <DataTemplate x:Key="Part.hc-sr04" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="90" Height="50">
+      <Line X1="30" Y1="38" X2="30" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="40" Y1="38" X2="40" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="50" Y1="38" X2="50" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="60" Y1="38" X2="60" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Rectangle Width="90" Height="38" RadiusX="2" RadiusY="2" Fill="#FF1F4E8C" Stroke="#FF153866" />
+      <Ellipse Canvas.Left="4" Canvas.Top="2" Width="32" Height="32" Fill="#FFB4BAC4" Stroke="#FF6C7486" />
+      <Ellipse Canvas.Left="9" Canvas.Top="7" Width="22" Height="22" Fill="#FF2A2E36" />
+      <Ellipse Canvas.Left="54" Canvas.Top="2" Width="32" Height="32" Fill="#FFB4BAC4" Stroke="#FF6C7486" />
+      <Ellipse Canvas.Left="59" Canvas.Top="7" Width="22" Height="22" Fill="#FF2A2E36" />
+      <TextBlock Canvas.Left="36" Canvas.Top="4" Width="18" TextAlignment="Center" FontSize="4" Foreground="#FFE9ECF1" Text="HC-SR04" TextWrapping="Wrap" />
+      <TextBlock Canvas.Left="26" Canvas.Top="29" FontSize="4" Foreground="#FFE9ECF1" Text="Vcc Trig Echo Gnd" />
+      <TextBlock Canvas.Left="-5" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" />
+    </Canvas>
+  </DataTemplate>
+
+  <!-- IR receiver (VS1838B): black case with its dome; the dome lights up while a frame comes in. -->
+  <DataTemplate x:Key="Part.ir-receiver" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="40" Height="50">
+      <Line X1="10" Y1="30" X2="10" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="20" Y1="30" X2="20" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="30" Y1="30" X2="30" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Rectangle Canvas.Left="6" Canvas.Top="4" Width="28" Height="27" RadiusX="2" RadiusY="2" Fill="#FF1E1F24" Stroke="#FF454B58" />
+      <Ellipse x:Name="Dome" Canvas.Left="12" Canvas.Top="8" Width="16" Height="16" Fill="#FF2A2E36" Stroke="#FF454B58" />
+      <TextBlock Canvas.Left="2" Canvas.Top="-8" FontSize="4.5" Foreground="#FF9BA3B4" Text="OUT GND VCC" />
+    </Canvas>
+    <DataTemplate.Triggers>
+      <DataTrigger Binding="{Binding Receiving}" Value="True">
+        <Setter TargetName="Dome" Property="Fill" Value="#FF8E2F5C" />
+      </DataTrigger>
+    </DataTemplate.Triggers>
+  </DataTemplate>
+
+  <!-- The kit's 21-key IR remote (no pins: it reaches every IR receiver by light). -->
+  <DataTemplate x:Key="Part.ir-remote" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="80" Height="170">
+      <Rectangle Width="80" Height="170" RadiusX="10" RadiusY="10" Fill="#FF1B1C20" Stroke="#FF454B58" />
+      <Ellipse Canvas.Left="34" Canvas.Top="6" Width="12" Height="8" Fill="#FF3A2A44" Stroke="#FF5C4470" />
+      <TextBlock Canvas.Top="16" Width="80" TextAlignment="Center" FontSize="4.5" Foreground="#FF6C7486" Text="NEC 0x00" />
+      <ItemsControl Canvas.Left="8" Canvas.Top="28" Width="64" Height="133" ItemsSource="{Binding KeyCaps}" ItemTemplate="{StaticResource RemoteKeyCap}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Rows="7" Columns="3" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+      </ItemsControl>
+    </Canvas>
+  </DataTemplate>
   <DataTemplate x:Key="Part.unknown" DataType="{x:Type vm:PartViewModel}">
     <Border Width="{Binding Width}" Height="{Binding Height}" BorderBrush="#FFF0B44C" BorderThickness="1" CornerRadius="3">
       <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="6" Foreground="#FFF0B44C" Text="{Binding Id, StringFormat='? {0}'}" />

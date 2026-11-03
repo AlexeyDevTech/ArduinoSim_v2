@@ -31,8 +31,14 @@ Sources only, unmodified, in `libraries/`; compiled by the user's builds.
 | Adafruit_SH110X | 2.1.15 (f29762e) | github.com/adafruit/Adafruit_SH110X | BSD (license.txt) |
 | U8g2 | tag 2.37.1 (bb6ebd1; its library.properties says 2.36.19) | github.com/olikraus/U8g2_Arduino | BSD-2-Clause for the code; the fonts carry their own terms, listed in its LICENSE |
 | GyverOLED | 1.6.4 (0daa8ab) | github.com/GyverLibs/GyverOLED | MIT (LICENSE) |
+| Keypad | 3.1.1 (d04fa7c) | github.com/Chris--A/Keypad (Mark Stanley, Alexander Brevig) | LGPL-2.1 in the header of every source file; the repository's LICENSE file is GPL-3.0. Bundled as distributed through the Arduino Library Manager, on the owner's decision of 2026-11-03. Settle before any public release. |
+| DHT_sensor_library | 1.4.7 (f7d6254) | github.com/adafruit/DHT-sensor-library | MIT (license.txt) |
+| Adafruit_Unified_Sensor | 1.1.15 (0a9127a) | github.com/adafruit/Adafruit_Sensor | Apache-2.0 (LICENSE.txt) |
+| OneWire | 2.3.8 (72249e2) | github.com/PaulStoffregen/OneWire | MIT-style permission notice in OneWire.cpp |
+| DallasTemperature | 4.0.6 (3f570bb) | github.com/milesburton/Arduino-Temperature-Control-Library | MIT (LICENSE) |
+| IRremote | 4.7.1 (498dc59) | github.com/Arduino-IRremote/Arduino-IRremote | MIT (LICENSE) |
 
-Images, archives and CI files of these repositories are left out; nothing else is changed.
+Images, archives, CI and editor files (`.github`, `.devcontainer`, `.gitignore`, IRremote's `pictures/`) of these repositories are left out; nothing else is changed. Fixes for the simulator live in `libraries/compat/` (OneWire, IRremote, U8g2), never in the vendored files.
 
 ## Icons
 

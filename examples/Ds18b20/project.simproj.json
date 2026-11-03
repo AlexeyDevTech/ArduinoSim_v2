@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 100, "y": 300, "rotation": 0, "flip": false },
+      { "id": "ds1", "type": "ds18b20", "x": 160, "y": 180, "rotation": 0, "flip": false, "properties": { "temperature": 22.5 } },
+      { "id": "ds2", "type": "ds18b20", "x": 220, "y": 180, "rotation": 0, "flip": false, "properties": { "temperature": 4.25 } },
+      { "id": "r1", "type": "resistor", "x": 300, "y": 250, "rotation": 0, "flip": false, "properties": { "resistance": 4700 } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "ds1", "pin": "GND" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [[170, 245], [230, 245]], "color": "auto" },
+      { "id": "w2", "from": { "component": "ds1", "pin": "DQ" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [[180, 255], [220, 255]], "color": "auto" },
+      { "id": "w3", "from": { "component": "ds1", "pin": "VDD" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[190, 240], [350, 240], [350, 400], [230, 400]], "color": "auto" },
+      { "id": "w4", "from": { "component": "ds2", "pin": "GND" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [[230, 245]], "color": "auto" },
+      { "id": "w5", "from": { "component": "ds2", "pin": "DQ" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [[240, 255], [220, 255]], "color": "auto" },
+      { "id": "w6", "from": { "component": "ds2", "pin": "VDD" }, "to": { "component": "ds1", "pin": "VDD" }, "waypoints": [[250, 240]], "color": "auto" },
+      { "id": "w7", "from": { "component": "r1", "pin": "1" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [[290, 260], [290, 255], [220, 255]], "color": "auto" },
+      { "id": "w8", "from": { "component": "r1", "pin": "2" }, "to": { "component": "ds1", "pin": "VDD" }, "waypoints": [[370, 260], [370, 240], [350, 240]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

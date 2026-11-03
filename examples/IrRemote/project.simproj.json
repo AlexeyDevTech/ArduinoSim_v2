@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 100, "y": 300, "rotation": 0, "flip": false },
+      { "id": "ir1", "type": "ir-receiver", "x": 110, "y": 200, "rotation": 0, "flip": false },
+      { "id": "remote1", "type": "ir-remote", "x": 320, "y": 100, "rotation": 0, "flip": false }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "ir1", "pin": "OUT" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [[120, 270], [130, 270]], "color": "auto" },
+      { "id": "w2", "from": { "component": "ir1", "pin": "GND" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [[130, 260], [230, 260]], "color": "auto" },
+      { "id": "w3", "from": { "component": "ir1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[140, 250], [300, 250], [300, 400], [230, 400]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

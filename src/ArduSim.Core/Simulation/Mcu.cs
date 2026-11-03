@@ -71,6 +71,7 @@ public sealed class Mcu
     private const uint DefaultI2cClock = 100_000;
     private const uint DefaultSpiClock = 4_000_000;
     private const ulong DefaultBitTime = VirtualTime.Second / DefaultI2cClock;
+    private const ulong MinimumTimerPeriod = 5 * VirtualTime.Microsecond;
 
     private readonly SimulationEngine _engine;
     private readonly TimingTable _timing;
@@ -115,7 +116,7 @@ public sealed class Mcu
         _i2c = [.. board.I2c.Select((pins, i) => new I2cChannel(i, pins, i == 0 ? i2c : null))];
         _spi = [.. board.Spi.Select((pins, i) => new SpiChannel(i, pins, i == 0 ? spi : null))];
         Uarts = Enumerable.Range(0, board.SerialPorts).Select(i => new UartPort(i, engine)).ToList();
-        Interrupts = new InterruptController(Level);
+        Interrupts = new InterruptController(Level, engine.Clock);
     }
 
     public event Action<PinChange>? PinChanged;
@@ -159,7 +160,11 @@ public sealed class Mcu
 
     public void PinMode(int pin, int mode)
     {
-        if (Digital(pin, "pinMode") is { } state)
+        if (Find(pin) is null && Board.UnexposedPins.Contains(pin))
+        {
+            // IRremote's global receiver sets up pin 0 before the sketch picks its pin.
+        }
+        else if (Digital(pin, "pinMode") is { } state)
         {
             state.Mode = mode switch
             {
@@ -869,6 +874,33 @@ public sealed class Mcu
     {
         Interrupts.Enabled = enabled;
         _engine.Finish(0);
+    }
+
+    /// <summary>Starts periodic timer interrupt <paramref name="timer"/> (ABI 2.2); a period below 5 µs is raised to 5 µs.</summary>
+    public void StartTimer(int timer, ulong periodNanoseconds)
+    {
+        if ((uint)timer >= InterruptController.TimerCount)
+        {
+            Log.ReportOnce($"timer-{timer}", SimSeverity.Warning, "timer-invalid", $"Timer interrupt {timer} does not exist (0-{InterruptController.TimerCount - 1}); the call is ignored.");
+        }
+        else
+        {
+            if (periodNanoseconds < MinimumTimerPeriod)
+            {
+                Log.ReportOnce($"timer-period-{timer}", SimSeverity.Warning, "timer-period", $"Timer interrupt {timer}: a period of {periodNanoseconds} ns is shorter than the simulator's 5 µs minimum; the timer runs every 5 µs.");
+                periodNanoseconds = MinimumTimerPeriod;
+            }
+
+            Interrupts.StartTimer(timer, periodNanoseconds);
+        }
+
+        _engine.Finish(_timing.ShortCall);
+    }
+
+    public void StopTimer(int timer)
+    {
+        Interrupts.StopTimer(timer);
+        _engine.Finish(_timing.ShortCall);
     }
 
     private PinState? Find(int pin) => pin >= 0 && pin < _pins.Length ? _pins[pin] : null;

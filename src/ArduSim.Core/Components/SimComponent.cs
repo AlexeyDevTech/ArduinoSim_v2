@@ -19,6 +19,9 @@ public sealed class ComponentContext(Circuit circuit, SimulationEngine engine, I
 
     public SpiBus? Spi { get; } = spi;
 
+    /// <summary>The scene's infrared light: remotes send on it, IR receivers listen (no wires).</summary>
+    public InfraredLink Infrared { get; } = new();
+
     public SimulationLog Log => Engine.Log;
 }
 

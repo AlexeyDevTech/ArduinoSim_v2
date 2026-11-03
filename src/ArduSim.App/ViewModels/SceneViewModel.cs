@@ -7,6 +7,7 @@ using ArduSim.App.Localization;
 using ArduSim.App.Services;
 using ArduSim.Core.Boards;
 using ArduSim.Core.Components;
+using ArduSim.Core.Components.Parts;
 using ArduSim.Core.Editing;
 using ArduSim.Core.Projects;
 using ArduSim.Ipc;
@@ -725,6 +726,8 @@ public sealed partial class SceneViewModel : ObservableObject
 public sealed partial class PartViewModel : ObservableObject
 {
     private readonly SceneViewModel _scene;
+    private readonly Dictionary<string, double> _live = new(StringComparer.Ordinal);
+    private IReadOnlyList<KeyCapViewModel>? _keyCaps;
     private bool _applying;
     private DisplayData? _display;
     private Views.LcdScreen? _screen;
@@ -848,6 +851,168 @@ public sealed partial class PartViewModel : ObservableObject
     public partial double Value { get; set; }
 
     public double KnobAngle => -135 + (270 * Value);
+
+    // ---- M8 inputs and sensors (ADR-011) ---------------------------------------------------------
+
+    /// <summary>Encoder detents turned in this run; the knob turns 18° per detent.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EncoderAngle))]
+    public partial double Step { get; set; }
+
+    public double EncoderAngle => Step * 18;
+
+    /// <summary>The keypad key or remote button held down, or -1.</summary>
+    [ObservableProperty]
+    public partial int KeyIndex { get; set; } = -1;
+
+    private static readonly string[] RemoteLabels = ["CH−", "CH", "CH+", "|◀◀", "▶▶|", "▶‖", "−", "+", "EQ", "0", "100+", "200+", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+    /// <summary>The keypad's keys or the remote's buttons, row by row.</summary>
+    public IReadOnlyList<KeyCapViewModel> KeyCaps => _keyCaps ??= Type switch
+    {
+        "keypad" => [.. MatrixKeypad.Labels.Select(c => new KeyCapViewModel(c.ToString(), char.IsLetter(c)))],
+        "ir-remote" => [.. RemoteLabels.Select((label, i) => new KeyCapViewModel(label, i < 3))],
+        _ => [],
+    };
+
+    partial void OnKeyIndexChanged(int value)
+    {
+        for (int i = 0; i < KeyCaps.Count; i++)
+        {
+            KeyCaps[i].IsDown = i == value;
+        }
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CapLeft))]
+    public partial double StickX { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CapTop))]
+    public partial double StickY { get; set; }
+
+    /// <summary>The joystick cap, which leans 10 units at full travel.</summary>
+    public double CapLeft => 20 + (10 * StickX);
+
+    public double CapTop => 17 - (10 * StickY);
+
+    /// <summary>The IR receiver is taking in a frame.</summary>
+    [ObservableProperty]
+    public partial bool Receiving { get; set; }
+
+    public bool IsDht11 => Text("model", "dht22") == "dht11";
+
+    /// <summary>Raised when a live sensor value changes, from the sim or from a gesture.</summary>
+    public event Action<string, double>? LiveChanged;
+
+    /// <summary>A live sensor reading: the run's value while it runs, the saved one otherwise.</summary>
+    public double LiveValue(string name) => _live.TryGetValue(name, out double v) ? v : Number(name, 0);
+
+    /// <summary>The live readings on the part's label (°C, %, cm).</summary>
+    public string Readout => Type switch
+    {
+        "dht" => string.Create(CultureInfo.CurrentCulture, $"{LiveValue("temperature"):0.0} °C  {LiveValue("humidity"):0} %"),
+        "ds18b20" => string.Create(CultureInfo.CurrentCulture, $"{LiveValue("temperature"):0.0#} °C"),
+        "hc-sr04" => string.Create(CultureInfo.CurrentCulture, $"{LiveValue("distance"):0} {Strings.Get("Unit_cm")}"),
+        _ => "",
+    };
+
+    /// <summary>The property a vertical drag on the part changes (Shift: the second one, DHT humidity).</summary>
+    public string? LiveDragProperty(bool second) =>
+        Definition?.Properties.Where(p => p.Live).Select(p => p.Name).ElementAtOrDefault(second ? 1 : 0) ?? (second ? LiveDragProperty(false) : null);
+
+    /// <summary>How much one pixel of drag (or a tenth of a wheel notch) changes a live value.</summary>
+    public static double LiveStep(string name) => name switch
+    {
+        "humidity" => 0.5,
+        "distance" => 1,
+        _ => 0.1,
+    };
+
+    /// <summary>Sets a live sensor value for the running simulation: clamped, rounded, not saved, not undoable.</summary>
+    public void SetLive(string name, double value)
+    {
+        if (Definition?.Properties.FirstOrDefault(p => p.Name == name && p.Live) is not { } definition)
+        {
+            return;
+        }
+
+        double resolution = name == "temperature" ? 0.01 : LiveStep(name);
+        value = Math.Round(Math.Clamp(value, definition.Minimum, definition.Maximum) / resolution) * resolution;
+        _live[name] = value;
+        OnPropertyChanged(nameof(Readout));
+        LiveChanged?.Invoke(name, value);
+        _scene.Input(Id, name, value);
+    }
+
+    public void Turn(int detents)
+    {
+        if (detents != 0)
+        {
+            _scene.Input(Id, "turn", detents);
+        }
+    }
+
+    /// <summary>Keypad key <c>k0</c>…<c>k15</c> or remote button <c>b0</c>…<c>b20</c>.</summary>
+    public void PressKey(int index)
+    {
+        KeyIndex = index;
+        _scene.Input(Id, (Type == "ir-remote" ? "b" : "k") + index.ToString(CultureInfo.InvariantCulture), 1);
+    }
+
+    public void ReleaseKey()
+    {
+        if (KeyIndex >= 0)
+        {
+            _scene.Input(Id, (Type == "ir-remote" ? "b" : "k") + KeyIndex.ToString(CultureInfo.InvariantCulture), 0);
+            KeyIndex = -1;
+        }
+    }
+
+    public void MoveStick(double x, double y)
+    {
+        x = Math.Clamp(x, -1, 1);
+        y = Math.Clamp(y, -1, 1);
+        if (x != StickX)
+        {
+            StickX = x;
+            _scene.Input(Id, "x", x);
+        }
+
+        if (y != StickY)
+        {
+            StickY = y;
+            _scene.Input(Id, "y", y);
+        }
+    }
+
+    /// <summary>The key or button under a point in part coordinates (the drawing's grid), or null.</summary>
+    public int? KeyAt(Point local)
+    {
+        (double left, double top, double width, double height, int columns, int rows) = Type == "ir-remote"
+            ? (8.0, 28.0, 64.0, 133.0, 3, 7)
+            : (10.0, 8.0, 100.0, 116.0, 4, 4);
+        int column = (int)Math.Floor((local.X - left) / (width / columns));
+        int row = (int)Math.Floor((local.Y - top) / (height / rows));
+        return column >= 0 && column < columns && row >= 0 && row < rows ? (row * columns) + column : null;
+    }
+
+    /// <summary>A canvas point in the part's own unrotated, unflipped coordinates.</summary>
+    public Point ToLocal(Point world)
+    {
+        double cx = Width / 2;
+        double cy = Height / 2;
+        double dx = world.X - (X + cx);
+        double dy = world.Y - (Y + cy);
+        (dx, dy) = ((((int)Rotation % 360) + 360) % 360) switch
+        {
+            90 => (dy, -dx),
+            180 => (-dx, -dy),
+            270 => (-dy, dx),
+            _ => (dx, dy),
+        };
+        return new Point(Model.Flip ? Width - (cx + dx) : cx + dx, cy + dy);
+    }
 
     // ---- LCD -----------------------------------------------------------------------------------
 
@@ -1010,6 +1175,26 @@ public sealed partial class PartViewModel : ObservableObject
             Set("position", Number("position", 0), v => SwitchRight = v != 0);
             Set("frequency", 0, v => Frequency = v);
             Set("value", Number("value", 0.5), v => Value = v);
+            Set("step", 0, v => Step = v);
+            Set("key", -1, v => KeyIndex = (int)v);
+            Set("x", 0, v => StickX = v);
+            Set("y", 0, v => StickY = v);
+            Set("receiving", 0, v => Receiving = v != 0);
+            if (reset)
+            {
+                _live.Clear();
+                OnPropertyChanged(nameof(Readout));
+            }
+
+            foreach (string name in (string[])["temperature", "humidity", "distance"])
+            {
+                if (state.TryGetValue(name, out double reading) && (!_live.TryGetValue(name, out double known) || known != reading))
+                {
+                    _live[name] = reading;
+                    OnPropertyChanged(nameof(Readout));
+                    LiveChanged?.Invoke(name, reading);
+                }
+            }
             if (state.ContainsKey("r") || state.ContainsKey("g") || state.ContainsKey("b") || reset)
             {
                 double r = Math.Max(0, Get("r", 0)), g = Math.Max(0, Get("g", 0)), b = Math.Max(0, Get("b", 0));
@@ -1056,6 +1241,18 @@ public sealed partial class PartViewModel : ObservableObject
             _scene.Input(Id, "value", value);
         }
     }
+}
+
+/// <summary>One key of the keypad or the IR remote, as drawn.</summary>
+public sealed partial class KeyCapViewModel(string label, bool isAccent) : ObservableObject
+{
+    public string Label { get; } = label;
+
+    /// <summary>Drawn in the accent color (the keypad's letters, the remote's top row).</summary>
+    public bool IsAccent { get; } = isAccent;
+
+    [ObservableProperty]
+    public partial bool IsDown { get; set; }
 }
 
 public sealed record PinViewModel(string Name, double X, double Y)

@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 #include "sim/host.h"
+#include "sim/timers.h"
 
 void serialEvent() __attribute__((weak));
 
@@ -39,6 +40,11 @@ SIM_FW_EXPORT void sim_fw_loop(void)
     }
 }
 
-SIM_FW_EXPORT void sim_fw_dispatch_interrupt(int32_t id) { sim::dispatch_interrupt(id); }
+SIM_FW_EXPORT void sim_fw_dispatch_interrupt(int32_t id)
+{
+    if (!sim::dispatch_timer(id)) {
+        sim::dispatch_interrupt(id);
+    }
+}
 
 }  // extern "C"

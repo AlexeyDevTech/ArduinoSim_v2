@@ -77,6 +77,7 @@ public static class Esp32DevKit
         CoreBase = "esp-common",
         SpiAnyDivider = true,
         HasWifi = true,
+        UnexposedPins = [0],
         InputHighFraction = 0.75,
         InputLowFraction = 0.25,
         InputWriteSetsPullUp = false,

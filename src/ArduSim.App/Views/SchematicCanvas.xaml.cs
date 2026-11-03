@@ -33,6 +33,7 @@ public partial class SchematicCanvas : UserControl
     private readonly GeometryDrawing _gridDotDrawing;
     private readonly EllipseGeometry _gridDot = new(new Point(0, 0), 1, 1);
     private readonly DispatcherTimer _hintTimer = new() { Interval = TimeSpan.FromSeconds(1.6) };
+    private readonly DispatcherTimer _holdTimer = new() { Interval = HoldDelay };
     private double _scale = PixelsPerUnitAt100;
     private Vector _offset = new(40, 40);
     private Gesture _gesture;
@@ -43,6 +44,10 @@ public partial class SchematicCanvas : UserControl
     private PartViewModel? _activePart;
     private CornerHandle? _corner;
     private double _knobStart;
+    private string? _liveName;
+    private double _encoderAngle;
+    private bool _moved;
+    private bool _pressHeld;
     private bool _spaceDown;
     private bool _fitPending = true;
 
@@ -64,6 +69,7 @@ public partial class SchematicCanvas : UserControl
         ApplyTheme();
         Loaded += (_, _) => Theme.Changed += ApplyTheme;
         Unloaded += (_, _) => Theme.Changed -= ApplyTheme;
+        _holdTimer.Tick += OnHold;
         _hintTimer.Tick += (_, _) =>
         {
             Hint.Visibility = Visibility.Collapsed;
@@ -95,7 +101,25 @@ public partial class SchematicCanvas : UserControl
         Segment,
         PressButton,
         Knob,
+
+        /// <summary>Turning an encoder by dragging around its knob; holding still presses its shaft.</summary>
+        Encoder,
+
+        /// <summary>A keypad key or remote button held down.</summary>
+        PressKey,
+
+        /// <summary>Leaning a joystick; it springs back on release, and holding still presses it.</summary>
+        Stick,
+
+        /// <summary>A vertical drag on a sensor changes its reading (ADR-011).</summary>
+        Live,
     }
+
+    // A click on an encoder or joystick that does not move presses it for this long; holding still
+    // for HoldDelay presses it until the mouse is released.
+    private static readonly TimeSpan ClickPress = TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan HoldDelay = TimeSpan.FromMilliseconds(250);
+    private const double MoveThresholdPx = 4;
 
     private SceneViewModel? Scene => DataContext as SceneViewModel;
 
@@ -218,6 +242,28 @@ public partial class SchematicCanvas : UserControl
                     _knobStart = part.Value;
                     Begin(Gesture.Knob);
                     break;
+                case "rotary-encoder":
+                    _activePart = part;
+                    _encoderAngle = EncoderAngle(part, world);
+                    BeginHold(Gesture.Encoder);
+                    break;
+                case "joystick":
+                    _activePart = part;
+                    BeginHold(Gesture.Stick);
+                    break;
+                case "keypad" or "ir-remote" when part.KeyAt(part.ToLocal(world)) is int key:
+                    _activePart = part;
+                    part.PressKey(key);
+                    Begin(Gesture.PressKey);
+                    break;
+                case "keypad" or "ir-remote":
+                    break;
+                case "dht" or "ds18b20" or "hc-sr04":
+                    _activePart = part;
+                    _liveName = part.LiveDragProperty(Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+                    _knobStart = _liveName is null ? 0 : part.LiveValue(_liveName);
+                    Begin(Gesture.Live);
+                    break;
                 case null:
                     Begin(Gesture.Pan);
                     break;
@@ -318,6 +364,32 @@ public partial class SchematicCanvas : UserControl
             case Gesture.Knob when _activePart is not null:
                 _activePart.Value = Math.Clamp(_knobStart + ((_gestureStartScreen.Y - screen.Y) / 150), 0, 1);
                 return;
+            case Gesture.Live when _activePart is not null && _liveName is not null:
+                _activePart.SetLive(_liveName, _knobStart + ((_gestureStartScreen.Y - screen.Y) * PartViewModel.LiveStep(_liveName)));
+                return;
+            case Gesture.Encoder when _activePart is not null:
+                if (Moved(screen))
+                {
+                    // One detent per 18° around the knob, clockwise positive.
+                    double angle = EncoderAngle(_activePart, world);
+                    double delta = Math.IEEERemainder(angle - _encoderAngle, 360);
+                    int detents = (int)(delta / 18);
+                    if (detents != 0)
+                    {
+                        _activePart.Turn(detents);
+                        _encoderAngle += detents * 18;
+                    }
+                }
+
+                return;
+            case Gesture.Stick when _activePart is not null:
+                if (Moved(screen))
+                {
+                    Vector lean = _activePart.ToLocal(world) - _activePart.ToLocal(_gestureStartWorld);
+                    _activePart.MoveStick(lean.X / 20, -lean.Y / 20);
+                }
+
+                return;
             case Gesture.MoveParts:
                 MoveSelection(scene, world);
                 return;
@@ -375,8 +447,8 @@ public partial class SchematicCanvas : UserControl
         }
 
         Cursor = pin is not null && !scene.IsLocked ? Cursors.Cross
-            : scene.IsLocked && scene.PartAt(world)?.Type is "pushbutton" or "slide-switch" ? Cursors.Hand
-            : scene.IsLocked && scene.PartAt(world)?.Type is "potentiometer" ? Cursors.SizeNS
+            : scene.IsLocked && scene.PartAt(world)?.Type is "pushbutton" or "slide-switch" or "rotary-encoder" or "joystick" or "keypad" or "ir-remote" ? Cursors.Hand
+            : scene.IsLocked && scene.PartAt(world)?.Type is "potentiometer" or "dht" or "ds18b20" or "hc-sr04" ? Cursors.SizeNS
             : _spaceDown ? Cursors.Hand : null;
     }
 
@@ -392,6 +464,32 @@ public partial class SchematicCanvas : UserControl
         {
             case Gesture.PressButton:
                 _activePart?.Release();
+                break;
+            case Gesture.PressKey:
+                _activePart?.ReleaseKey();
+                break;
+            case Gesture.Encoder or Gesture.Stick when _activePart is { } held:
+                if (_gesture == Gesture.Stick)
+                {
+                    held.MoveStick(0, 0);
+                }
+
+                if (_pressHeld)
+                {
+                    held.Release();
+                }
+                else if (!_moved)
+                {
+                    held.Press();
+                    var release = new DispatcherTimer { Interval = ClickPress };
+                    release.Tick += (_, _) =>
+                    {
+                        release.Stop();
+                        held.Release();
+                    };
+                    release.Start();
+                }
+
                 break;
             case Gesture.Marquee:
                 Marquee.Visibility = Visibility.Collapsed;
@@ -415,6 +513,16 @@ public partial class SchematicCanvas : UserControl
         if (Scene is { IsLocked: true } scene && scene.PartAt(ToWorld(screen)) is { Type: "potentiometer" } pot)
         {
             pot.Value = Math.Clamp(pot.Value + (e.Delta > 0 ? 0.02 : -0.02), 0, 1);
+        }
+        else if (Scene is { IsLocked: true } && Scene.PartAt(ToWorld(screen)) is { Type: "rotary-encoder" } encoder)
+        {
+            encoder.Turn(e.Delta > 0 ? 1 : -1);
+        }
+        else if (Scene is { IsLocked: true } && Scene.PartAt(ToWorld(screen)) is { Type: "dht" or "ds18b20" or "hc-sr04" } sensor &&
+                 sensor.LiveDragProperty(Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) is { } name)
+        {
+            double step = name == "temperature" ? 0.5 : PartViewModel.LiveStep(name) * (name == "humidity" ? 2 : 1);
+            sensor.SetLive(name, sensor.LiveValue(name) + (e.Delta > 0 ? step : -step));
         }
         else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
         {
@@ -601,8 +709,48 @@ public partial class SchematicCanvas : UserControl
         CaptureMouse();
     }
 
+    /// <summary>An encoder or joystick gesture: a drag turns or leans it, holding still presses it.</summary>
+    private void BeginHold(Gesture gesture)
+    {
+        _moved = false;
+        _pressHeld = false;
+        Begin(gesture);
+        _holdTimer.Stop();
+        _holdTimer.Start();
+    }
+
+    private void OnHold(object? sender, EventArgs e)
+    {
+        _holdTimer.Stop();
+        if (_gesture is Gesture.Encoder or Gesture.Stick && !_moved && _activePart is { } part)
+        {
+            part.Press();
+            _pressHeld = true;
+        }
+    }
+
+    /// <summary>Whether this gesture has become a drag (not once the hold pressed the part).</summary>
+    private bool Moved(Point screen)
+    {
+        if (!_moved && !_pressHeld && (screen - _gestureStartScreen).Length > MoveThresholdPx)
+        {
+            _moved = true;
+            _holdTimer.Stop();
+        }
+
+        return _moved;
+    }
+
+    /// <summary>Degrees clockwise around the encoder's knob (drawn at 30, 30 in the part).</summary>
+    private static double EncoderAngle(PartViewModel part, Point world)
+    {
+        Point local = part.ToLocal(world);
+        return Math.Atan2(local.Y - 30, local.X - 30) * 180 / Math.PI;
+    }
+
     private void End()
     {
+        _holdTimer.Stop();
         _gesture = Gesture.None;
         _activePart = null;
         _corner = null;

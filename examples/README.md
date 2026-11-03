@@ -26,3 +26,10 @@ One folder per example project (ADR-008 layout). Every example is built and run 
 | Esp8266WiFi | ESP8266WiFi scan, connect with an event handler, ESP8266HTTPClient GET |
 | Esp8266Eeprom | EEPROM.begin/commit boot counter across ESP.restart(), with the reset reason |
 | Esp8266Oled | U8g2 on an SSD1306 at D2/D1 of a Wemos D1 mini |
+| RotaryEncoder | a KY-040 encoder read with digitalRead: position up and down, the shaft button resets it |
+| Keypad4x4 | the Keypad library on a 4x4 keypad (rows D9–D6, columns D5–D2): keys build a code, # enters it |
+| Joystick | an analog stick on A0/A1 and its button on D2, as x/y in the Serial Plotter |
+| Dht22 | the DHT sensor library: humidity, temperature and heat index every two seconds |
+| Ds18b20 | OneWire and DallasTemperature: two DS18B20 on one bus with a 4.7 kΩ pull-up, their addresses and readings |
+| Ultrasonic | an HC-SR04 with pulseIn: the distance, "Out of range" beyond 4 m, the LED on D13 under 20 cm |
+| IrRemote | IRremote decoding the kit remote's NEC keys and repeats; the play key toggles the LED on D13 |
