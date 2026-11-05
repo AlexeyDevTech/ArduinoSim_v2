@@ -6,6 +6,11 @@
 using sim::host;
 
 HardwareSerial Serial(0);
+#if defined(SIM_BOARD_MEGA)
+HardwareSerial Serial1(1);
+HardwareSerial Serial2(2);
+HardwareSerial Serial3(3);
+#endif
 
 void HardwareSerial::begin(unsigned long baud, uint8_t config) { host().serial_begin(port_, static_cast<uint32_t>(baud), config, SIM_PIN_DEFAULT, SIM_PIN_DEFAULT); }
 

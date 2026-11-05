@@ -14,7 +14,7 @@ internal static class PipeServer
 {
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(10);
 
-    public sealed record Options(string Pipe, string CrashBlock, string ProjectDirectory, string Firmware, double Speed, int Seed);
+    public sealed record Options(string Pipe, string CrashBlock, string ProjectDirectory, string Firmware, double Speed, int Seed, bool Record = false);
 
     public static async Task<int> RunAsync(Options options)
     {
@@ -72,6 +72,7 @@ internal static class PipeServer
         using CrashBlock crash = CrashBlock.OpenNamed(options.CrashBlock);
         var host = new SimulationHost(board, project.Scene, eeprom, options.Seed, crash, KeyValueStore.FileBacked(Path.Combine(options.ProjectDirectory, ProjectFile.PreferencesFileName)), project.Settings, files: new ProjectFolderFiles(options.ProjectDirectory));
         host.Pacer.Speed = options.Speed;
+        host.Mcu.SetRecording(options.Record);
         host.Exit = code =>
         {
             outbox.CompleteAdding();

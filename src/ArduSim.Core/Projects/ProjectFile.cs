@@ -93,6 +93,9 @@ public sealed record ProjectFile
 
     public IEnumerable<string> LibraryDirectories(string projectDirectory) =>
         Settings.LibraryPaths.Select(p => Path.GetFullPath(Path.Combine(projectDirectory, p)));
+
+    public IEnumerable<string> IncludeDirectories(string projectDirectory) =>
+        (Settings.IncludePaths ?? []).Select(p => Path.GetFullPath(Path.Combine(projectDirectory, p)));
 }
 
 public sealed record SceneDocument
@@ -148,6 +151,12 @@ public sealed record ProjectSettings
     public SerialSettings Serial { get; init; } = new();
 
     public IReadOnlyList<string> LibraryPaths { get; init; } = [];
+
+    /// <summary>Extra compiler macros (<c>NAME</c> or <c>NAME=value</c>), from a PlatformIO project's build flags; absent means none (ADR-015).</summary>
+    public IReadOnlyList<string>? Defines { get; init; }
+
+    /// <summary>Header folders for the sketch's own sources, relative to the project; absent means none (ADR-015).</summary>
+    public IReadOnlyList<string>? IncludePaths { get; init; }
 
     /// <summary>The simulated Wi-Fi networks of ESP boards (ADR-010); absent means one open network, "ArduSim".</summary>
     public WifiSettings? Wifi { get; init; }

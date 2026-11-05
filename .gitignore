@@ -21,3 +21,4 @@ TestResults/
 eeprom.bin
 preferences.json
 *.log
+publish/

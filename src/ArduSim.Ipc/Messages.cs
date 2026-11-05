@@ -5,7 +5,7 @@ namespace ArduSim.Ipc;
 /// <summary>Protocol constants (ADR-003). Bump <see cref="Version"/> on any incompatible change.</summary>
 public static class IpcProtocol
 {
-    public const int Version = 1;
+    public const int Version = 2;
     public const int MaxFrameBytes = 16 << 20;
 }
 
@@ -20,6 +20,7 @@ public static class IpcProtocol
 [Union(14, typeof(ComponentInput))]
 [Union(15, typeof(SerialInput))]
 [Union(16, typeof(StopRun))]
+[Union(17, typeof(SetRecording))]
 public abstract record IpcMessage;
 
 /// <summary>First message each way.</summary>
@@ -69,6 +70,27 @@ public sealed record LogEntry(
     [property: Key(5)] string? Key = null,
     [property: Key(6)] IReadOnlyList<string>? Args = null);
 
+/// <summary>Serial output of a port other than the first.</summary>
+[MessagePackObject]
+public sealed record SerialOutput([property: Key(0)] int Port, [property: Key(1)] byte[] Data);
+
+/// <summary>
+/// What the logic analyzer recorded since the previous snapshot (ADR-014), as flat arrays: pin
+/// samples in <paramref name="PinTimes"/>, two bytes each in <paramref name="PinData"/> (pin, level)
+/// and <paramref name="PinValues"/>; bus events in <paramref name="BusTimes"/>,
+/// <paramref name="BusDurations"/> and six bytes each in <paramref name="BusData"/> (kind, value, extra, three pins).
+/// </summary>
+/// <param name="Overflowed">Events were dropped since the last block.</param>
+[MessagePackObject]
+public sealed record TraceBlock(
+    [property: Key(0)] ulong[] PinTimes,
+    [property: Key(1)] byte[] PinData,
+    [property: Key(2)] int[] PinValues,
+    [property: Key(3)] ulong[] BusTimes,
+    [property: Key(4)] uint[] BusDurations,
+    [property: Key(5)] byte[] BusData,
+    [property: Key(6)] bool Overflowed);
+
 /// <summary>
 /// Runner → UI, at most 60 per second: what changed since the previous snapshot. The first
 /// snapshot of a run carries every pin and component.
@@ -82,7 +104,9 @@ public sealed record Snapshot(
     [property: Key(3)] IReadOnlyList<PinUpdate> Pins,
     [property: Key(4)] IReadOnlyList<ComponentUpdate> Components,
     [property: Key(5)] byte[] Serial,
-    [property: Key(6)] IReadOnlyList<LogEntry> Logs) : IpcMessage;
+    [property: Key(6)] IReadOnlyList<LogEntry> Logs,
+    [property: Key(7)] IReadOnlyList<SerialOutput>? OtherSerial = null,
+    [property: Key(8)] TraceBlock? Trace = null) : IpcMessage;
 
 /// <summary>Runner → UI: no Arduino API call for 2 s of wall time; the UI offers Stop.</summary>
 [MessagePackObject]
@@ -119,3 +143,7 @@ public sealed record SerialInput([property: Key(0)] int Port, [property: Key(1)]
 
 [MessagePackObject]
 public sealed record StopRun : IpcMessage;
+
+/// <summary>UI → Runner: start or stop recording for the logic analyzer.</summary>
+[MessagePackObject]
+public sealed record SetRecording([property: Key(0)] bool Enabled) : IpcMessage;

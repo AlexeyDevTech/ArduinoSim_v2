@@ -2,7 +2,8 @@ namespace ArduSim.Ipc;
 
 /// <param name="FirmwarePath">A built firmware.dll; the session does not build.</param>
 /// <param name="Speed">Initial pacing factor; <see cref="double.PositiveInfinity"/> for max.</param>
-public sealed record SessionStartInfo(string ProjectDirectory, string FirmwarePath, double Speed, int Seed);
+/// <param name="Record">Record for the logic analyzer from the first instruction on.</param>
+public sealed record SessionStartInfo(string ProjectDirectory, string FirmwarePath, double Speed, int Seed, bool Record = false);
 
 public enum SessionEndKind
 {

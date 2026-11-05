@@ -76,6 +76,30 @@ public sealed partial class SceneViewModel : ObservableObject
 
     public PartViewModel? Find(string id) => _parts.GetValueOrDefault(id);
 
+    /// <summary>A wire was clicked while the scene is locked (running): the board pins on its net.</summary>
+    public event Action<IReadOnlyList<int>>? WirePinsClicked;
+
+    public void ClickWire(WireViewModel wire)
+    {
+        ArgumentNullException.ThrowIfNull(wire);
+        var pins = new List<int>();
+        foreach (string id in wire.Net)
+        {
+            if (Editor.Scene.FindWire(id) is { } model)
+            {
+                foreach (PinReference end in new[] { model.From, model.To })
+                {
+                    if (Find(end.Component)?.Type == "board" && Board.FindPin(end.Pin) is { } pin && !pins.Contains(pin.Number))
+                    {
+                        pins.Add(pin.Number);
+                    }
+                }
+            }
+        }
+
+        WirePinsClicked?.Invoke(pins);
+    }
+
     /// <summary>Device pixels per canvas unit at the current zoom (set by the canvas); displays draw at this resolution.</summary>
     public double PixelsPerUnit { get; private set; } = 2;
 

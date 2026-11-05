@@ -1,5 +1,15 @@
 # Changelog
 
+## M11 — Tools and boards (2026-11-05)
+
+- Диаграмма tab: a logic analyzer with signal rows, a time ruler and I2C, SPI and UART decoders, live during a run. Hardware `Wire`, `SPI` and `Serial` traffic shows with its waveforms; bit-banged traffic decodes from real edges on any pins. Wheel zooms, a drag pans, a click sets the marker for Δ; a click on a wire on the running schematic adds its pins. PWM and tones show as bands with their duty or frequency.
+- Buzzer audio with a speaker button in the toolbar: on by default, remembered.
+- The Serial Monitor has a port list on boards with several UARTs; `Serial1`-`Serial3` of the Mega and `Serial1`/`Serial2` of the ESP boards can now be seen and written to.
+- New boards: Arduino Uno R3, Mega 2560 (ports A-L, four UARTs) and Pro Mini (5 V at 16 MHz, 3.3 V at 8 MHz).
+- PlatformIO projects open in place: «Открыть папку…» on a folder with `platformio.ini` takes the board, sources, flags, include and library folders. Plain C++ projects without `.ino` build.
+- `tools/publish/Publish.ps1`: a self-contained folder that needs no .NET SDK.
+- Headless runs: `--dump-trace <file>`; each port's lines are kept apart. IPC protocol 2.
+- Examples UnoBlink, Mega2560Ports, ProMini3v3, BuzzerMelody, LogicAnalyzerDemo.
 ## M10 — Displays (2026-11-03)
 
 - New parts: color TFTs ST7735 (1.8" black and green tab, 1.44", 0.96"), ST7789 IPS (1.3" without CS, 2.0", 1.14") and ILI9341 2.8"; Nokia 5110 (PCD8544); the OLED part gains the SSD1309 (2.42") and the grayscale SSD1327 (1.5" 128x128); the LCD part gains the A02 character ROM (European, with Cyrillic capitals).

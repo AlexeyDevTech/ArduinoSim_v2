@@ -37,7 +37,7 @@ internal static class Program
         }
     }
 
-    /// <summary><c>--ipc --pipe --crash-block --project --firmware [--speed] [--seed]</c>, as PipeSimulationSession passes them.</summary>
+    /// <summary><c>--ipc --pipe --crash-block --project --firmware [--speed] [--seed] [--record]</c>, as PipeSimulationSession passes them.</summary>
     private static PipeServer.Options ParseIpc(List<string> args)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -54,6 +54,7 @@ internal static class Program
             Path.GetFullPath(Required("--project")),
             Path.GetFullPath(Required("--firmware")),
             speed == "max" ? double.PositiveInfinity : double.Parse(speed, CultureInfo.InvariantCulture),
-            int.Parse(values.GetValueOrDefault("--seed", "1"), CultureInfo.InvariantCulture));
+            int.Parse(values.GetValueOrDefault("--seed", "1"), CultureInfo.InvariantCulture),
+            values.GetValueOrDefault("--record", "0") == "1");
     }
 }

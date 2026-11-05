@@ -1,3 +1,4 @@
+using ArduSim.Build.Import;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -9,6 +10,7 @@ using System.Windows.Threading;
 using ArduSim.App.Localization;
 using ArduSim.App.Services;
 using ArduSim.Boards;
+using ArduSim.Build;
 using ArduSim.Build.Compilation;
 using ArduSim.Build.Toolchains;
 using ArduSim.Core.Boards;
@@ -55,6 +57,9 @@ public sealed partial class ExampleItem(string name, string path) : ObservableOb
 
 public sealed record SpeedOption(string Label, double Value);
 
+/// <summary>A serial port of the board, as the Monitor's list shows it.</summary>
+public sealed record SerialPortItem(int Index, string Name);
+
 /// <param name="Setting">The value stored in the project (<c>settings.serial.lineEnding</c>).</param>
 public sealed record LineEndingOption(string Label, string Text, string Setting);
 
@@ -80,6 +85,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public const int PlotterTab = 1;
     public const int BuildTab = 2;
     public const int LogTab = 3;
+    public const int DiagramTab = 4;
 
     private const int SerialLimit = 200_000;
     private static readonly string[] SourceExtensions = [".ino", ".h", ".hpp", ".c", ".cpp"];
@@ -90,7 +96,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly ILogger<MainViewModel> _logger;
     private readonly Dispatcher _dispatcher;
     private readonly ComponentRegistry _registry = ComponentRegistry.CreateDefault(BoardCatalog.All);
-    private readonly StringBuilder _serial = new();
+    private readonly Dictionary<int, StringBuilder> _serial = [];
+    private readonly ITonePlayer _tones;
     private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private ISimulationSession? _session;
     private string? _projectDirectory;
@@ -109,12 +116,21 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private int _diagnosticIndex = -1;
     private SourceLocation? _crashLocation;
 
-    public MainViewModel(AppEnvironment environment, FirmwareBuildService builds, UserState state, ILogger<MainViewModel> logger)
+    public MainViewModel(AppEnvironment environment, FirmwareBuildService builds, UserState state, ILogger<MainViewModel> logger, ITonePlayer? tones = null)
     {
         _environment = environment;
         _builds = builds;
         _state = state;
         _logger = logger;
+        _tones = tones ?? new SilentTonePlayer();
+        SoundOn = state.Sound;
+        Timeline.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(TimelineViewModel.Recording))
+            {
+                UpdateRecording();
+            }
+        };
         _dispatcher = Dispatcher.CurrentDispatcher;
         Examples = [.. AppEnvironment.Examples().Select(e => new ExampleItem(e.Name, e.Path))];
         Recent = [.. state.Recent];
@@ -130,7 +146,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         PaletteOpen = layout.PaletteOpen;
         PropertiesOpen = layout.PropertiesOpen;
         BottomOpen = layout.BottomOpen;
-        SelectedBottomTab = Math.Clamp(layout.BottomTab, SerialTab, LogTab);
+        SelectedBottomTab = Math.Clamp(layout.BottomTab, SerialTab, DiagramTab);
         Status = SimStatus.Idle;
         _toastTimer.Tick += (_, _) =>
         {
@@ -152,6 +168,21 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public PaletteViewModel Palette { get; }
 
     public PlotterViewModel Plotter { get; } = new();
+
+    public TimelineViewModel Timeline { get; } = new();
+
+    /// <summary>The ports of the project's board (several on the Mega and the ESP boards).</summary>
+    public ObservableCollection<SerialPortItem> SerialPorts { get; } = [];
+
+    public bool HasSeveralSerialPorts => SerialPorts.Count > 1;
+
+    /// <summary>The port the Monitor and the Plotter show, and the Monitor sends to.</summary>
+    [ObservableProperty]
+    public partial SerialPortItem? SelectedSerialPort { get; set; }
+
+    /// <summary>The buzzers sound (toolbar toggle, remembered).</summary>
+    [ObservableProperty]
+    public partial bool SoundOn { get; set; }
 
     public IReadOnlyList<BoardProfile> Boards { get; } = BoardCatalog.All;
 
@@ -307,6 +338,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        _tones.Dispose();
         await StopSessionAsync();
         _watcher?.Dispose();
         _toolchainCancel?.Dispose();
@@ -508,9 +540,45 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    /// <summary>A folder with <c>platformio.ini</c> and no ArduSim project: the project is created on the spot, around its sources (ADR-015).</summary>
+    private static IReadOnlyList<string> ImportPlatformIo(string directory)
+    {
+        PlatformIoProject imported = PlatformIoProject.Read(directory);
+        var settings = new ProjectSettings
+        {
+            LibraryPaths = imported.LibraryDirectories,
+            IncludePaths = imported.IncludeDirectories,
+            Defines = imported.Defines,
+            Serial = imported.MonitorSpeed is { } baud ? new SerialSettings { Baud = baud } : new SerialSettings(),
+        };
+        ProjectTemplate.CreateAround(directory, imported.BoardId, imported.SourceDirectory, settings);
+        return imported.MissingLibraries([
+            .. imported.LibraryDirectories.Select(l => Path.Combine(directory, l)),
+            .. ArduSimPaths.LibraryRoots([]),
+            ShimLayout.Bundled.LibrariesDirectory,
+            .. Directory.EnumerateDirectories(Path.Combine(ShimLayout.Bundled.Root, "cores")).Select(c => Path.Combine(c, "libraries")),
+        ]);
+    }
+
     private async Task<bool> OpenProjectAsync(string directory)
     {
         await StopSessionAsync();
+        IReadOnlyList<string> missing = [];
+        if (!File.Exists(Path.Combine(directory, ProjectFile.FileName)) && PlatformIoProject.ExistsIn(directory))
+        {
+            try
+            {
+                missing = ImportPlatformIo(directory);
+            }
+            catch (PlatformIoException e)
+            {
+                ShowBanner(BannerKind.Info, Strings.Get("Banner_OpenFailed"), e.Message, "");
+                return false;
+            }
+
+            ShowToast(missing.Count == 0 ? Strings.Get("Toast_PlatformIoImported") : Strings.Format("Toast_PlatformIoMissing", string.Join(", ", missing)));
+        }
+
         ProjectFile project;
         BoardProfile board;
         try
@@ -531,6 +599,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _settings = project.Settings;
         _board = board;
         SelectedBoard = board;
+        OnBoardSet(board);
         ProjectName = Path.GetFileName(_projectDirectory);
         BaudText = Strings.Format("Serial_Baud", _settings.Serial.Baud);
         SelectedSpeed = Speeds.MinBy(s => Math.Abs(Math.Log(s.Value) - Math.Log(Math.Max(_settings.Speed, 0.01)))) ?? Speeds[2];
@@ -539,6 +608,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         var editor = new SceneEditor(SceneModel.FromDocument(project.Scene), _registry);
         editor.Changed += OnSceneChanged;
         Scene = new SceneViewModel(editor, board, (id, name, value) => _session?.Send(new ComponentInput(id, name, value)));
+        Scene.WirePinsClicked += OnWirePinsClicked;
         Properties = new PropertiesViewModel(Scene, () => _settings, UpdateSettings, OpenProjectFolder);
 
         Tabs.Add(SceneTab.Instance);
@@ -592,6 +662,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         SelectedTab = null;
         Properties = null;
         Scene = null;
+        OnBoardSet(null);
         _projectDirectory = null;
         _project = null;
         _board = null;
@@ -659,6 +730,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         {
             _board = sceneBoard;
             Scene.UseBoard(sceneBoard);
+            OnBoardSet(sceneBoard);
             bool loading = _loading;
             _loading = true;
             SelectedBoard = sceneBoard;
@@ -710,6 +782,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         {
             _board = value;
             Scene.UseBoard(value);
+            OnBoardSet(value);
             ShowToast(Strings.Format("Toast_BoardChanged", value.DisplayName));
         }
     }
@@ -749,6 +822,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         {
             Scene.IsLocked = IsRunning || value == SimStatus.Starting;
         }
+
+        UpdateTones();
     }
 
     partial void OnSelectedBottomTabChanged(int value)
@@ -757,6 +832,68 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         {
             UnseenWarnings = 0;
         }
+
+        UpdateRecording();
+    }
+
+    partial void OnBottomOpenChanged(bool value) => UpdateRecording();
+
+    partial void OnSoundOnChanged(bool value)
+    {
+        _state.Sound = value;
+        UpdateTones();
+    }
+
+    partial void OnSelectedSerialPortChanged(SerialPortItem? value)
+    {
+        SerialText = value is not null && _serial.TryGetValue(value.Index, out StringBuilder? text) ? text.ToString() : "";
+        Plotter.Clear();
+    }
+
+    /// <summary>The logic analyzer records while its tab is open and its button on.</summary>
+    private bool TimelineActive => BottomOpen && SelectedBottomTab == DiagramTab && Timeline.Recording;
+
+    private void UpdateRecording() => _session?.Send(new SetRecording(TimelineActive));
+
+    private void UpdateTones()
+    {
+        if (SoundOn && Status == SimStatus.Running && Scene is { } scene)
+        {
+            _tones.SetTones([.. scene.Parts.Where(p => p.Type == "buzzer" && p.Frequency > 0).Select(p => p.Frequency).Distinct()]);
+        }
+        else
+        {
+            _tones.SetTones([]);
+        }
+    }
+
+    private void OnBoardSet(BoardProfile? board)
+    {
+        Timeline.SetBoard(board);
+        SerialPorts.Clear();
+        for (int port = 0; port < (board?.SerialPorts ?? 0); port++)
+        {
+            SerialPorts.Add(new SerialPortItem(port, port == 0 ? "Serial" : "Serial" + port.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        SelectedSerialPort = SerialPorts.FirstOrDefault();
+        OnPropertyChanged(nameof(HasSeveralSerialPorts));
+    }
+
+    // A wire clicked on the running schematic joins the diagram, while that tab is open.
+    private void OnWirePinsClicked(IReadOnlyList<int> pins)
+    {
+        if (!BottomOpen || SelectedBottomTab != DiagramTab)
+        {
+            return;
+        }
+
+        if (pins.Count == 0)
+        {
+            ShowToast(Strings.Get("Toast_WireNoPin"));
+        }
+
+        Timeline.AddPins(pins);
     }
 
     partial void OnClockInMillisecondsChanged(bool value) => UpdateClock();
@@ -1074,7 +1211,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         session.Ended += e => Observe(_dispatcher.InvokeAsync(() => OnEnded(session, e)));
         _session = session;
         string firmware = _firmwarePath;
-        await session.StartAsync(new SessionStartInfo(_projectDirectory, firmware, SelectedSpeed.Value, 1), CancellationToken.None);
+        await session.StartAsync(new SessionStartInfo(_projectDirectory, firmware, SelectedSpeed.Value, 1, TimelineActive), CancellationToken.None);
         if (_session == session && Status == SimStatus.Starting)
         {
             Status = SimStatus.Running;
@@ -1106,14 +1243,18 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        _session.Send(new SerialInput(0, Encoding.UTF8.GetBytes(SerialInput + SelectedLineEnding.Text)));
+        _session.Send(new SerialInput(SelectedSerialPort?.Index ?? 0, Encoding.UTF8.GetBytes(SerialInput + SelectedLineEnding.Text)));
         SerialInput = "";
     }
 
     [RelayCommand]
     private void ClearSerial()
     {
-        _serial.Clear();
+        if (SelectedSerialPort is { } port && _serial.TryGetValue(port.Index, out StringBuilder? text))
+        {
+            text.Clear();
+        }
+
         SerialText = "";
     }
 
@@ -1146,6 +1287,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _serial.Clear();
         SerialText = "";
         Plotter.Clear();
+        Timeline.Reset();
         _timeNs = 0;
         _speedSample = null;
         UpdateClock();
@@ -1210,17 +1352,16 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             Scene?.ApplyComponent(update.Id, update.State, update.Display);
         }
 
-        if (snapshot.Serial.Length > 0)
+        UpdateTones();
+        if (snapshot.Trace is not null || TimelineActive)
         {
-            string text = Encoding.UTF8.GetString(snapshot.Serial).Replace("\r\n", "\n", StringComparison.Ordinal);
-            Plotter.Append(text);
-            _serial.Append(text);
-            if (_serial.Length > SerialLimit)
-            {
-                _serial.Remove(0, _serial.Length - SerialLimit);
-            }
+            Timeline.Append(snapshot.Trace, snapshot.TimeNs);
+        }
 
-            SerialText = _serial.ToString();
+        AppendSerial(0, snapshot.Serial);
+        foreach (SerialOutput output in snapshot.OtherSerial ?? [])
+        {
+            AppendSerial(output.Port, output.Data);
         }
 
         foreach (LogEntry entry in snapshot.Logs)
@@ -1238,6 +1379,32 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                     UnseenWarnings++;
                 }
             }
+        }
+    }
+
+    private void AppendSerial(int port, byte[] data)
+    {
+        if (data.Length == 0)
+        {
+            return;
+        }
+
+        string text = Encoding.UTF8.GetString(data).Replace("\r\n", "\n", StringComparison.Ordinal);
+        if (!_serial.TryGetValue(port, out StringBuilder? log))
+        {
+            _serial[port] = log = new StringBuilder();
+        }
+
+        log.Append(text);
+        if (log.Length > SerialLimit)
+        {
+            log.Remove(0, log.Length - SerialLimit);
+        }
+
+        if (port == (SelectedSerialPort?.Index ?? 0))
+        {
+            Plotter.Append(text);
+            SerialText = log.ToString();
         }
     }
 

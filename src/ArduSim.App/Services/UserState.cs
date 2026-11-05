@@ -79,6 +79,17 @@ public sealed partial class UserState
         }
     }
 
+    /// <summary>The buzzers sound (the toolbar's speaker button).</summary>
+    public bool Sound
+    {
+        get => _data.Sound;
+        set
+        {
+            _data = _data with { Sound = value };
+            Save();
+        }
+    }
+
     /// <summary>Moves (or adds) a project to the top of the recent list.</summary>
     public void Touch(string directory)
     {
@@ -133,5 +144,7 @@ public sealed partial class UserState
         public PanelLayout Layout { get; init; } = new();
 
         public string Theme { get; init; } = "dark";
+
+        public bool Sound { get; init; } = true;
     }
 }

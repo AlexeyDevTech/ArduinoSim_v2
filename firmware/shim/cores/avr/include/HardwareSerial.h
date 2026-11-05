@@ -67,4 +67,17 @@ extern HardwareSerial Serial;
 #define SERIAL_PORT_MONITOR Serial
 #define SERIAL_PORT_HARDWARE Serial
 
+#if defined(SIM_BOARD_MEGA)
+#define HAVE_HWSERIAL1
+#define HAVE_HWSERIAL2
+#define HAVE_HWSERIAL3
+extern HardwareSerial Serial1;
+extern HardwareSerial Serial2;
+extern HardwareSerial Serial3;
+#define SERIAL_PORT_HARDWARE1 Serial1
+#define SERIAL_PORT_HARDWARE2 Serial2
+#define SERIAL_PORT_HARDWARE3 Serial3
+#define SERIAL_PORT_HARDWARE_OPEN Serial1
+#endif
+
 #endif /* HardwareSerial_h */

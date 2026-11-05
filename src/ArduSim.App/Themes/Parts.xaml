@@ -214,6 +214,144 @@
     </Canvas>
   </DataTemplate>
 
+  <!-- Arduino Uno R3: USB and the power jack on the left, the DIP ATmega328P (pins from AvrBoards.cs). -->
+  <DataTemplate x:Key="Part.board.arduino-uno-r3" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="270" Height="210">
+      <Rectangle Width="270" Height="210" RadiusX="5" RadiusY="5" Fill="#FF00797F" Stroke="#FF00565A" />
+      <Rectangle Canvas.Left="-14" Canvas.Top="30" Width="60" Height="46" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
+      <Rectangle Canvas.Left="-8" Canvas.Top="150" Width="50" Height="36" RadiusX="2" RadiusY="2" Fill="#FF1E1F24" />
+      <Rectangle Canvas.Left="120" Canvas.Top="120" Width="130" Height="30" RadiusX="1" RadiusY="1" Fill="#FF1E1F24" />
+      <TextBlock Canvas.Left="150" Canvas.Top="130" FontSize="7" Foreground="#FF8A93A6" Text="ATmega328P" />
+      <TextBlock Canvas.Left="150" Canvas.Top="60" FontSize="20" FontWeight="SemiBold" Foreground="#FFE3F4F4" Text="UNO" />
+      <Rectangle Canvas.Left="118" Canvas.Top="40" Width="7" Height="4" Fill="#FF4A3410" />
+      <Ellipse Canvas.Left="111.5" Canvas.Top="32" Width="20" Height="20" Opacity="{Binding OnboardLed}">
+        <Ellipse.Fill>
+          <RadialGradientBrush>
+            <GradientStop Color="#C0FFA020" Offset="0" />
+            <GradientStop Color="#00FFA020" Offset="1" />
+          </RadialGradientBrush>
+        </Ellipse.Fill>
+      </Ellipse>
+      <Rectangle Canvas.Left="118" Canvas.Top="40" Width="7" Height="4" Fill="#FFFFA020" Opacity="{Binding OnboardLed}" />
+      <TextBlock Canvas.Left="119.5" Canvas.Top="45" FontSize="4" Foreground="White" Text="L" />
+      <ItemsControl ItemsSource="{Binding Pins}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:PinViewModel}">
+            <Canvas>
+              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+            </Canvas>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>    </Canvas>
+  </DataTemplate>
+  <!-- Arduino Mega 2560: USB and the power jack on the left, D22-D53 on the double header at the right (pins from AvrBoards.cs). -->
+  <DataTemplate x:Key="Part.board.arduino-mega-2560" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="400" Height="210">
+      <Rectangle Width="400" Height="210" RadiusX="5" RadiusY="5" Fill="#FF00797F" Stroke="#FF00565A" />
+      <Rectangle Canvas.Left="-14" Canvas.Top="30" Width="60" Height="46" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
+      <Rectangle Canvas.Left="-8" Canvas.Top="150" Width="50" Height="36" RadiusX="2" RadiusY="2" Fill="#FF1E1F24" />
+      <Rectangle Canvas.Left="210" Canvas.Top="85" Width="50" Height="50" RenderTransformOrigin="0.5,0.5" Fill="#FF1E1F24">
+        <Rectangle.RenderTransform>
+          <RotateTransform Angle="45" />
+        </Rectangle.RenderTransform>
+      </Rectangle>
+      <TextBlock Canvas.Left="213" Canvas.Top="106" FontSize="6" Foreground="#FF8A93A6" Text="ATmega2560" />
+      <TextBlock Canvas.Left="100" Canvas.Top="60" FontSize="20" FontWeight="SemiBold" Foreground="#FFE3F4F4" Text="MEGA 2560" />
+      <Rectangle Canvas.Left="76" Canvas.Top="40" Width="7" Height="4" Fill="#FF4A3410" />
+      <Ellipse Canvas.Left="69.5" Canvas.Top="32" Width="20" Height="20" Opacity="{Binding OnboardLed}">
+        <Ellipse.Fill>
+          <RadialGradientBrush>
+            <GradientStop Color="#C0FFA020" Offset="0" />
+            <GradientStop Color="#00FFA020" Offset="1" />
+          </RadialGradientBrush>
+        </Ellipse.Fill>
+      </Ellipse>
+      <Rectangle Canvas.Left="76" Canvas.Top="40" Width="7" Height="4" Fill="#FFFFA020" Opacity="{Binding OnboardLed}" />
+      <TextBlock Canvas.Left="77.5" Canvas.Top="45" FontSize="4" Foreground="White" Text="L" />
+      <ItemsControl ItemsSource="{Binding Pins}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:PinViewModel}">
+            <Canvas>
+              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+            </Canvas>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>    </Canvas>
+  </DataTemplate>
+  <DataTemplate x:Key="ProMiniArt" DataType="{x:Type vm:PartViewModel}">
+    <Canvas Width="150" Height="70">
+      <Rectangle Width="150" Height="70" RadiusX="3" RadiusY="3" Fill="#FFB02A30" Stroke="#FF7E1E22" />
+      <Rectangle Canvas.Left="62" Canvas.Top="21" Width="28" Height="28" RenderTransformOrigin="0.5,0.5" Fill="#FF1E1F24">
+        <Rectangle.RenderTransform>
+          <RotateTransform Angle="45" />
+        </Rectangle.RenderTransform>
+      </Rectangle>
+      <TextBlock Canvas.Left="10" Canvas.Top="27" FontSize="6" FontWeight="SemiBold" Foreground="#FFF4E3E3" Text="PRO MINI" />
+      <Rectangle Canvas.Left="104" Canvas.Top="30" Width="7" Height="4" Fill="#FF4A3410" />
+      <Ellipse Canvas.Left="97.5" Canvas.Top="22" Width="20" Height="20" Opacity="{Binding OnboardLed}">
+        <Ellipse.Fill>
+          <RadialGradientBrush>
+            <GradientStop Color="#C0FFA020" Offset="0" />
+            <GradientStop Color="#00FFA020" Offset="1" />
+          </RadialGradientBrush>
+        </Ellipse.Fill>
+      </Ellipse>
+      <Rectangle Canvas.Left="104" Canvas.Top="30" Width="7" Height="4" Fill="#FFFFA020" Opacity="{Binding OnboardLed}" />
+      <TextBlock Canvas.Left="105.5" Canvas.Top="35" FontSize="4" Foreground="White" Text="L" />
+      <ItemsControl ItemsSource="{Binding Pins}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:PinViewModel}">
+            <Canvas>
+              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+            </Canvas>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>    </Canvas>
+  </DataTemplate>
+  <!-- Arduino Pro Mini: no USB, the FTDI end on the left, A4-A7 on inner pads (pins from AvrBoards.cs). -->
+  <DataTemplate x:Key="Part.board.arduino-pro-mini-5v" DataType="{x:Type vm:PartViewModel}">
+    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource ProMiniArt}" />
+  </DataTemplate>
+
+  <DataTemplate x:Key="Part.board.arduino-pro-mini-3v3" DataType="{x:Type vm:PartViewModel}">
+    <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource ProMiniArt}" />
+  </DataTemplate>
   <!-- ESP32 DevKit v1: USB on the left, the WROOM module with its antenna on the right (pins from Esp32DevKit.cs). -->
   <DataTemplate x:Key="Part.board.esp32-devkit-v1" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="230" Height="110">

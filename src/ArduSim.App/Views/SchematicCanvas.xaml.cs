@@ -227,6 +227,11 @@ public partial class SchematicCanvas : UserControl
         if (scene.IsLocked)
         {
             PartViewModel? part = scene.PartAt(world);
+            if (part is null && scene.WireAt(world, WireTolerancePx / _scale) is { } clickedWire)
+            {
+                scene.ClickWire(clickedWire);
+            }
+
             switch (part?.Type)
             {
                 case "pushbutton":

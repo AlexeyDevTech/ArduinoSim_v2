@@ -31,7 +31,7 @@ public static class Nano
         Id: Id,
         DisplayName: "Arduino Nano",
         Variant: "nano",
-        Defines: ["ARDUINO=10819", "ARDUINO_ARCH_SIM", "SIM_BOARD_NANO", "F_CPU=16000000L"],
+        Defines: ["ARDUINO=10819", "ARDUINO_ARCH_SIM", "SIM_BOARD_NANO", "ARDUINO_AVR_NANO", "F_CPU=16000000L"],
         Pins: [.. DigitalPins(), .. AnalogPins()],
         PowerPins:
         [
@@ -54,7 +54,8 @@ public static class Nano
         Height: 70,
         Timing: Timing,
         I2c: [new I2cPins(Sda: 18, Scl: 19)],
-        Spi: [new SpiPins(Mosi: 11, Miso: 12, Sck: 13, Ss: 10)]);
+        Spi: [new SpiPins(Mosi: 11, Miso: 12, Sck: 13, Ss: 10)],
+        Uarts: [new UartPins(Rx: 0, Tx: 1)]);
 
     private static (double X, double Y) Position(string name)
     {
@@ -89,7 +90,7 @@ public static class Nano
 /// <summary>All boards the simulator knows, by project id.</summary>
 public static class BoardCatalog
 {
-    public static IReadOnlyList<BoardProfile> All { get; } = [Nano.Profile, Esp32DevKit.Profile, NodeMcu.Profile, WemosD1Mini.Profile];
+    public static IReadOnlyList<BoardProfile> All { get; } = [Nano.Profile, Uno.Profile, Mega2560.Profile, ProMini.Profile5V, ProMini.Profile3V3, Esp32DevKit.Profile, NodeMcu.Profile, WemosD1Mini.Profile];
 
     public static BoardProfile? Find(string id) => All.FirstOrDefault(b => string.Equals(b.Id, id, StringComparison.OrdinalIgnoreCase));
 }

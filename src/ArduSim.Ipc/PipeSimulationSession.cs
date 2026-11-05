@@ -53,6 +53,7 @@ public sealed class PipeSimulationSession(string runnerPath) : ISimulationSessio
             "--project", start.ProjectDirectory, "--firmware", start.FirmwarePath,
             "--speed", double.IsPositiveInfinity(start.Speed) ? "max" : start.Speed.ToString(CultureInfo.InvariantCulture),
             "--seed", start.Seed.ToString(CultureInfo.InvariantCulture),
+            "--record", start.Record ? "1" : "0",
         })
         {
             info.ArgumentList.Add(argument);

@@ -221,7 +221,8 @@
           </Button>
           <Rectangle Width="1" Height="24" Fill="{DynamicResource Brush.Border}" Margin="8,0" />
 
-          <!-- Speed and board -->
+          <!-- Sound, speed and board -->
+          <CheckBox Style="{StaticResource CheckBox.Sound}" IsChecked="{Binding SoundOn}" ToolTip="{l:Loc Toolbar_Sound}" Margin="0,0,6,0" VerticalAlignment="Center" />
           <ComboBox ItemsSource="{Binding Speeds}" SelectedItem="{Binding SelectedSpeed}" MinWidth="76" ToolTip="{l:Loc Toolbar_Speed}" Margin="0,0,6,0">
             <ComboBox.ItemTemplate>
               <DataTemplate DataType="{x:Type vm:SpeedOption}">
@@ -605,6 +606,8 @@
               <TextBox Text="{Binding SerialInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource Font.Mono}" Height="28" KeyDown="OnSerialInputKeyDown" />
             </DockPanel>
             <StackPanel DockPanel.Dock="Right" Margin="12,0,0,0" Width="150">
+              <ComboBox ItemsSource="{Binding SerialPorts}" SelectedItem="{Binding SelectedSerialPort}" DisplayMemberPath="Name" ToolTip="{l:Loc Serial_Port}" Margin="0,0,0,8"
+                        Visibility="{Binding HasSeveralSerialPorts, Converter={StaticResource BoolToVisibility}}" />
               <TextBlock Text="{Binding BaudText}" Style="{StaticResource Caption}" Margin="0,0,0,8" />
               <CheckBox Content="{l:Loc Serial_AutoScroll}" IsChecked="{Binding AutoScroll}" Margin="0,0,0,8" />
               <Button Content="{l:Loc Serial_Clear}" Command="{Binding ClearSerialCommand}" HorizontalAlignment="Left" />
@@ -686,6 +689,42 @@
             </ListBox.ItemTemplate>
           </ListBox>
         </TabItem>
+        <TabItem Header="{l:Loc Tab_Diagram}">
+          <DockPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="False">
+              <CheckBox Content="{l:Loc Timeline_Record}" IsChecked="{Binding Timeline.Recording}" VerticalAlignment="Center" Margin="0,0,12,0" />
+              <Button Content="{l:Loc Serial_Clear}" Command="{Binding Timeline.ClearCommand}" Margin="0,0,12,0" />
+              <Button x:Name="AddSignalButton" Content="{l:Loc Timeline_AddSignal}" Click="OnAddSignal" Margin="0,0,6,0" />
+              <Button x:Name="AddBusButton" Content="{l:Loc Timeline_AddBus}" Click="OnAddBus" Margin="0,0,12,0" />
+              <TextBlock Text="{Binding Timeline.Readout}" Style="{StaticResource Caption}" VerticalAlignment="Center" FontFamily="{DynamicResource Font.Mono}" />
+              <TextBlock Text="{l:Loc Timeline_Gaps}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="{DynamicResource Brush.Warning}"
+                         Visibility="{Binding Timeline.HasGaps, Converter={StaticResource BoolToVisibility}}" />
+            </DockPanel>
+            <Popup x:Name="CustomBusPopup" DockPanel.Dock="Top" PlacementTarget="{Binding ElementName=AddBusButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
+              <Border Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}" Padding="12">
+                <StackPanel Orientation="Horizontal" DataContext="{Binding Timeline}">
+                  <ComboBox ItemsSource="{Binding CustomKinds}" SelectedItem="{Binding CustomKind}" MinWidth="70" VerticalAlignment="Center" Margin="0,0,12,0" />
+                  <TextBlock Text="{Binding CustomFirstLabel}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                  <ComboBox ItemsSource="{Binding AllPins}" SelectedItem="{Binding CustomFirst}" DisplayMemberPath="Name" MinWidth="70" VerticalAlignment="Center" Margin="0,0,12,0" />
+                  <StackPanel Orientation="Horizontal" Visibility="{Binding CustomHasSecond, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{Binding CustomSecondLabel}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ComboBox ItemsSource="{Binding AllPins}" SelectedItem="{Binding CustomSecond}" DisplayMemberPath="Name" MinWidth="70" VerticalAlignment="Center" Margin="0,0,12,0" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Visibility="{Binding CustomIsSpi, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="CS" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ComboBox ItemsSource="{Binding AllPins}" SelectedItem="{Binding CustomSelect}" DisplayMemberPath="Name" MinWidth="70" VerticalAlignment="Center" Margin="0,0,12,0" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Visibility="{Binding CustomIsUart, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{l:Loc Timeline_Baud}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ComboBox ItemsSource="{Binding CustomBauds}" SelectedItem="{Binding CustomBaud}" MinWidth="80" VerticalAlignment="Center" Margin="0,0,12,0" />
+                  </StackPanel>
+                  <Button Content="{l:Loc Timeline_Add}" Command="{Binding AddCustomBusCommand}" Click="OnCustomBusAdded" />
+                </StackPanel>
+              </Border>
+            </Popup>
+            <v:TimelineView Timeline="{Binding Timeline}" Version="{Binding Timeline.Version}" />
+          </DockPanel>
+        </TabItem>
       </TabControl>
       <!-- Collapsed: a strip with the tab names -->
       <Border Background="{DynamicResource Brush.Surface}" Visibility="{Binding BottomOpen, Converter={StaticResource InvertBoolToVisibility}}">
@@ -703,6 +742,7 @@
                 </Border>
               </StackPanel>
             </Button>
+            <Button Style="{StaticResource Button.Flat}" Content="{l:Loc Tab_Diagram}" Click="OnOpenBottomTab" Tag="4" Foreground="{DynamicResource Brush.Text.Secondary}" />
           </StackPanel>
         </DockPanel>
       </Border>

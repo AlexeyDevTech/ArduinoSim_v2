@@ -28,7 +28,9 @@ public sealed record ArduinoLibrary(string Name, string Directory, LibraryLayout
 
     public static ArduinoLibrary FromDirectory(string directory)
     {
-        bool recursive = File.Exists(Path.Combine(directory, "library.properties")) && System.IO.Directory.Exists(Path.Combine(directory, "src"));
+        // Without library.properties a src folder still counts when no header sits in the root: PlatformIO's lib/<name>/src.
+        bool recursive = System.IO.Directory.Exists(Path.Combine(directory, "src"))
+            && (File.Exists(Path.Combine(directory, "library.properties")) || !System.IO.Directory.EnumerateFiles(directory, "*.h").Any());
         return new ArduinoLibrary(Path.GetFileName(directory), directory, recursive ? LibraryLayout.Recursive : LibraryLayout.Flat);
     }
 

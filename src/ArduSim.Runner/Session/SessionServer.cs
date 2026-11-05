@@ -2,6 +2,7 @@ using System.Diagnostics;
 using ArduSim.Core.Components;
 using ArduSim.Core.Diagnostics;
 using ArduSim.Core.Simulation;
+using ArduSim.Core.Tracing;
 using ArduSim.Ipc;
 
 namespace ArduSim.Runner.Session;
@@ -20,6 +21,7 @@ internal sealed class SessionServer
     private readonly Dictionary<int, PinUpdate> _pins = [];
     private readonly HashSet<SimComponent> _components = [];
     private readonly List<byte> _serial = [];
+    private readonly Dictionary<int, List<byte>> _otherSerial = [];
     private readonly List<LogEntry> _logs = [];
     private long _lastSent;
     private bool _first = true;
@@ -34,9 +36,18 @@ internal sealed class SessionServer
             component.StateChanged += c => _components.Add(c);
         }
 
-        if (host.Mcu.Uarts.Count > 0)
+        foreach (UartPort uart in host.Mcu.Uarts)
         {
-            host.Mcu.Uarts[0].ByteTransmitted += (_, b) => _serial.Add(b);
+            if (uart.Index == 0)
+            {
+                uart.ByteTransmitted += (_, b) => _serial.Add(b);
+            }
+            else
+            {
+                var bytes = new List<byte>();
+                _otherSerial[uart.Index] = bytes;
+                uart.ByteTransmitted += (_, b) => bytes.Add(b);
+            }
         }
 
         host.Engine.Log.Reported += d => _logs.Add(new LogEntry(d.Time, (byte)d.Severity, d.Code, d.Message, d.ComponentId, d.Key, d.Args));
@@ -78,6 +89,9 @@ internal sealed class SessionServer
             case StopRun:
                 _host.RequestStop(StopReason.UserRequest);
                 break;
+            case SetRecording recording:
+                _host.Post(() => _host.Mcu.SetRecording(recording.Enabled));
+                break;
         }
     }
 
@@ -98,6 +112,45 @@ internal sealed class SessionServer
             ? new DisplayData((byte)frame.Kind, frame.Columns, frame.Rows, (byte)frame.Status, (float)frame.Contrast, frame.Dots.ToArray())
             : null;
 
+    private TraceBlock? DrainTrace()
+    {
+        SignalRecorder recorder = _host.Mcu.Recorder;
+        if (!recorder.HasData)
+        {
+            return null;
+        }
+
+        (PinSample[] pins, BusEvent[] bus, bool overflowed) = recorder.Drain();
+        var pinTimes = new ulong[pins.Length];
+        var pinData = new byte[pins.Length * 2];
+        var pinValues = new int[pins.Length];
+        for (int i = 0; i < pins.Length; i++)
+        {
+            pinTimes[i] = pins[i].Time;
+            pinData[2 * i] = pins[i].Pin;
+            pinData[(2 * i) + 1] = (byte)pins[i].Level;
+            pinValues[i] = pins[i].Value;
+        }
+
+        var busTimes = new ulong[bus.Length];
+        var busDurations = new uint[bus.Length];
+        var busData = new byte[bus.Length * 6];
+        for (int i = 0; i < bus.Length; i++)
+        {
+            BusEvent e = bus[i];
+            busTimes[i] = e.Time;
+            busDurations[i] = e.Duration;
+            busData[6 * i] = (byte)e.Kind;
+            busData[(6 * i) + 1] = e.Value;
+            busData[(6 * i) + 2] = e.Extra;
+            busData[(6 * i) + 3] = e.PinA;
+            busData[(6 * i) + 4] = e.PinB;
+            busData[(6 * i) + 5] = e.PinC;
+        }
+
+        return new TraceBlock(pinTimes, pinData, pinValues, busTimes, busDurations, busData, overflowed);
+    }
+
     private void Publish(bool force)
     {
         long now = Stopwatch.GetTimestamp();
@@ -106,7 +159,7 @@ internal sealed class SessionServer
             return;
         }
 
-        bool empty = _pins.Count == 0 && _components.Count == 0 && _serial.Count == 0 && _logs.Count == 0;
+        bool empty = _pins.Count == 0 && _components.Count == 0 && _serial.Count == 0 && _logs.Count == 0 && !_host.Mcu.Recorder.HasData && _otherSerial.Values.All(b => b.Count == 0);
         if (!force && !_first && empty && now - _lastSent < 4 * Interval)
         {
             return; // nothing new: keep the clock readout fresh at 15 Hz only
@@ -123,10 +176,17 @@ internal sealed class SessionServer
             pins.ToList(),
             components.Select(c => new ComponentUpdate(c.Id, new Dictionary<string, double>(c.State), Display(c))).ToList(),
             [.. _serial],
-            [.. _logs]);
+            [.. _logs],
+            _otherSerial.Where(p => p.Value.Count > 0).Select(p => new SerialOutput(p.Key, [.. p.Value])).ToList(),
+            DrainTrace());
         _pins.Clear();
         _components.Clear();
         _serial.Clear();
+        foreach (List<byte> bytes in _otherSerial.Values)
+        {
+            bytes.Clear();
+        }
+
         _logs.Clear();
         _first = false;
         _lastSent = now;

@@ -1,6 +1,6 @@
 namespace ArduSim.Build.Sketches;
 
-/// <summary>An Arduino sketch folder: the main .ino (named after the folder), other .ino files and companion sources.</summary>
+/// <summary>An Arduino sketch folder: the main .ino (named after the folder), other .ino files and companion sources; or plain C++ sources without any .ino (a PlatformIO <c>src</c> folder).</summary>
 public sealed record Sketch(string Directory, string Name, IReadOnlyList<string> InoFiles, IReadOnlyList<string> SourceFiles)
 {
     private static readonly string[] InoExtensions = [".ino", ".pde"];
@@ -10,7 +10,8 @@ public sealed record Sketch(string Directory, string Name, IReadOnlyList<string>
 
     /// <summary>
     /// Reads a sketch folder the way arduino-cli does: the main file first, the other .ino files
-    /// alphabetically; .cpp/.c next to them and anything under <c>src/</c> compile as-is.
+    /// alphabetically; .cpp/.c next to them and anything under <c>src/</c> compile as-is. A folder with
+    /// no .ino at all is a plain C++ project, as PlatformIO's: every source under it compiles.
     /// </summary>
     public static Sketch Load(string directory)
     {
@@ -26,7 +27,11 @@ public sealed record Sketch(string Directory, string Name, IReadOnlyList<string>
             .ToList();
         if (inos.Count == 0)
         {
-            throw new SketchException($"No .ino file in {full}");
+            var plain = new List<string>();
+            AddSources(plain, full, SearchOption.AllDirectories);
+            return plain.Count > 0
+                ? new Sketch(full, folderName, [], plain)
+                : throw new SketchException($"No .ino or .cpp file in {full}");
         }
 
         string? main = inos.FirstOrDefault(f => string.Equals(Path.GetFileNameWithoutExtension(f), folderName, StringComparison.OrdinalIgnoreCase));

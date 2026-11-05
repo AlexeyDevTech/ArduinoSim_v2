@@ -14,6 +14,23 @@ void set_interrupts_enabled(bool enabled);
 
 namespace {
 
+#if defined(SIM_BOARD_MEGA)
+constexpr int PortCount = 11;
+// Pins of each port by bit (-1: bit not wired to a board pin): the ATmega2560 on the Mega.
+constexpr int8_t PortPins[PortCount][8] = {
+    {22, 23, 24, 25, 26, 27, 28, 29},          // A
+    {53, 52, 51, 50, 10, 11, 12, 13},          // B
+    {37, 36, 35, 34, 33, 32, 31, 30},          // C
+    {21, 20, 19, 18, -1, -1, -1, 38},          // D
+    {0, 1, -1, 5, 2, 3, -1, -1},               // E
+    {54, 55, 56, 57, 58, 59, 60, 61},          // F: A0-A7
+    {41, 40, 39, -1, -1, 4, -1, -1},           // G
+    {17, 16, -1, 6, 7, 8, 9, -1},              // H
+    {15, 14, -1, -1, -1, -1, -1, -1},          // J
+    {62, 63, 64, 65, 66, 67, 68, 69},          // K: A8-A15
+    {49, 48, 47, 46, 45, 44, 43, 42},          // L
+};
+#else
 constexpr int PortCount = 3;
 // Pins of each port by bit (-1: bit not wired to a board pin). B: D8-D13, C: A0-A5, D: D0-D7.
 constexpr int8_t PortPins[PortCount][8] = {
@@ -21,6 +38,7 @@ constexpr int8_t PortPins[PortCount][8] = {
     {14, 15, 16, 17, 18, 19, -1, -1},
     {0, 1, 2, 3, 4, 5, 6, 7},
 };
+#endif
 
 uint8_t g_output[PortCount];
 uint8_t g_direction[PortCount];
@@ -28,19 +46,16 @@ uint32_t g_warned[4];
 
 bool locate(uint8_t pin, uint8_t& port, uint8_t& bit)
 {
-    if (pin < 8) {
-        port = PortD;
-        bit = pin;
-    } else if (pin < 14) {
-        port = PortB;
-        bit = static_cast<uint8_t>(pin - 8);
-    } else if (pin < 20) {
-        port = PortC;
-        bit = static_cast<uint8_t>(pin - 14);
-    } else {
-        return false;
+    for (uint8_t p = 0; p < PortCount; p++) {
+        for (uint8_t b = 0; b < 8; b++) {
+            if (PortPins[p][b] == static_cast<int8_t>(pin)) {
+                port = p;
+                bit = b;
+                return true;
+            }
+        }
     }
-    return true;
+    return false;
 }
 
 void set_bit(uint8_t& value, uint8_t bit, bool on)

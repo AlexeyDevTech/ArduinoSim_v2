@@ -1,3 +1,4 @@
+using ArduSim.Core.Boards;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -198,6 +199,38 @@ public partial class MainWindow : Window
         BottomRow.MaxHeight = _viewModel.BottomOpen ? double.PositiveInfinity : CollapsedBottom;
         BottomRow.Height = new GridLength(_viewModel.BottomOpen ? _bottomHeight : CollapsedBottom);
     }
+
+    private void OnAddSignal(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { PlacementTarget = AddSignalButton, Placement = PlacementMode.Bottom };
+        foreach (BoardPin pin in _viewModel.Timeline.PinChoices)
+        {
+            menu.Items.Add(new MenuItem { Header = pin.Name, Command = _viewModel.Timeline.AddPinCommand, CommandParameter = pin });
+        }
+
+        menu.IsOpen = menu.Items.Count > 0;
+    }
+
+    private void OnAddBus(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { PlacementTarget = AddBusButton, Placement = PlacementMode.Bottom };
+        foreach (BusChoice choice in _viewModel.Timeline.BusChoices)
+        {
+            menu.Items.Add(new MenuItem { Header = choice.Title, Command = _viewModel.Timeline.AddBusCommand, CommandParameter = choice });
+        }
+
+        if (menu.Items.Count > 0)
+        {
+            var other = new MenuItem { Header = Strings.Get("Timeline_OtherPins") };
+            other.Click += (_, _) => CustomBusPopup.IsOpen = true;
+            menu.Items.Add(new Separator());
+            menu.Items.Add(other);
+        }
+
+        menu.IsOpen = menu.Items.Count > 0;
+    }
+
+    private void OnCustomBusAdded(object sender, RoutedEventArgs e) => CustomBusPopup.IsOpen = false;
 
     private void OnOpenBottomTab(object sender, RoutedEventArgs e)
     {

@@ -31,6 +31,7 @@ public partial class App : Application
         builder.Services.AddSingleton(new AppEnvironment(inProcess: e.Args.Contains("--inproc")));
         builder.Services.AddSingleton<FirmwareBuildService>();
         builder.Services.AddSingleton<UserState>();
+            builder.Services.AddSingleton<ITonePlayer, WaveOutTonePlayer>();
         builder.Services.AddSingleton<MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
 

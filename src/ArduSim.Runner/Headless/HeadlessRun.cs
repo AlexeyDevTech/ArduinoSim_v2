@@ -12,6 +12,7 @@ using ArduSim.Core.Displays;
 using ArduSim.Core.Projects;
 using ArduSim.Core.Simulation;
 using ArduSim.Core.Timing;
+using ArduSim.Core.Tracing;
 using ArduSim.Ipc;
 using ArduSim.Runner.Interop;
 
@@ -125,10 +126,11 @@ internal static class HeadlessRun
             project.SketchDirectory(projectDirectory),
             buildDirectory ?? paths.BuildDirectoryFor(projectDirectory),
             board.Variant,
-            board.Defines,
+            [.. board.Defines, .. project.Settings.Defines ?? []],
             ArduSimPaths.LibraryRoots(project.LibraryDirectories(projectDirectory)),
             board.Core,
-            board.CoreBase);
+            board.CoreBase,
+            [.. project.IncludeDirectories(projectDirectory)]);
         return await builder.BuildAsync(request, CancellationToken.None);
     }
 
@@ -174,6 +176,26 @@ internal static class HeadlessRun
         { } frame => string.Join(" ", frame.Text.Select(row => "\"" + row + "\"")),
         null => "",
     };
+
+    // One line per event: "P time pin level value" and "B time duration kind value extra pinA pinB pinC".
+    private static void WriteTrace(SignalRecorder recorder, StreamWriter file)
+    {
+        (PinSample[] pins, BusEvent[] bus, bool overflowed) = recorder.Drain();
+        foreach (PinSample sample in pins)
+        {
+            file.WriteLine(string.Create(CultureInfo.InvariantCulture, $"P {sample.Time} {sample.Pin} {sample.Level} {sample.Value}"));
+        }
+
+        foreach (BusEvent e in bus)
+        {
+            file.WriteLine(string.Create(CultureInfo.InvariantCulture, $"B {e.Time} {e.Duration} {e.Kind} {e.Value:X2} {e.Extra:X2} {e.PinA} {e.PinB} {e.PinC}"));
+        }
+
+        if (overflowed)
+        {
+            file.WriteLine("overflow");
+        }
+    }
 
     // Pixels of `size` bytes with at least one byte that passes.
     private static int Count(ReadOnlySpan<byte> pixels, int size, Func<byte, bool> passes)
@@ -295,9 +317,10 @@ internal static class HeadlessRun
         }
 
         FileStream? dump = options.DumpSerial is null ? null : new FileStream(options.DumpSerial, FileMode.Create, FileAccess.Write, FileShare.Read);
-        var line = new StringBuilder();
+        var lines = host.Mcu.Uarts.ToDictionary(u => u.Index, _ => new StringBuilder());
         foreach (UartPort uart in host.Mcu.Uarts)
         {
+            StringBuilder line = lines[uart.Index];
             uart.ByteTransmitted += (port, value) =>
             {
                 dump?.WriteByte(value);
@@ -316,11 +339,33 @@ internal static class HeadlessRun
         host.Engine.Log.Reported += d =>
             output.WriteLine($"{Stamp()} {d.Severity.ToString().ToLowerInvariant()}: {d.Message}");
 
+        StreamWriter? traceFile = options.DumpTrace is null ? null : new StreamWriter(options.DumpTrace);
+        if (traceFile is not null)
+        {
+            host.Mcu.SetRecording(true);
+            host.Tick = () =>
+            {
+                if (host.Mcu.Recorder.Count >= 100_000)
+                {
+                    WriteTrace(host.Mcu.Recorder, traceFile);
+                }
+            };
+        }
+
         host.Stopping = reason =>
         {
-            if (line.Length > 0)
+            foreach (UartPort uart in host.Mcu.Uarts)
             {
-                output.WriteLine($"{Stamp()} Serial: {line}");
+                if (lines[uart.Index].Length > 0)
+                {
+                    output.WriteLine($"{Stamp()} {uart.Name}: {lines[uart.Index]}");
+                }
+            }
+
+            if (traceFile is not null)
+            {
+                WriteTrace(host.Mcu.Recorder, traceFile);
+                traceFile.Dispose();
             }
 
             foreach (Action flush in displays)

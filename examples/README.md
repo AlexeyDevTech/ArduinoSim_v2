@@ -50,3 +50,8 @@ One folder per example project (ADR-008 layout). Every example is built and run 
 | OledSsd1309 | U8g2 on a 2.42" SSD1309 over SPI: a frame, a title and a moving bar |
 | OledSsd1327Esp32 | Adafruit_SSD1327 on a 1.5" 128x128 grayscale OLED (ESP32, I2C): sixteen gray levels |
 | LcdA02 | a 1602 LCD with the A02 ROM: "ПРИВЕТ, МИР!" and Latin-1 letters |
+| UnoBlink | an Uno R3: its LED and one on D7 blink at the rate set by the pot on A0 |
+| Mega2560Ports | a Mega 2560: a running light written to PORTA, the pot on A15 on Serial, steps on Serial1 (pick the port in the Monitor) |
+| ProMini3v3 | a Pro Mini at 3.3 V and 8 MHz: F_CPU, the pot in volts |
+| BuzzerMelody | tone() plays a scale on a buzzer: listen with sound on |
+| LogicAnalyzerDemo | I2C, SPI, Serial and bit-banged traffic to look at on the Диаграмма tab |

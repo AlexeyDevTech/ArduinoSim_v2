@@ -8,7 +8,11 @@
 
 namespace sim {
 
+#if defined(SIM_BOARD_MEGA)
+enum PortId : uint8_t { PortA, PortB, PortC, PortD, PortE, PortF, PortG, PortH, PortJ, PortK, PortL };
+#else
 enum PortId : uint8_t { PortB = 0, PortC = 1, PortD = 2 };
+#endif
 enum PortRegisterKind : uint8_t { PortOutput, PortDirection, PortInput };
 
 uint8_t port_register_read(uint8_t port, uint8_t kind);
@@ -80,6 +84,32 @@ inline constexpr PortRegister PINC_{PortC, PortInput};
 inline constexpr PortRegister PORTD_{PortD, PortOutput};
 inline constexpr PortRegister DDRD_{PortD, PortDirection};
 inline constexpr PortRegister PIND_{PortD, PortInput};
+#if defined(SIM_BOARD_MEGA)
+inline constexpr PortRegister PORTA_{PortA, PortOutput};
+inline constexpr PortRegister DDRA_{PortA, PortDirection};
+inline constexpr PortRegister PINA_{PortA, PortInput};
+inline constexpr PortRegister PORTE_{PortE, PortOutput};
+inline constexpr PortRegister DDRE_{PortE, PortDirection};
+inline constexpr PortRegister PINE_{PortE, PortInput};
+inline constexpr PortRegister PORTF_{PortF, PortOutput};
+inline constexpr PortRegister DDRF_{PortF, PortDirection};
+inline constexpr PortRegister PINF_{PortF, PortInput};
+inline constexpr PortRegister PORTG_{PortG, PortOutput};
+inline constexpr PortRegister DDRG_{PortG, PortDirection};
+inline constexpr PortRegister PING_{PortG, PortInput};
+inline constexpr PortRegister PORTH_{PortH, PortOutput};
+inline constexpr PortRegister DDRH_{PortH, PortDirection};
+inline constexpr PortRegister PINH_{PortH, PortInput};
+inline constexpr PortRegister PORTJ_{PortJ, PortOutput};
+inline constexpr PortRegister DDRJ_{PortJ, PortDirection};
+inline constexpr PortRegister PINJ_{PortJ, PortInput};
+inline constexpr PortRegister PORTK_{PortK, PortOutput};
+inline constexpr PortRegister DDRK_{PortK, PortDirection};
+inline constexpr PortRegister PINK_{PortK, PortInput};
+inline constexpr PortRegister PORTL_{PortL, PortOutput};
+inline constexpr PortRegister DDRL_{PortL, PortDirection};
+inline constexpr PortRegister PINL_{PortL, PortInput};
+#endif
 inline constexpr StatusRegister SREG_{};
 
 #define SIM_UNSIMULATED_8(id, name) inline constexpr UnsimulatedRegister<uint8_t> name##_{id, #name};
@@ -182,6 +212,32 @@ SIM_UNSIMULATED_8(82, SPMCSR)
 #define PORTD (::sim::reg::PORTD_)
 #define DDRD (::sim::reg::DDRD_)
 #define PIND (::sim::reg::PIND_)
+#if defined(SIM_BOARD_MEGA)
+#define PORTA (::sim::reg::PORTA_)
+#define DDRA (::sim::reg::DDRA_)
+#define PINA (::sim::reg::PINA_)
+#define PORTE (::sim::reg::PORTE_)
+#define DDRE (::sim::reg::DDRE_)
+#define PINE (::sim::reg::PINE_)
+#define PORTF (::sim::reg::PORTF_)
+#define DDRF (::sim::reg::DDRF_)
+#define PINF (::sim::reg::PINF_)
+#define PORTG (::sim::reg::PORTG_)
+#define DDRG (::sim::reg::DDRG_)
+#define PING (::sim::reg::PING_)
+#define PORTH (::sim::reg::PORTH_)
+#define DDRH (::sim::reg::DDRH_)
+#define PINH (::sim::reg::PINH_)
+#define PORTJ (::sim::reg::PORTJ_)
+#define DDRJ (::sim::reg::DDRJ_)
+#define PINJ (::sim::reg::PINJ_)
+#define PORTK (::sim::reg::PORTK_)
+#define DDRK (::sim::reg::DDRK_)
+#define PINK (::sim::reg::PINK_)
+#define PORTL (::sim::reg::PORTL_)
+#define DDRL (::sim::reg::DDRL_)
+#define PINL (::sim::reg::PINL_)
+#endif
 #define SREG (::sim::reg::SREG_)
 
 #define TCCR0A (::sim::reg::TCCR0A_)

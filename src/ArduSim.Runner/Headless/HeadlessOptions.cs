@@ -13,7 +13,8 @@ internal sealed record HeadlessOptions(
     string? BuildDirectory,
     IReadOnlyList<ScheduledInput> Inputs,
     string? DumpDisplay = null,
-    bool NoNetwork = false)
+    bool NoNetwork = false,
+    string? DumpTrace = null)
 {
     public const string Usage = """
         Usage: ArduSim.Runner --project <folder> [options]
@@ -22,7 +23,8 @@ internal sealed record HeadlessOptions(
           --run-for <ms>         stop after this much virtual time (default: until Ctrl+C)
           --speed <x|max>        pacing: 1 = real time, 0.1, 10, ... or max (default: max)
           --dump-serial <file>   write everything the sketch sends on Serial to a file
-          --dump-display <file>  at the end, write the display as a grayscale PNG (several displays: <file>-<part>.png)
+          --dump-display <file>  at the end, write the display as a PNG (several displays: <file>-<part>.png)
+          --dump-trace <file>    write what the logic analyzer records: pin changes and hardware bus bytes, as text
           --seed <n>             seed for floating inputs and analog noise (default: 1)
           --input <ms>:<part>:<name>=<value>
                                  apply a part input at a virtual time, e.g. 500:btn1:pressed=1 (repeatable)
@@ -39,6 +41,7 @@ internal sealed record HeadlessOptions(
         double speed = double.PositiveInfinity;
         string? dumpSerial = null;
         string? dumpDisplay = null;
+        string? dumpTrace = null;
         int seed = 1;
         bool trace = true;
         string? buildDirectory = null;
@@ -64,6 +67,9 @@ internal sealed record HeadlessOptions(
                     break;
                 case "--dump-display":
                     dumpDisplay = Path.GetFullPath(Value(args, ref i, arg));
+                    break;
+                case "--dump-trace":
+                    dumpTrace = Path.GetFullPath(Value(args, ref i, arg));
                     break;
                 case "--seed":
                     seed = (int)Number(Value(args, ref i, arg), arg);
@@ -95,7 +101,7 @@ internal sealed record HeadlessOptions(
             throw new UsageException("--run-for and --speed must be positive.");
         }
 
-        return new HeadlessOptions(Path.GetFullPath(project), runFor, speed, dumpSerial is null ? null : Path.GetFullPath(dumpSerial), seed, trace, buildDirectory, inputs, dumpDisplay, noNetwork);
+        return new HeadlessOptions(Path.GetFullPath(project), runFor, speed, dumpSerial is null ? null : Path.GetFullPath(dumpSerial), seed, trace, buildDirectory, inputs, dumpDisplay, noNetwork, dumpTrace);
     }
 
     private static string Value(IReadOnlyList<string> args, ref int i, string name) =>

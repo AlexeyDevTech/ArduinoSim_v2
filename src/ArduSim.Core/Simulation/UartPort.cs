@@ -28,6 +28,17 @@ public sealed class UartPort
     /// <summary>A byte has left the TX pin completely (end of its stop bit).</summary>
     public event Action<UartPort, byte>? ByteTransmitted;
 
+    /// <summary>A frame starts on the TX line (value, start time, duration).</summary>
+    public event Action<UartPort, byte, ulong, ulong>? TxFrameStarted;
+
+    /// <summary>A frame has come in on the RX line (value, start time, duration).</summary>
+    public event Action<UartPort, byte, ulong, ulong>? RxFrameArrived;
+
+    /// <summary>The port's RX and TX pins (chosen in begin() on boards that route anywhere); -1 when not on the board.</summary>
+    public int RxPin { get; set; } = -1;
+
+    public int TxPin { get; set; } = -1;
+
     public int Index { get; }
 
     public string Name => Index == 0 ? "Serial" : "Serial" + Index.ToString(CultureInfo.InvariantCulture);
@@ -108,7 +119,11 @@ public sealed class UartPort
         foreach (byte value in data)
         {
             at += frame;
-            _engine.Clock.ScheduleAt(at, () => Arrive(value));
+            _engine.Clock.ScheduleAt(at, () =>
+            {
+                RxFrameArrived?.Invoke(this, value, _engine.Clock.Now - frame, frame);
+                Arrive(value);
+            });
         }
     }
 
@@ -132,6 +147,7 @@ public sealed class UartPort
     {
         _shifting = true;
         _shiftRegister = value;
+        TxFrameStarted?.Invoke(this, value, _engine.Clock.Now, FrameTime);
         _engine.Clock.Schedule(FrameTime, FrameDone);
     }
 

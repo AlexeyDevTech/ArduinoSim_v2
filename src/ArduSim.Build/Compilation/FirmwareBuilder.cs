@@ -34,6 +34,7 @@ public sealed record ShimLayout(string Root)
 /// <param name="LibraryRoots">Library folders after the shim's own: project paths, Documents\Arduino\libraries, bundled.</param>
 /// <param name="Core">Folder under <c>firmware/shim/cores</c> for the board family.</param>
 /// <param name="CoreBase">A second folder under <c>cores</c> with code the family shares (searched after <paramref name="Core"/>), or null.</param>
+/// <param name="ExtraIncludes">Header folders for the sketch's own sources (a PlatformIO <c>include</c>), or null.</param>
 public sealed record FirmwareBuildRequest(
     string SketchDirectory,
     string OutputDirectory,
@@ -41,7 +42,8 @@ public sealed record FirmwareBuildRequest(
     IReadOnlyList<string> Defines,
     IReadOnlyList<string> LibraryRoots,
     string Core = "avr",
-    string? CoreBase = null);
+    string? CoreBase = null,
+    IReadOnlyList<string>? ExtraIncludes = null);
 
 public sealed record BuildStatistics(int Units, int CacheHits, bool Linked, TimeSpan Elapsed);
 
@@ -80,7 +82,7 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
         try
         {
             sketch = Sketch.Load(request.SketchDirectory);
-            preprocessed = SketchPreprocessor.Preprocess(sketch);
+            preprocessed = sketch.InoFiles.Count > 0 ? SketchPreprocessor.Preprocess(sketch) : null!;
         }
         catch (Exception e) when (e is SketchException or IOException)
         {
@@ -88,21 +90,30 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
         }
 
         string generated = Path.Combine(request.OutputDirectory, "sketch", sketch.Name + ".ino.cpp");
-        WriteIfChanged(generated, preprocessed.Code);
+        if (sketch.InoFiles.Count > 0)
+        {
+            WriteIfChanged(generated, preprocessed.Code);
+        }
 
         string[] cores = [shim.CoreDirectory(request.Core), .. request.CoreBase is { } shared ? [shim.CoreDirectory(shared)] : Array.Empty<string>()];
         string[] coreIncludes = [shim.IncludeDirectory, .. cores.Select(c => Path.Combine(c, "include")).Where(Directory.Exists), shim.VariantDirectory(request.Variant)];
         string[] roots = [.. cores.Select(c => Path.Combine(c, "libraries")).Where(Directory.Exists), shim.LibrariesDirectory, .. request.LibraryRoots];
         var resolver = new LibraryResolver(roots, coreIncludes, file => CompatReplacement(roots, file));
-        IEnumerable<string> sketchHeaders = Directory.EnumerateFiles(sketch.Directory, "*.h");
+        string[] sketchIncludes = [sketch.Directory, .. (request.ExtraIncludes ?? []).Where(Directory.Exists)];
+        IEnumerable<string> sketchHeaders = sketchIncludes.SelectMany(d => Directory.EnumerateFiles(d, "*.h"));
         LibraryResolution resolution = resolver.Resolve([.. sketch.InoFiles, .. sketch.SourceFiles, .. sketchHeaders]);
         string[] libraryIncludes = [.. coreIncludes, .. resolution.Libraries.SelectMany(l => l.IncludeDirectories)];
 
         // As the Arduino IDE (warnings "none" for libraries): the sketch sees the core and library
         // headers as system headers, and library sources compile without warnings, so the build
         // reports the sketch's own warnings, not third-party ones.
-        var units = new List<CompileUnit> { new(generated, libraryIncludes, [sketch.Directory], Quiet: false) };
-        units.AddRange(sketch.SourceFiles.Select(s => new CompileUnit(s, libraryIncludes, [sketch.Directory], Quiet: false)));
+        var units = new List<CompileUnit>();
+        if (sketch.InoFiles.Count > 0)
+        {
+            units.Add(new CompileUnit(generated, libraryIncludes, sketchIncludes, Quiet: false));
+        }
+
+        units.AddRange(sketch.SourceFiles.Select(s => new CompileUnit(s, libraryIncludes, sketchIncludes, Quiet: false)));
         units.AddRange(new[] { shim.SourceDirectory }.Concat(cores.Select(c => Path.Combine(c, "src"))).Where(Directory.Exists)
             .SelectMany(d => Directory.EnumerateFiles(d).Where(IsSource).Order(StringComparer.Ordinal))
             .Select(s => new CompileUnit(s, [], coreIncludes, Quiet: false)));

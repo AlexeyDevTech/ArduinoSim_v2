@@ -88,6 +88,8 @@ Panels collapse to a 24 px strip with a vertical label, so they can be reopened 
 - Double-click or Enter adds the part at the center of the view, selected.
 - Presets appear as their own rows (e.g. "LCD 1602 I2C" = LCD with interface I2C, ADR-006) *(M4)*.
 
+The toolbar has a speaker toggle next to the speed selector: buzzers sound or not, remembered between sessions *(M11)*.
+
 ### 2.4 Properties panel
 
 ```
@@ -133,11 +135,11 @@ Panels collapse to a 24 px strip with a vertical label, so they can be reopened 
 
 | Tab | Content |
 | --- | --- |
-| Монитор порта | Output (mono, autoscroll, optional time stamps), input line, line ending segmented, baud label, Очистить. |
+| Монитор порта | Output (mono, autoscroll, optional time stamps), input line, line ending segmented, baud label, Очистить. On boards with several UARTs, a port list above the baud label picks what the Monitor and Plotter show and where input goes *(M11)*. |
 | Плоттер *(M5)* | Live chart of numbers parsed from Serial lines (Arduino Serial Plotter format), auto-scaling, pause. |
 | Сборка | Left: parsed diagnostics (icon, file:line, message), click opens the editor at the location. Right: raw compiler output. Summary line with time and cache hits. |
 | Журнал | Simulation messages with time, severity filter (Все / Предупреждения / Ошибки), "Показать" jumps to and flashes the part. The tab shows a count badge for unseen warnings. |
-| Диаграмма *(later)* | Pin timeline / logic analyzer (§4 later list). |
+| Диаграмма *(M11)* | Logic analyzer. Top: Запись (checkbox), Очистить, + Сигнал (board pins), + Шина (the board's I2C, SPI and UART; «Другие выводы…» opens a form for bit-banged buses on any pins), the scale and Δ. Left: names, ✕ removes a row. Right: time ruler, one waveform per pin, one row of labeled frames per bus. Wheel zooms about the pointer, a drag pans, a click sets the marker Δ measures from. A click on a wire on the running schematic adds its board pins. Records while the tab is open and Запись is on. |
 
 ### 2.7 Start view (no project open)
 
@@ -152,7 +154,7 @@ Panels collapse to a 24 px strip with a vertical label, so they can be reopened 
 └──────────────────────────────────────────────────────┘
 ```
 
-New project: pick a folder and a board; the app creates `project.simproj.json`, `sketch/<name>.ino` with empty `setup()`/`loop()`, and opens the scene with the board placed.
+New project: pick a folder and a board; the app creates `project.simproj.json`, `sketch/<name>.ino` with empty `setup()`/`loop()`, and opens the scene with the board placed. Открыть папку… on a folder with `platformio.ini` and no project imports it in place *(M11)*.
 
 ### 2.8 Banners, dialogs, toasts
 

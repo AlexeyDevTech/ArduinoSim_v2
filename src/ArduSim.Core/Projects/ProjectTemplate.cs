@@ -50,6 +50,26 @@ public static class ProjectTemplate
         return project;
     }
 
+    /// <summary>
+    /// Creates <c>project.simproj.json</c> beside an existing sketch folder (an imported PlatformIO
+    /// project): the board alone on the scene, the sketch and its settings where they already are.
+    /// </summary>
+    public static ProjectFile CreateAround(string directory, string boardType, string sketchPath, ProjectSettings settings)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(directory);
+        ArgumentException.ThrowIfNullOrEmpty(boardType);
+        var project = new ProjectFile
+        {
+            SchemaVersion = ProjectFile.CurrentSchemaVersion,
+            Board = boardType,
+            SketchPath = sketchPath,
+            Scene = new SceneDocument { Components = [new ComponentDocument { Id = BoardId, Type = boardType, X = 100, Y = 300 }] },
+            Settings = settings,
+        };
+        project.Save(directory);
+        return project;
+    }
+
     /// <summary>The folder name with characters a sketch name cannot hold replaced by <c>_</c>.</summary>
     public static string SketchName(string directory)
     {

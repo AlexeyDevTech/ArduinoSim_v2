@@ -94,7 +94,7 @@ In the order of brief §4 "Later". Each milestone ends in examples that build an
 
 **M10 — Displays ✅ (2026-11-03).** SSD1309, SSD1327 (grayscale), ST7735/ST7789, ILI9341, PCD8544 (Nokia 5110), the HD44780 A02 ROM; with Adafruit_ST7735/ST7789, Adafruit_ILI9341, Adafruit_PCD8544 and U8g2 examples (ADR-013). Seven examples run headless in `dotnet test` and on the canvas. Not yet: touch controllers (XPT2046), TFT_eSPI, parallel TFT shields, RAMRD pixel reads, the TFT dummy read clock, SSD1309/SSD1327 scroll with vertical offset combinations beyond the datasheet figures, a Cyrillic ROM beyond A02.
 
-**M11 — Tools and boards.** Pin timeline / logic analyzer with I2C, SPI and UART decoders; buzzer audio; Uno, Mega 2560 and Pro Mini profiles; PlatformIO project import; self-contained publish (one folder, no .NET SDK needed).
+**M11 — Tools and boards ✅ (2026-11-05).** Pin timeline / logic analyzer with I2C, SPI and UART decoders; buzzer audio; Uno, Mega 2560 and Pro Mini profiles; PlatformIO project import; self-contained publish (one folder, no .NET SDK needed) (ADR-014, ADR-015). Not yet: saving the diagram's rows with the project, recording while the tab is closed, SPI modes other than 0 in hardware waveforms, sound for `analogWrite` on a buzzer, the Uno's and Mega's duplicate SDA/SCL headers, `lib_deps` downloads.
 
 Questions answered by the owner on 2026-11-02: the order above as in the brief; firmware ABI 2.0 (a clean major version, ADR-009); cooperative FreeRTOS tasks (ADR-009); a Wi-Fi mock plus a real network through the host (ADR-010), networks in the project settings and Preferences in `preferences.json`.
 

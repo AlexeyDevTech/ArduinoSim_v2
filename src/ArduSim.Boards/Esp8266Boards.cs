@@ -62,7 +62,8 @@ internal static class Esp8266
             CpuHz: 80_000_000,
             BusPinsAnywhere: true,
             PwmConfigurable: true,
-            PullResistance: 50_000)
+            PullResistance: 50_000,
+        Uarts: [new UartPins(Rx: 3, Tx: 1), new UartPins(Rx: -1, Tx: 2)])
         {
             Core = "esp8266",
             CoreBase = "esp-common",

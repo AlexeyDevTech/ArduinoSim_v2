@@ -480,4 +480,31 @@
   <data name="Log_lcd5110-supply" xml:space="preserve"><value>{0}: на VCC {1} В — выше рабочего диапазона PCD8544 (2,7–3,3 В); симуляция всё равно продолжается.</value></data>
   <data name="Accuracy_14_Title" xml:space="preserve"><value>Дисплеи M10</value></data>
   <data name="Accuracy_14_Body" xml:space="preserve"><value>TFT-контроллеры ST7735, ST7789 и ILI9341 получают команды и пиксели по SPI так же, как настоящие; гамма, питание и частота кадров не влияют на картинку, многобайтные чтения выровнены по байтам. Каждый байт SPI — отдельный вызов симулятора, поэтому при быстрой шине (ESP32, 40 МГц) отрисовка большого экрана может идти медленнее реального времени. Контраст Nokia 5110 приближён по напряжению VOP; яркость оттенков SSD1327 — по длительности импульса из таблицы серого. Знакогенератор A02 нарисован по таблице даташита HD44780; отдельные точки могут отличаться от конкретной микросхемы.</value></data>
+  <data name="Tab_Diagram" xml:space="preserve"><value>Диаграмма</value></data>
+  <data name="Timeline_Record" xml:space="preserve"><value>Запись</value></data>
+  <data name="Timeline_AddSignal" xml:space="preserve"><value>+ Сигнал</value></data>
+  <data name="Timeline_AddBus" xml:space="preserve"><value>+ Шина</value></data>
+  <data name="Timeline_Empty" xml:space="preserve"><value>Добавьте сигнал или шину кнопками выше; во время работы можно кликнуть по проводу на схеме.</value></data>
+  <data name="Timeline_Gaps" xml:space="preserve"><value>Часть событий потеряна: слишком быстро</value></data>
+  <data name="Timeline_PerDivision" xml:space="preserve"><value>{0}/дел</value></data>
+  <data name="Timeline_BusI2c" xml:space="preserve"><value>I2C ({0}, {1})</value></data>
+  <data name="Timeline_BusSpi" xml:space="preserve"><value>SPI ({0}, {1})</value></data>
+  <data name="Timeline_BusUartTx" xml:space="preserve"><value>{0} TX ({1})</value></data>
+  <data name="Timeline_BusUartRx" xml:space="preserve"><value>{0} RX ({1})</value></data>
+  <data name="Timeline_Pwm" xml:space="preserve"><value>ШИМ {0} %</value></data>
+  <data name="Timeline_Tone" xml:space="preserve"><value>тон {0} Гц</value></data>
+  <data name="Toast_WireNoPin" xml:space="preserve"><value>Этот провод не идёт к сигнальному выводу платы.</value></data>
+  <data name="Toolbar_Sound" xml:space="preserve"><value>Звук пищалки</value></data>
+  <data name="Serial_Port" xml:space="preserve"><value>Порт</value></data>
+  <data name="Unit_Microseconds" xml:space="preserve"><value>мкс</value></data>
+  <data name="Unit_Nanoseconds" xml:space="preserve"><value>нс</value></data>
+  <data name="Timeline_OtherPins" xml:space="preserve"><value>Другие выводы…</value></data>
+  <data name="Timeline_Line" xml:space="preserve"><value>Линия</value></data>
+  <data name="Timeline_Baud" xml:space="preserve"><value>Бод</value></data>
+  <data name="Timeline_Add" xml:space="preserve"><value>Добавить</value></data>
+  <data name="Timeline_BusUart" xml:space="preserve"><value>UART ({0}, {1})</value></data>
+  <data name="Toast_PlatformIoImported" xml:space="preserve"><value>Проект PlatformIO открыт. Плата на схеме, детали добавьте сами.</value></data>
+  <data name="Toast_PlatformIoMissing" xml:space="preserve"><value>Проект PlatformIO открыт, но нет библиотек: {0}.</value></data>
+  <data name="Accuracy_15_Title" xml:space="preserve"><value>Диаграмма и звук</value></data>
+  <data name="Accuracy_15_Body" xml:space="preserve"><value>Аппаратные I2C, SPI и UART передают байт одним вызовом, поэтому их форма сигнала на «Диаграмме» нарисована по байтам на настоящей частоте шины (SPI всегда как режим 0); значения байтов точные. Программные шины разбираются по настоящим фронтам. ШИМ и тон показаны полосой со значением, а не формой сигнала. Пищалка звучит только от tone(); очень короткий тон (меньше 16 мс) может потеряться.</value></data>
 </root>

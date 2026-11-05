@@ -67,6 +67,9 @@ public sealed record SpiPins(int Mosi, int Miso, int Sck, int Ss);
 /// <summary>Default pins of a hardware I2C bus (Nano: SDA A4, SCL A5); -1 where the bus has no default.</summary>
 public sealed record I2cPins(int Sda, int Scl);
 
+/// <summary>Default pins of a UART (Nano: RX 0, TX 1); -1 where the port has no such pin on the board.</summary>
+public sealed record UartPins(int Rx, int Tx);
+
 /// <summary>Everything the simulator and the build need to know about a board (ADR-007).</summary>
 /// <param name="Variant">Folder under <c>firmware/shim/variants</c>.</param>
 /// <param name="Defines">Compiler macros for the sketch.</param>
@@ -78,6 +81,7 @@ public sealed record I2cPins(int Sda, int Scl);
 /// <param name="BusPinsAnywhere">Bus and UART signals can be routed to any GPIO (the ESP32 GPIO matrix); otherwise only the defaults work.</param>
 /// <param name="PwmConfigurable">PWM frequency and resolution can be set (ESP32 LEDC); otherwise PWM is fixed at 8 bits.</param>
 /// <param name="PullResistance">Internal pull-up (and pull-down) resistance.</param>
+/// <param name="Uarts">Default pins of each UART, for the logic analyzer; null when unknown.</param>
 public sealed record BoardProfile(
     string Id,
     string DisplayName,
@@ -99,7 +103,8 @@ public sealed record BoardProfile(
     int CpuHz = 16_000_000,
     bool BusPinsAnywhere = false,
     bool PwmConfigurable = false,
-    double PullResistance = 35_000)
+    double PullResistance = 35_000,
+    IReadOnlyList<UartPins>? Uarts = null)
 {
     public BoardPin? FindPin(int number) => Pins.FirstOrDefault(p => p.Number == number);
 

@@ -142,3 +142,10 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-03 — SSD1327 light per gray level = (pulse width + 1) / (GS15 + 1); the oscillator for frame-rate timing is estimated at 410 kHz at setting 0.
 - 2026-11-03 — HD44780 A02 glyphs from wokwi-elements (MIT), checked against the datasheet table by eye; the LCD part has a `rom` property (a00/a02).
 - 2026-11-03 — Adafruit_BusIO's fast pin I/O is off under the simulator (compat copy of Adafruit_SPIDevice.h).
+- 2026-11-05 — Logic analyzer: pin samples plus hardware bus events in snapshots, IPC protocol 2; hardware waveforms are drawn from the bytes (ADR-014).
+- 2026-11-05 — Recording runs only while the Диаграмма tab is open with Запись on; the rows are not saved with the project.
+- 2026-11-05 — Buzzer audio through winmm (no NuGet), square waves, on by default with a toolbar button; only `tone()` sounds, `analogWrite` on a buzzer stays silent (ADR-014).
+- 2026-11-05 — Pro Mini 3.3 V: the Nano table with every call twice as long; the Mega uses the Nano table as it stands (its real `digitalWrite` is slower); all estimates (ADR-015).
+- 2026-11-05 — The Mega's ports A-L follow the ATmega2560's pin map; `__AVR__` stays undefined on every board, `ARDUINO_AVR_*` board macros are defined.
+- 2026-11-05 — PlatformIO import is in place, through «Открыть папку…», with `settings.defines` and `settings.includePaths` as optional additions to the project file (schema version stays 1); `lib_deps` are not downloaded (ADR-015).
+- 2026-11-05 — A sketch folder with no `.ino` is a plain C++ project; a library with `src/` and no header in its root is the recursive layout even without `library.properties`.

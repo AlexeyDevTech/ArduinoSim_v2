@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "board": "arduino-nano-v3",
+  "sketchPath": "sketch",
+  "scene": {
+    "components": [
+      { "id": "board", "type": "arduino-nano-v3", "x": 100, "y": 300, "rotation": 0, "flip": false },
+      { "id": "rtc1", "type": "ds3231", "x": 60, "y": 120, "rotation": 0, "flip": false, "properties": { "start": "fixed", "time": "2026-11-05 12:00:00" } },
+      { "id": "mx1", "type": "max7219", "x": 320, "y": 120, "rotation": 0, "flip": false, "properties": { "modules": "1", "hardware": "fc16" } },
+      { "id": "led1", "type": "led", "x": 320, "y": 420, "rotation": 0, "flip": false, "properties": { "color": "green" } },
+      { "id": "r1", "type": "resistor", "x": 180, "y": 420, "rotation": 0, "flip": false, "properties": { "resistance": 220 } }
+    ],
+    "wires": [
+      { "id": "w1", "from": { "component": "rtc1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[120,240],[60,240],[60,420],[230,420]], "color": "auto" },
+      { "id": "w2", "from": { "component": "rtc1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[130,250],[50,250],[50,430],[250,430]], "color": "auto" },
+      { "id": "w3", "from": { "component": "rtc1", "pin": "SDA" }, "to": { "component": "board", "pin": "A4" }, "waypoints": [[110,260],[40,260],[40,440],[190,440]], "color": "auto" },
+      { "id": "w4", "from": { "component": "rtc1", "pin": "SCL" }, "to": { "component": "board", "pin": "A5" }, "waypoints": [[100,270],[30,270],[30,450],[200,450]], "color": "auto" },
+      { "id": "w5", "from": { "component": "mx1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[420,140],[420,420],[230,420]], "color": "auto" },
+      { "id": "w6", "from": { "component": "mx1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[430,150],[430,430],[250,430]], "color": "auto" },
+      { "id": "w7", "from": { "component": "mx1", "pin": "DIN" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [[440,160],[440,280],[130,280]], "color": "auto" },
+      { "id": "w8", "from": { "component": "mx1", "pin": "CS" }, "to": { "component": "board", "pin": "D10" }, "waypoints": [[450,170],[450,270],[140,270]], "color": "auto" },
+      { "id": "w9", "from": { "component": "mx1", "pin": "CLK" }, "to": { "component": "board", "pin": "D13" }, "waypoints": [[460,180],[460,460],[120,460]], "color": "auto" },
+      { "id": "w10", "from": { "component": "board", "pin": "D5" }, "to": { "component": "r1", "pin": "1" }, "waypoints": [[190,290],[20,290],[20,470],[170,470],[170,430]], "color": "auto" },
+      { "id": "w11", "from": { "component": "r1", "pin": "2" }, "to": { "component": "led1", "pin": "A" }, "waypoints": [], "color": "auto" },
+      { "id": "w12", "from": { "component": "led1", "pin": "C" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [[350,500],[10,500],[10,285],[230,285]], "color": "auto" }
+    ]
+  },
+  "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }
+}

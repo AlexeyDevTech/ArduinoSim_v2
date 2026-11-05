@@ -403,6 +403,29 @@
   </Style>
 
   <!-- Category header in the palette: chevron + name. -->
+  <!-- The toolbar's speaker: a checkbox drawn as an icon button. -->
+  <Style x:Key="CheckBox.Sound" TargetType="CheckBox">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CheckBox">
+          <Border x:Name="Box" Width="32" Height="32" CornerRadius="4" Background="Transparent">
+            <TextBlock x:Name="Icon" Text="&#xE74F;" FontFamily="{DynamicResource Font.Icons}" FontSize="14" Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Icon" Property="Text" Value="&#xE767;" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Box" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <Style x:Key="ToggleButton.Group" TargetType="ToggleButton">
     <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
     <Setter Property="Cursor" Value="Hand" />

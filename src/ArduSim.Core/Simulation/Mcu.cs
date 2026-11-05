@@ -5,6 +5,7 @@ using ArduSim.Core.Circuits;
 using ArduSim.Core.Diagnostics;
 using ArduSim.Core.Projects;
 using ArduSim.Core.Timing;
+using ArduSim.Core.Tracing;
 
 namespace ArduSim.Core.Simulation;
 
@@ -116,6 +117,18 @@ public sealed class Mcu
         _i2c = [.. board.I2c.Select((pins, i) => new I2cChannel(i, pins, i == 0 ? i2c : null))];
         _spi = [.. board.Spi.Select((pins, i) => new SpiChannel(i, pins, i == 0 ? spi : null))];
         Uarts = Enumerable.Range(0, board.SerialPorts).Select(i => new UartPort(i, engine)).ToList();
+        foreach (UartPort uart in Uarts)
+        {
+            if (board.Uarts is { } uartPins && uart.Index < uartPins.Count)
+            {
+                uart.RxPin = uartPins[uart.Index].Rx;
+                uart.TxPin = uartPins[uart.Index].Tx;
+            }
+
+            uart.TxFrameStarted += (port, value, start, duration) => RecordUart(BusEventKind.UartTx, port, port.TxPin, value, start, duration);
+            uart.RxFrameArrived += (port, value, start, duration) => RecordUart(BusEventKind.UartRx, port, port.RxPin, value, start, duration);
+        }
+
         Interrupts = new InterruptController(Level, engine.Clock);
     }
 
@@ -142,6 +155,9 @@ public sealed class Mcu
     public IReadOnlyList<UartPort> Uarts { get; }
 
     public InterruptController Interrupts { get; }
+
+    /// <summary>The logic analyzer's tap: pin changes and hardware bus bytes while recording is on (ADR-014).</summary>
+    public SignalRecorder Recorder { get; } = new();
 
     public I2cBus? I2c { get; }
 
@@ -391,6 +407,11 @@ public sealed class Mcu
         {
             Log.ReportOnce($"uart-pins-{port}", SimSeverity.Warning, "fixed-pins", $"Serial port {port} on {Board.DisplayName} has fixed pins; the requested pins are ignored.", variant: "serial");
         }
+        else if (Uart(port) is { } routed)
+        {
+            routed.RxPin = rx >= 0 ? rx : routed.RxPin;
+            routed.TxPin = tx >= 0 ? tx : routed.TxPin;
+        }
 
         Uart(port)?.Begin(baud, config);
         _engine.Finish(_timing.ShortCall);
@@ -466,6 +487,7 @@ public sealed class Mcu
                 && !sdaState.Info.Has(PinCapabilities.InputOnly) && !sclState.Info.Has(PinCapabilities.InputOnly))
             {
                 channel.Bus = (channel.Bus ?? devices).WithPins(sdaState.Reference, sclState.Reference);
+                (channel.Sda, channel.Scl) = (sdaPin, sclPin);
                 foreach (PinState state in new[] { sdaState, sclState })
                 {
                     state.Mode = Simulation.PinMode.InputPullup;
@@ -516,6 +538,7 @@ public sealed class Mcu
     {
         I2cChannel? channel = RequireI2c(bus);
         bool ack = channel?.Bus is { } active && active.Start(address, read);
+        RecordI2c(BusEventKind.I2cStart, channel, 10 * (channel?.BitTime ?? DefaultBitTime), (byte)((address << 1) | (read ? 1 : 0)), ack);
         _engine.Finish(10 * (channel?.BitTime ?? DefaultBitTime));
         return ack;
     }
@@ -526,6 +549,7 @@ public sealed class Mcu
     {
         I2cChannel? channel = RequireI2c(bus);
         bool ack = channel?.Bus is { } active && active.Write(value);
+        RecordI2c(BusEventKind.I2cWrite, channel, 9 * (channel?.BitTime ?? DefaultBitTime), value, ack);
         _engine.Finish(9 * (channel?.BitTime ?? DefaultBitTime));
         return ack;
     }
@@ -536,6 +560,7 @@ public sealed class Mcu
     {
         I2cChannel? channel = RequireI2c(bus);
         byte value = channel?.Bus is { } active ? active.Read(ack) : (byte)0xFF;
+        RecordI2c(BusEventKind.I2cRead, channel, 9 * (channel?.BitTime ?? DefaultBitTime), value, ack);
         _engine.Finish(9 * (channel?.BitTime ?? DefaultBitTime));
         return value;
     }
@@ -546,6 +571,7 @@ public sealed class Mcu
     {
         I2cChannel? channel = bus >= 0 && bus < _i2c.Length ? _i2c[bus] : null;
         channel?.Bus?.Stop();
+        RecordI2c(BusEventKind.I2cStop, channel, channel?.BitTime ?? DefaultBitTime, 0, ack: false);
         _engine.Finish(channel?.BitTime ?? DefaultBitTime);
     }
 
@@ -572,6 +598,7 @@ public sealed class Mcu
                 && !sck.Info.Has(PinCapabilities.InputOnly) && !mosi.Info.Has(PinCapabilities.InputOnly))
             {
                 channel.Bus = (channel.Bus ?? devices).WithPins(sck.Reference, mosi.Reference, miso.Reference);
+                channel.Pins = pins;
                 if (!Board.BusPinsAnywhere && Find(pins.Ss) is { } ss && ss.Mode != Simulation.PinMode.Output)
                 {
                     ss.PortBit = true;
@@ -644,6 +671,10 @@ public sealed class Mcu
             }
 
             answer = (channel.Bus ?? Spi).Transfer(value, channel.LsbFirst, channel.Mode);
+            if (Recorder.Enabled)
+            {
+                Recorder.Bus(new BusEvent(Now, (uint)(8 * VirtualTime.Second / channel.Clock), channel.LsbFirst ? BusEventKind.SpiByteLsbFirst : BusEventKind.SpiByte, value, answer, PinByte(channel.Pins.Mosi), PinByte(channel.Pins.Sck), PinByte(channel.Pins.Miso)));
+            }
         }
 
         _engine.Finish(8 * VirtualTime.Second / (channel?.Clock ?? DefaultSpiClock));
@@ -1107,8 +1138,56 @@ public sealed class Mcu
         return Board.LogicVoltage;
     }
 
+    /// <summary>Turns the logic analyzer's recording on, starting with what every pin carries now, or off.</summary>
+    public void SetRecording(bool on)
+    {
+        if (!on)
+        {
+            Recorder.Stop();
+            return;
+        }
+
+        Recorder.Start();
+        foreach (PinState? state in _pins)
+        {
+            if (state is not null)
+            {
+                RecordPin(state);
+            }
+        }
+    }
+
+    private void RecordPin(PinState state)
+    {
+        (SignalLevel level, int value) = PinSample.Classify(_circuit.StateOf(state.Reference), Board.LogicVoltage);
+        Recorder.Pin(Now, state.Info.Number, level, value);
+    }
+
+    private static byte PinByte(int pin) => pin is >= 0 and < BusEvent.NoPin ? (byte)pin : BusEvent.NoPin;
+
+    private void RecordUart(BusEventKind kind, UartPort port, int pin, byte value, ulong start, ulong duration)
+    {
+        if (Recorder.Enabled && pin >= 0)
+        {
+            Recorder.Bus(new BusEvent(start, (uint)duration, kind, value, (byte)port.FrameBits, PinByte(pin), BusEvent.NoPin, BusEvent.NoPin));
+        }
+    }
+
+    private void RecordI2c(BusEventKind kind, I2cChannel? channel, ulong duration, byte value, bool ack)
+    {
+        if (Recorder.Enabled && channel is not null)
+        {
+            Recorder.Bus(new BusEvent(Now, (uint)duration, kind, value, (byte)(ack ? 1 : 0), PinByte(channel.Sda), PinByte(channel.Scl), BusEvent.NoPin));
+        }
+    }
+
     private void OnNetChanged(PinState state)
     {
+        if (Recorder.Enabled)
+        {
+            RecordPin(state);
+        }
+
         bool? level = Level(_circuit.StateOf(state.Reference));
         if (level != state.LastLevel)
         {
@@ -1229,6 +1308,10 @@ public sealed class Mcu
 
         public I2cPins Defaults { get; } = defaults;
 
+        public int Sda { get; set; } = defaults.Sda;
+
+        public int Scl { get; set; } = defaults.Scl;
+
         /// <summary>The bus on the pins of the last begin(); bus 0 starts on its defaults.</summary>
         public I2cBus? Bus { get; set; } = bus;
 
@@ -1242,6 +1325,8 @@ public sealed class Mcu
         public int Number { get; } = number;
 
         public SpiPins Defaults { get; } = defaults;
+
+        public SpiPins Pins { get; set; } = defaults;
 
         public SpiBus? Bus { get; set; } = bus;
 
