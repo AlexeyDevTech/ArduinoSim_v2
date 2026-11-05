@@ -36,6 +36,19 @@ public abstract class BusDecoder
     {
     }
 
+    /// <summary>
+    /// Part of the traffic went unseen: forgets a byte in progress. The wire levels are not known again
+    /// until the pins are said anew, and saying them is no edge.
+    /// </summary>
+    public abstract void Resync();
+
+    /// <summary>Starts over: no frames, nothing half read.</summary>
+    public void Reset()
+    {
+        _frames.Clear();
+        Resync();
+    }
+
     /// <summary>Forgets frames that end before <paramref name="time"/>.</summary>
     public void DropBefore(ulong time)
     {
@@ -66,6 +79,14 @@ public sealed class I2cDecoder(int sda, int scl) : BusDecoder
     private ulong _startTime;
 
     public override IReadOnlyList<int> Pins { get; } = [sda, scl];
+
+    public override void Resync()
+    {
+        _sda = false;
+        _inFrame = false;
+        _expectAddress = false;
+        _bits = 0;
+    }
 
     public override void OnEvent(in BusEvent e)
     {
@@ -169,6 +190,12 @@ public sealed class SpiDecoder(int mosi, int miso, int sck, int cs = -1) : BusDe
 
     public override IReadOnlyList<int> Pins { get; } = [.. new[] { mosi, miso, sck, cs }.Where(p => p >= 0)];
 
+    public override void Resync()
+    {
+        _sck = true;
+        _bits = 0;
+    }
+
     public override void OnEvent(in BusEvent e)
     {
         if (e.IsSpi && e.PinA == mosi && e.PinB == sck)
@@ -237,6 +264,12 @@ public sealed class UartDecoder(int line, uint baud) : BusDecoder
     private int _value;
 
     public override IReadOnlyList<int> Pins { get; } = [line];
+
+    public override void Resync()
+    {
+        _level = false;
+        _receiving = false;
+    }
 
     public override void OnEvent(in BusEvent e)
     {

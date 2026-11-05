@@ -1,5 +1,26 @@
 # Changelog
 
+## Usability pass (2026-11-05)
+
+An audit of the interface against Wokwi, Tinkercad, SimulIDE, Arduino IDE 2, VS Code and the Windows guidelines (ADR-016).
+
+- Fixed: Собрать and Запуск stayed grey by mouse after the first project of a session. A click on a running part now selects it, so a sensor's slider can be reached, and a plain click no longer warns. The keyboard focus ring can now be seen on the dark theme. Three examples had corners with their numbers missing (Relay, SdCardLog, ServoKnob).
+- Code beside the schematic: Рядом (Ctrl+\); F7 flips between them; Run returns to the schematic.
+- A project explorer as a page of the left panel: sketch files with new, rename and delete; the file's functions; the parts; the libraries of the last build.
+- The editor: find and replace, go to line, comment, format, moving lines, self-closing brackets, a right-click menu. clangd from the toolchain gives completion, signatures, hover and go to definition. Compiler messages get a line of plain Russian and, where clang names one, an Исправить button. Marks follow the text, and columns are right on Cyrillic lines.
+- The toolbar folds by stages on a narrow window, and nothing is cut off any more; the window can be 960 × 560 and reopens where it was. On a low window the bottom panel opens only when there is output. While running: Перезапуск in place of Запуск, a dot when the code is newer than the run, levels on pins and wires, a status bar above the center.
+- Every disabled control says why; every tooltip has the key. Arduino IDE and VS Code keys work as well (Ctrl+R, Ctrl+U, Ctrl+Shift+M, F12). F1 opens every key and gesture, with a filter. One line of hint on the schematic, chosen by what is going on.
+- The start view: a name and one tile per board make a new project; the gallery has search, a family filter, topics, Russian titles and descriptions. An example says what to try. A plain Arduino sketch folder opens as a project, and a folder can be dropped on the window.
+- Wires: drag from pin to pin; the right button cancels; the nearest pin wins; ends can move to another pin; corners can go; Сбросить маршрут; a new wire takes the bend that does not run along other pins; crossings show a gap.
+- Palette: most-needed parts first, counts, folding remembered, tooltips with the pins, a search that understands «датчик», «экран», «мотор», the wrong keyboard layout and typos; A, ↑↓, Enter and Esc from the keyboard; a part never lands on top of another.
+- Properties: edits keep the focus; ↑↓, the wheel and Esc on numbers; 10k and 4,7к are understood; levels in the pin list and a click to light a net; common properties for a multi-selection. The fake baud list is gone.
+- Bottom tabs: Журнал has its filter and its ⚠ on the part opens the message; Монитор has Время and says why it cannot send; Сборка shows counts; Диаграмма scrolls its rows; empty tabs say what will appear. A crash stays in Журнал after its banner closes; a sketch that comes back clears «Не отвечает».
+- The compiler download has a progress bar and Отмена, and the window keeps answering.
+- The owner's additions: pins that land on each other connect; right-drag and arrows pan, with a touchpad setting; signal wires differ in color by board pin; inputs from the keyboard and latching by Ctrl+click; Стоп cancels a build and the status counts it; Сохранить как…; a file changed on both sides is never written over; Очистить EEPROM; the Diagram stays live while zooming, with Вписать всё and К последним, and works from the keyboard; the tabs' tools sit on their row; a Plotter series hides by its legend; the bottom panel folds under 760 px and Ctrl+Shift+\ hides all panels; Ctrl+F6 between panes and Alt for the menu; Windows text size; 20 px run icons; banners fade in.
+- The Diagram is right on every run, opens at a readable scale, marks time it did not record and labels its ruler properly. The Monitor appends instead of rewriting, and Cyrillic survives chunk boundaries.
+- A failure nothing expected shows a banner and keeps the work open. A Windows-1251 sketch is read correctly instead of being damaged by the first save. Typing a block, completion and Replace no longer damage what was typed.
+- Left for later, with fixes written out: `docs/UI-BACKLOG.md`.
+
 ## M11 — Tools and boards (2026-11-05)
 
 - Диаграмма tab: a logic analyzer with signal rows, a time ruler and I2C, SPI and UART decoders, live during a run. Hardware `Wire`, `SPI` and `Serial` traffic shows with its waveforms; bit-banged traffic decodes from real edges on any pins. Wheel zooms, a drag pans, a click sets the marker for Δ; a click on a wire on the running schematic adds its pins. PWM and tones show as bands with their duty or frequency.

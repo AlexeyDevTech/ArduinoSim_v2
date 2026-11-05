@@ -87,10 +87,38 @@ public sealed class PlotterTests
 
         plotter.TogglePauseCommand.Execute(null);
         plotter.Append("4\n");
-        Assert.Equal([1, 4], plotter.Series[0].Values);
+        Assert.Equal([1, double.NaN, 4], plotter.Series[0].Values); // a break, not a line joining 1 and 4
+        Assert.Equal(3, plotter.Count);
 
         plotter.Clear();
         Assert.Empty(plotter.Series);
+        Assert.Equal(0, plotter.Count);
+    }
+
+    [Fact]
+    public void A_pause_nothing_went_by_in_leaves_no_break()
+    {
+        var plotter = new PlotterViewModel();
+        plotter.Append("1\n");
+
+        plotter.TogglePauseCommand.Execute(null);
+        plotter.TogglePauseCommand.Execute(null);
+        plotter.Append("2\n");
+
+        Assert.Equal([1, 2], plotter.Series[0].Values);
+    }
+
+    [Fact]
+    public void Clearing_during_a_pause_leaves_nothing_to_break()
+    {
+        var plotter = new PlotterViewModel();
+        plotter.Append("1\n");
+        plotter.TogglePauseCommand.Execute(null);
+        plotter.Append("2\n");
+
+        plotter.Clear();
+        plotter.TogglePauseCommand.Execute(null);
+
         Assert.Equal(0, plotter.Count);
     }
 }

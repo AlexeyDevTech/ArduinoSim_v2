@@ -16,6 +16,29 @@ public static class Theme
 
     public static bool IsLight { get; private set; }
 
+    private static readonly (string Key, double Size)[] FontSizes = [("FontSize.Caption", 11), ("FontSize.Small", 12), ("FontSize.Body", 13), ("FontSize.Title", 15), ("FontSize.Display", 28)];
+
+    /// <summary>Windows' "Make text bigger", 1.0 to 2.25; 1 when it cannot be read.</summary>
+    public static double SystemTextScale()
+    {
+        object? percent = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\SOFTWARE\Microsoft\Accessibility", "TextScaleFactor", 100);
+        return percent is int value ? Math.Clamp(value / 100.0, 1, 2.25) : 1;
+    }
+
+    /// <summary>Scales the text sizes: set above the theme's tokens, so a theme switch keeps them.</summary>
+    public static void ApplyTextScale(double scale)
+    {
+        if (Application.Current is not { } app)
+        {
+            return;
+        }
+
+        foreach ((string key, double size) in FontSizes)
+        {
+            app.Resources[key] = size * scale;
+        }
+    }
+
     public static void Apply(bool light)
     {
         if (Application.Current is not { } app || light == IsLight)

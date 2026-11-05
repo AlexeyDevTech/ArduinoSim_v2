@@ -26,6 +26,7 @@ public sealed partial class PropertyField : ObservableObject
 {
     private readonly Action<PropertyField, string> _commit;
     private bool _loading;
+    private string _committed;
 
     public PropertyField(string name, string label, PropertyKind kind, string value, string? unit, IReadOnlyList<OptionItem> options, Action<PropertyField, string> commit)
     {
@@ -37,8 +38,88 @@ public sealed partial class PropertyField : ObservableObject
         _commit = commit;
         _loading = true;
         Text = value;
+        _committed = value;
         SelectedOption = options.FirstOrDefault(o => o.Value == value);
         _loading = false;
+    }
+
+    /// <summary>How far ↑, ↓ and the focused wheel move a live reading; also the slider's small step.</summary>
+    public double SliderStep { get; init; } = 1;
+
+    public double SliderLargeStep => SliderStep * 10;
+
+    /// <summary>The model changed (this field's commit, undo): show the value without committing it back.</summary>
+    public void Sync(string value)
+    {
+        _loading = true;
+        Text = value;
+        _committed = value;
+        SelectedOption = Options.FirstOrDefault(o => o.Value == value);
+        Error = "";
+        _loading = false;
+    }
+
+    /// <summary>Esc: back to the last committed value (docs/UI.md §2.4).</summary>
+    public void Revert()
+    {
+        _loading = true;
+        Text = _committed;
+        Error = "";
+        _loading = false;
+    }
+
+    /// <summary>↑, ↓ or the wheel on a number: one step, committed at once. False when this is not a number.</summary>
+    public bool Step(int direction)
+    {
+        if (Kind != PropertyKind.Number || !IsEnabled || ParseNumber(Text) is not { } number)
+        {
+            return false;
+        }
+
+        double step = IsLive ? SliderStep : Math.Abs(Maximum - Minimum) is > 0 and <= 1 ? 0.01 : number == 0 ? 1 : Math.Max(1, Math.Pow(10, Math.Floor(Math.Log10(Math.Abs(number))) - (Math.Abs(number) < 100 ? 0 : 1)));
+        double next = Math.Round((number + (direction * step)) / step) * step;
+        if (Maximum > Minimum)
+        {
+            next = Math.Clamp(next, Minimum, Maximum);
+        }
+
+        Text = next.ToString("0.###", CultureInfo.CurrentCulture);
+        Commit();
+        return true;
+    }
+
+    /// <summary>A number as people type it: a decimal comma, and multipliers as on a schematic (10k, 4,7к, 1М, 100m).</summary>
+    public static double? ParseNumber(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        string trimmed = text.Trim().Replace(',', '.');
+        foreach (string unit in (string[])["Ohm", "ohm", "Ом", "ом", "Ω", "Гц", "Hz"])
+        {
+            if (trimmed.EndsWith(unit, StringComparison.Ordinal))
+            {
+                trimmed = trimmed[..^unit.Length].TrimEnd();
+                break;
+            }
+        }
+
+        double scale = 1;
+        if (trimmed.Length > 1)
+        {
+            scale = trimmed[^1] switch
+            {
+                'k' or 'K' or 'к' or 'К' => 1e3,
+                'M' or 'М' => 1e6,
+                'm' or 'м' => 1e-3,
+                'u' or 'µ' or 'μ' => 1e-6,
+                _ => 1,
+            };
+            if (scale != 1)
+            {
+                trimmed = trimmed[..^1].TrimEnd();
+            }
+        }
+
+        return double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out double number) ? number * scale : null;
     }
 
     /// <summary>A sensor reading while the simulation runs: a slider beside the text, applied at once (ADR-011).</summary>
@@ -61,6 +142,7 @@ public sealed partial class PropertyField : ObservableObject
         _loading = true;
         SliderValue = value;
         Text = value.ToString("0.##", CultureInfo.CurrentCulture);
+        _committed = Text;
         _loading = false;
     }
 
@@ -103,7 +185,19 @@ public sealed partial class PropertyField : ObservableObject
     public partial string Error { get; set; } = "";
 
     [RelayCommand]
-    public void Commit() => _commit(this, Text);
+    public void Commit()
+    {
+        if (Text == _committed && Error.Length == 0)
+        {
+            return;
+        }
+
+        _commit(this, Text);
+        if (Error.Length == 0)
+        {
+            _committed = Text;
+        }
+    }
 
     partial void OnSelectedOptionChanged(OptionItem? value)
     {
@@ -114,18 +208,32 @@ public sealed partial class PropertyField : ObservableObject
     }
 }
 
-public sealed record PinRow(string Pin, string Connection);
+/// <summary>A pin of the selected part, or an end of the selected wire: what it joins, and its level while running.</summary>
+public sealed partial class PinRow(string pin, string connection, PinReference? reference = null, string? tip = null) : ObservableObject
+{
+    public string Pin { get; } = pin;
+
+    public string Connection { get; } = connection;
+
+    public PinReference? Reference { get; } = reference;
+
+    public string? Tip { get; } = tip;
+
+    [ObservableProperty]
+    public partial string Level { get; set; } = "";
+}
 
 /// <summary>The right-hand panel: the selection's properties, or the project's when nothing is selected.</summary>
 public sealed partial class PropertiesViewModel : ObservableObject
 {
-    private static readonly int[] BaudRates = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200];
 
     private readonly SceneViewModel _scene;
     private readonly Func<ProjectSettings> _settings;
     private readonly Action<ProjectSettings> _updateSettings;
     private readonly Action<string>? _openFolder;
     private Action? _unsubscribe;
+    private (string Id, ComponentDefinition? Definition, bool Locked)? _fieldsFor;
+    private (HashSet<string> Ids, bool Locked)? _commonFor;
 
     /// <param name="openFolder">Opens a folder of the project in Explorer (the SD card's), creating it; null without a project.</param>
     public PropertiesViewModel(SceneViewModel scene, Func<ProjectSettings> settings, Action<ProjectSettings> updateSettings, Action<string>? openFolder = null)
@@ -136,6 +244,7 @@ public sealed partial class PropertiesViewModel : ObservableObject
         _openFolder = openFolder;
         scene.SelectionChanged += Rebuild;
         scene.Editor.Changed += Rebuild;
+        scene.LevelsChanged += UpdateLevels;
         scene.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(SceneViewModel.IsLocked))
@@ -220,12 +329,111 @@ public sealed partial class PropertiesViewModel : ObservableObject
         }
     }
 
+    /// <summary>Takes in what is still being typed in a field: Save and Run do not wait for it to lose the focus.</summary>
+    public void CommitPending()
+    {
+        foreach (PropertyField field in Fields.Where(f => f.Editor == "text" && !f.IsLive).ToList())
+        {
+            field.Commit();
+        }
+    }
+
+    /// <summary>A row of the pin list was clicked: its net lights up on the schematic (docs/UI.md §2.4).</summary>
+    public void HighlightPin(PinRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (row.Reference is { } reference)
+        {
+            _scene.Hover(reference, null);
+        }
+    }
+
+    private void UpdateLevels()
+    {
+        foreach (PinRow row in Pins)
+        {
+            row.Level = row.Reference is { } reference ? _scene.LevelText(reference) : "";
+        }
+    }
+
+    /// <summary>The same part with the same fields (an edit, an undo): values change in place, so the focus stays in the field.</summary>
+    private bool RefreshInPlace(PartViewModel part)
+    {
+        if (_fieldsFor is not { } shown || shown.Id != part.Id || !ReferenceEquals(shown.Definition, part.Definition) || shown.Locked != _scene.IsLocked)
+        {
+            return false;
+        }
+
+        List<PropertyDefinition> visible = VisibleProperties(part);
+        if (!visible.Select(d => d.Name).SequenceEqual(Fields.Select(f => f.Name)))
+        {
+            return false;
+        }
+
+        foreach ((PropertyField field, PropertyDefinition definition) in Fields.Zip(visible))
+        {
+            if (!field.IsLive)
+            {
+                field.Sync(part.Text(definition.Name, definition.Default));
+            }
+        }
+
+        return true;
+    }
+
+    private static List<PropertyDefinition> VisibleProperties(PartViewModel part) =>
+        [.. (part.Definition?.Properties ?? []).Where(d => d.ShownWhen is not { } condition || part.Text(condition.Property, "") == condition.Value)];
+
+    /// <summary>The same parts with the same common fields: values change in place, so the focus stays.</summary>
+    private bool RefreshCommonInPlace()
+    {
+        if (_commonFor is not { } shown || shown.Locked != _scene.IsLocked || !shown.Ids.SetEquals(_scene.SelectedParts))
+        {
+            return false;
+        }
+
+        List<PartViewModel> parts = SelectedEditableParts();
+        List<PropertyDefinition> common = CommonProperties(parts);
+        if (!common.Select(d => d.Name).SequenceEqual(Fields.Select(f => f.Name)))
+        {
+            return false;
+        }
+
+        foreach ((PropertyField field, PropertyDefinition definition) in Fields.Zip(common))
+        {
+            field.Sync(CommonValue(parts, definition));
+        }
+
+        return true;
+    }
+
+    private List<PartViewModel> SelectedEditableParts() =>
+        [.. _scene.SelectedParts.Select(_scene.Find).OfType<PartViewModel>().Where(p => p.Type != "board")];
+
+    private static List<PropertyDefinition> CommonProperties(List<PartViewModel> parts) =>
+        parts.Count < 2 ? [] : [.. (parts[0].Definition?.Properties ?? []).Where(definition => !definition.Live && definition.Name != "key"
+            && parts.All(p => VisibleProperties(p).Any(d => d.Name == definition.Name && d.Kind == definition.Kind && (d.Options ?? []).SequenceEqual(definition.Options ?? []))))];
+
+    private static string CommonValue(List<PartViewModel> parts, PropertyDefinition definition)
+    {
+        string[] values = [.. parts.Select(p => p.Text(definition.Name, definition.Default)).Distinct()];
+        return values.Length == 1 ? values[0] : "—";
+    }
+
     private void Rebuild()
     {
-        _unsubscribe?.Invoke();
-        _unsubscribe = null;
         OnPropertyChanged(nameof(HasCardFolder));
-        Fields.Clear();
+        bool keepFields = _scene.SelectedWire is null
+            && (_scene.SinglePart is { } same ? RefreshInPlace(same) : _scene.SelectedParts.Count > 1 && RefreshCommonInPlace());
+        if (!keepFields)
+        {
+            _unsubscribe?.Invoke();
+            _unsubscribe = null;
+            Fields.Clear();
+            _fieldsFor = null;
+            _commonFor = null;
+        }
+
         Pins.Clear();
         IdError = "";
         if (_scene.SelectedWire is { } wireId && _scene.Editor.Scene.FindWire(wireId) is { } wire)
@@ -233,8 +441,9 @@ public sealed partial class PropertiesViewModel : ObservableObject
             Mode = PropertiesMode.Wire;
             Title = wireId;
             Subtitle = Strings.Get("Properties_Wire");
-            Pins.Add(new PinRow(Strings.Get("Properties_From"), Name(wire.From)));
-            Pins.Add(new PinRow(Strings.Get("Properties_To"), Name(wire.To)));
+            Pins.Add(new PinRow(Strings.Get("Properties_From"), Name(wire.From), wire.From, _scene.PinTooltip(wire.From)));
+            Pins.Add(new PinRow(Strings.Get("Properties_To"), Name(wire.To), wire.To, _scene.PinTooltip(wire.To)));
+            UpdateLevels();
             WireColor = WireColors.FirstOrDefault(c => c.Value == wire.Color);
             return;
         }
@@ -245,12 +454,14 @@ public sealed partial class PropertiesViewModel : ObservableObject
             Title = part.Id;
             IdText = part.Id;
             Subtitle = part.DisplayName;
-            foreach (PropertyDefinition definition in part.Definition?.Properties ?? [])
+            if (!keepFields)
             {
-                if (definition.ShownWhen is not { } condition || part.Text(condition.Property, "") == condition.Value)
+                foreach (PropertyDefinition definition in VisibleProperties(part))
                 {
                     Fields.Add(definition.Live && _scene.IsLocked ? LiveField(part, definition) : Field(part, definition));
                 }
+
+                _fieldsFor = (part.Id, part.Definition, _scene.IsLocked);
             }
 
             foreach (PinDefinition pin in part.Definition?.Pins ?? [])
@@ -262,10 +473,11 @@ public sealed partial class PropertiesViewModel : ObservableObject
                     .ToArray();
                 if (part.Type != "board" || ends.Length > 0)
                 {
-                    Pins.Add(new PinRow(pin.Name, ends.Length == 0 ? "—" : string.Join(", ", ends)));
+                    Pins.Add(new PinRow(pin.Label ?? pin.Name, ends.Length == 0 ? "—" : string.Join(", ", ends), reference, _scene.PinTooltip(reference)));
                 }
             }
 
+            UpdateLevels();
             return;
         }
 
@@ -274,6 +486,12 @@ public sealed partial class PropertiesViewModel : ObservableObject
             Mode = PropertiesMode.Parts;
             Title = Strings.Format("Properties_Many", _scene.SelectedParts.Count);
             Subtitle = "";
+            if (!keepFields)
+            {
+                AddCommonFields();
+                _commonFor = ([.. _scene.SelectedParts], _scene.IsLocked);
+            }
+
             return;
         }
 
@@ -281,17 +499,64 @@ public sealed partial class PropertiesViewModel : ObservableObject
         Title = Strings.Get("Properties_Project");
         Subtitle = _scene.Board.DisplayName;
         ProjectSettings settings = _settings();
-        Fields.Add(new PropertyField("baud", Strings.Get("Property_baud"), PropertyKind.Choice, settings.Serial.Baud.ToString(CultureInfo.InvariantCulture), null,
-            [.. BaudRates.Select(b => new OptionItem(b.ToString(CultureInfo.InvariantCulture), b.ToString(CultureInfo.InvariantCulture), null))],
-            (f, v) => _updateSettings(_settings() with { Serial = _settings().Serial with { Baud = int.Parse(v, CultureInfo.InvariantCulture) } }))
-        {
-            IsEnabled = !_scene.IsLocked,
-        });
         Fields.Add(new PropertyField("libraryPaths", Strings.Get("Property_libraryPaths"), PropertyKind.Text, string.Join("; ", settings.LibraryPaths), null, [],
             (f, v) => _updateSettings(_settings() with { LibraryPaths = [.. v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)] }))
         {
             IsEnabled = !_scene.IsLocked,
         });
+    }
+
+    /// <summary>Several parts: the properties they all have, "—" where the values differ; one edit changes all of them in one undo step (docs/UI.md §2.4).</summary>
+    private void AddCommonFields()
+    {
+        List<PartViewModel> parts = SelectedEditableParts();
+        foreach (PropertyDefinition definition in CommonProperties(parts))
+        {
+            IReadOnlyList<OptionItem> options = OptionsOf(definition);
+            var field = new PropertyField(definition.Name, Strings.Get("Property_" + definition.Name), definition.Kind, CommonValue(parts, definition), definition.Unit, options, (field, text) =>
+            {
+                if (ValueOf(field, definition, text) is not { } value)
+                {
+                    return;
+                }
+
+                _scene.Editor.Checkpoint();
+                foreach (PartViewModel part in parts)
+                {
+                    _scene.Editor.SetProperty(part.Id, definition.Name, value, checkpoint: false);
+                }
+            })
+            {
+                Minimum = definition.Minimum,
+                Maximum = definition.Maximum,
+                IsEnabled = !_scene.IsLocked,
+            };
+            Fields.Add(field);
+        }
+    }
+
+    private static List<OptionItem> OptionsOf(PropertyDefinition definition) =>
+        definition.Options?.Select(o => new OptionItem(
+            o,
+            Strings.TryGet(definition.Name == "color" ? "Color_" + o : $"Option_{definition.Name}_{o}") ?? o,
+            definition.Name == "color" ? WirePalette.PartColor(o) : null)).ToList() ?? [];
+
+    /// <summary>The typed text as the property's value, or null with the reason on the field.</summary>
+    private static JsonElement? ValueOf(PropertyField field, PropertyDefinition definition, string text)
+    {
+        field.Error = "";
+        if (definition.Kind != PropertyKind.Number)
+        {
+            return JsonSerializer.SerializeToElement(text);
+        }
+
+        if (PropertyField.ParseNumber(text) is not { } number || number < definition.Minimum || number > definition.Maximum)
+        {
+            field.Error = Strings.Format("Properties_Range", definition.Minimum, definition.Maximum);
+            return null;
+        }
+
+        return JsonSerializer.SerializeToElement(number);
     }
 
     private static string Name(PinReference pin) => $"{pin.Component}.{pin.Pin}";
@@ -302,8 +567,7 @@ public sealed partial class PropertiesViewModel : ObservableObject
         var field = new PropertyField(definition.Name, Strings.Get("Property_" + definition.Name), definition.Kind, "", definition.Unit, [], (field, text) =>
         {
             field.Error = "";
-            if (!double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double number) ||
-                number < definition.Minimum || number > definition.Maximum)
+            if (PropertyField.ParseNumber(text) is not { } number || number < definition.Minimum || number > definition.Maximum)
             {
                 field.Error = Strings.Format("Properties_Range", definition.Minimum, definition.Maximum);
                 return;
@@ -315,6 +579,7 @@ public sealed partial class PropertiesViewModel : ObservableObject
             IsLive = true,
             Minimum = definition.Minimum,
             Maximum = definition.Maximum,
+            SliderStep = PartViewModel.LiveStep(definition.Name),
         };
         field.Show(part.LiveValue(definition.Name));
         void OnLive(string name, double value)
@@ -333,32 +598,17 @@ public sealed partial class PropertiesViewModel : ObservableObject
     private PropertyField Field(PartViewModel part, PropertyDefinition definition)
     {
         string current = part.Text(definition.Name, definition.Default);
-        IReadOnlyList<OptionItem> options = definition.Options?.Select(o => new OptionItem(
-            o,
-            Strings.TryGet(definition.Name == "color" ? "Color_" + o : $"Option_{definition.Name}_{o}") ?? o,
-            definition.Name == "color" ? WirePalette.PartColor(o) : null)).ToList() ?? [];
-        var field = new PropertyField(definition.Name, Strings.Get("Property_" + definition.Name), definition.Kind, current, definition.Unit, options, (field, text) =>
+        var field = new PropertyField(definition.Name, Strings.Get("Property_" + definition.Name), definition.Kind, current, definition.Unit, OptionsOf(definition), (field, text) =>
         {
-            field.Error = "";
-            JsonElement value;
-            if (definition.Kind == PropertyKind.Number)
+            if (ValueOf(field, definition, text) is { } value)
             {
-                if (!double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double number) ||
-                    number < definition.Minimum || number > definition.Maximum)
-                {
-                    field.Error = Strings.Format("Properties_Range", definition.Minimum, definition.Maximum);
-                    return;
-                }
-
-                value = JsonSerializer.SerializeToElement(number);
+                _scene.Editor.SetProperty(part.Id, definition.Name, value);
             }
-            else
-            {
-                value = JsonSerializer.SerializeToElement(text);
-            }
-
-            _scene.Editor.SetProperty(part.Id, definition.Name, value);
-        });
+        })
+        {
+            Minimum = definition.Minimum,
+            Maximum = definition.Maximum,
+        };
         field.IsEnabled = !_scene.IsLocked;
         return field;
     }

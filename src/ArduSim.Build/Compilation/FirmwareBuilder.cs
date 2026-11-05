@@ -47,6 +47,9 @@ public sealed record FirmwareBuildRequest(
 
 public sealed record BuildStatistics(int Units, int CacheHits, bool Linked, TimeSpan Elapsed);
 
+/// <summary>How far a build is: units compiled or found in the cache, of all of them.</summary>
+public sealed record BuildProgress(int Finished, int Total);
+
 public sealed record BuildResult(
     bool Succeeded,
     string? FirmwarePath,
@@ -72,7 +75,9 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
 
     public const string FirmwareFileName = "firmware.dll";
 
-    public async Task<BuildResult> BuildAsync(FirmwareBuildRequest request, CancellationToken cancellationToken)
+    public Task<BuildResult> BuildAsync(FirmwareBuildRequest request, CancellationToken cancellationToken) => BuildAsync(request, null, cancellationToken);
+
+    public async Task<BuildResult> BuildAsync(FirmwareBuildRequest request, IProgress<BuildProgress>? progress, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
         Directory.CreateDirectory(request.OutputDirectory);
@@ -124,6 +129,7 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
         var outputs = new ConcurrentDictionary<int, string>();
         var entries = new CacheEntry?[units.Count];
         int hits = 0;
+        int finished = 0;
         await Parallel.ForEachAsync(
             Enumerable.Range(0, units.Count),
             new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = cancellationToken },
@@ -133,6 +139,7 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
                 string source = unit.Source;
                 (CacheEntry? entry, bool hit, string output) = await CompileAsync(unit, request.Defines, overlay, hashes, ct);
                 entries[index] = entry;
+                progress?.Report(new BuildProgress(Interlocked.Increment(ref finished), units.Count));
                 if (hit)
                 {
                     Interlocked.Increment(ref hits);

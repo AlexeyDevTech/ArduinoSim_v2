@@ -29,6 +29,15 @@ public partial class SchematicCanvas : UserControl
     private const double PinRadiusPx = 9;
     private const double WireTolerancePx = 6;
 
+    // A press on one pin released over another finishes the wire only past this distance: at far zoom
+    // the pins are 5 px apart, and a shaky click must not join two neighbours.
+    private const double WireDragPx = 10;
+
+    // Pin labels stay readable at the zoom a scene opens with: this many screen pixels, between these canvas units.
+    private const double PinLabelPixels = 7;
+    private const double PinLabelMinimum = 4.2;
+    private const double PinLabelMaximum = 5.4;
+
     private readonly DrawingBrush _gridBrush;
     private readonly GeometryDrawing _gridDotDrawing;
     private readonly EllipseGeometry _gridDot = new(new Point(0, 0), 1, 1);
@@ -50,6 +59,14 @@ public partial class SchematicCanvas : UserControl
     private bool _pressHeld;
     private bool _spaceDown;
     private bool _fitPending = true;
+    private bool _userMovedView;
+    private bool _wireByPress;
+    private bool _lockedEmptyClick;
+    private bool _lockedPartPress;
+    private WireEndHandle? _endHandle;
+    private Point _pressedAt;
+    private bool _rightPress;
+    private bool _endDragged;
 
     public SchematicCanvas()
     {
@@ -79,17 +96,29 @@ public partial class SchematicCanvas : UserControl
         {
             // A new scene is fitted once the canvas has a size (now, or when it is next shown).
             _fitPending = true;
-            _ = Dispatcher.BeginInvoke(Fit, DispatcherPriority.Loaded);
+            _userMovedView = false;
+            _ = Dispatcher.BeginInvoke(Refit, DispatcherPriority.Loaded);
         };
         SizeChanged += (_, _) =>
         {
-            if (_fitPending)
+            // The scene follows the canvas until the user has panned or zoomed it.
+            if (_fitPending || !_userMovedView)
             {
-                Fit();
+                FitNew();
             }
         };
+        Resources["Font.PinLabel"] = PinLabelMinimum;
         ApplyTransform();
     }
+
+    /// <summary>A key on the canvas asks for the Детали search (A) .</summary>
+    public event EventHandler? AddPartRequested;
+
+    /// <summary>The keys and gestures sheet (F1 on the canvas, its menu).</summary>
+    public event EventHandler? ShowHelpRequested;
+
+    /// <summary>Enter on a selected part: the keyboard goes to its properties.</summary>
+    public event EventHandler? OpenPropertiesRequested;
 
     private enum Gesture
     {
@@ -113,6 +142,12 @@ public partial class SchematicCanvas : UserControl
 
         /// <summary>A vertical drag on a sensor changes its reading (ADR-011).</summary>
         Live,
+
+        /// <summary>A press on a part that is not an input while running: a drag shows why it does not move.</summary>
+        LockedPart,
+
+        /// <summary>Dragging an end of the selected wire to another pin.</summary>
+        WireEnd,
     }
 
     // A click on an encoder or joystick that does not move presses it for this long; holding still
@@ -124,6 +159,55 @@ public partial class SchematicCanvas : UserControl
     private SceneViewModel? Scene => DataContext as SceneViewModel;
 
     public void Fit() => Fit(MinScale, 40);
+
+    /// <summary>Fits a scene just opened; a bare board stays at 100 % in the upper part, with free room below it.</summary>
+    private void FitNew()
+    {
+        Fit();
+        if (Scene is { Parts.Count: 1 } && ActualHeight > 10)
+        {
+            Rect bounds = Scene.ContentBounds();
+            _scale = Math.Min(_scale, PixelsPerUnitAt100);
+            _offset = new Vector(
+                ((ActualWidth - (bounds.Width * _scale)) / 2) - (bounds.Left * _scale),
+                (ActualHeight * 0.12) - (bounds.Top * _scale));
+            ApplyTransform();
+        }
+    }
+
+    /// <summary>The canvas changed size for another reason than the user's wish (the Рядом mode).</summary>
+    public void Refit()
+    {
+        if (!_userMovedView)
+        {
+            FitNew();
+        }
+    }
+
+    /// <summary>Pans just enough to bring a part into view.</summary>
+    public void BringIntoView(PartViewModel part)
+    {
+        ArgumentNullException.ThrowIfNull(part);
+        if (ActualWidth < 10)
+        {
+            return;
+        }
+
+        Rect bounds = part.Bounds;
+        bounds.Inflate(20, 20);
+        Point topLeft = FromWorld(bounds.TopLeft);
+        Point bottomRight = FromWorld(bounds.BottomRight);
+        double dx = topLeft.X < 0 ? -topLeft.X : bottomRight.X > ActualWidth ? ActualWidth - bottomRight.X : 0;
+        double dy = topLeft.Y < 0 ? -topLeft.Y : bottomRight.Y > ActualHeight ? ActualHeight - bottomRight.Y : 0;
+        if (dx != 0 || dy != 0)
+        {
+            _offset += new Vector(dx, dy);
+            _userMovedView = true;
+            ApplyTransform();
+        }
+    }
+
+    private Point FromWorld(Point world) => new((world.X * _scale) + _offset.X, (world.Y * _scale) + _offset.Y);
 
     /// <summary>Fits the content with <paramref name="margin"/> canvas units around it, zooming out no further than <paramref name="minScale"/>.</summary>
     private void Fit(double minScale, double margin)
@@ -147,6 +231,7 @@ public partial class SchematicCanvas : UserControl
     public static BitmapSource Snapshot(SceneViewModel scene, double width, double height, double dpiScale)
     {
         var canvas = new SchematicCanvas { DataContext = scene, Width = width, Height = height };
+        canvas._userMovedView = true;
         canvas.ZoomBar.Visibility = Visibility.Collapsed;
         canvas.Measure(new Size(width, height));
         canvas.Arrange(new Rect(0, 0, width, height));
@@ -178,7 +263,17 @@ public partial class SchematicCanvas : UserControl
         _gridDot.RadiusX = _gridDot.RadiusY = 1.1 / _scale;
         GridLayer.Opacity = _scale < 0.5 * PixelsPerUnitAt100 ? 0 : 1;
         ZoomButton.Content = (_scale / PixelsPerUnitAt100 * 100).ToString("0", CultureInfo.CurrentCulture) + " %";
-        Scene?.SetPixelsPerUnit(_scale * VisualTreeHelper.GetDpi(this).DpiScaleX);
+        double label = Math.Round(Math.Clamp(PinLabelPixels / _scale, PinLabelMinimum, PinLabelMaximum), 1);
+        if (Resources["Font.PinLabel"] is not double known || known != label)
+        {
+            Resources["Font.PinLabel"] = label;
+        }
+
+        if (Scene is { } scene)
+        {
+            scene.SetPixelsPerUnit(_scale * VisualTreeHelper.GetDpi(this).DpiScaleX);
+            scene.WireSnapRadius = Math.Max(PinRadiusPx / _scale, SceneEditor.Grid * 0.71);
+        }
     }
 
     private void ZoomAt(Point screen, double factor)
@@ -201,11 +296,22 @@ public partial class SchematicCanvas : UserControl
             return;
         }
 
+        // A second button during a drag or a held press would orphan it: the first gesture finishes first.
+        if (_gesture != Gesture.None)
+        {
+            return;
+        }
+
         Point screen = e.GetPosition(this);
         Point world = ToWorld(screen);
         _gestureStartScreen = screen;
         _gestureStartWorld = world;
+        _pressedAt = screen;
+        _endDragged = false;
         bool additive = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) || Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        _wireByPress = false;
+        _lockedEmptyClick = false;
+        _lockedPartPress = false;
 
         if (e.ChangedButton == MouseButton.Middle || (e.ChangedButton == MouseButton.Left && _spaceDown))
         {
@@ -215,12 +321,28 @@ public partial class SchematicCanvas : UserControl
 
         if (e.ChangedButton == MouseButton.Right)
         {
-            ShowContextMenu(scene, world);
+            // A wire in progress is cancelled, as in the other schematic tools; it opens no menu.
+            if (scene.IsWiring)
+            {
+                scene.CancelWire();
+            }
+            else
+            {
+                _rightPress = true;
+                Begin(Gesture.Pan);
+            }
+
             return;
         }
 
         if (e.ChangedButton != MouseButton.Left)
         {
+            return;
+        }
+
+        if (scene.BadgeAt(world) is { } warned && !scene.IsWiring)
+        {
+            scene.Warn(warned);
             return;
         }
 
@@ -231,13 +353,40 @@ public partial class SchematicCanvas : UserControl
             {
                 scene.ClickWire(clickedWire);
             }
+            else if (part is null)
+            {
+                _lockedEmptyClick = true;
+            }
 
             switch (part?.Type)
             {
+                case "pushbutton" when Keyboard.Modifiers.HasFlag(ModifierKeys.Control):
+                    if (part.Pressed)
+                    {
+                        part.Release();
+                    }
+                    else
+                    {
+                        part.Press();
+                    }
+
+                    break;
                 case "pushbutton":
                     _activePart = part;
                     part.Press();
                     Begin(Gesture.PressButton);
+                    break;
+                case "keypad" or "ir-remote" when Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && part.KeyAt(part.ToLocal(world)) is int latched:
+                    if (part.KeyIndex == latched)
+                    {
+                        part.ReleaseKey();
+                    }
+                    else
+                    {
+                        part.ReleaseKey();
+                        part.PressKey(latched);
+                    }
+
                     break;
                 case "slide-switch":
                     part.Toggle();
@@ -262,8 +411,11 @@ public partial class SchematicCanvas : UserControl
                     Begin(Gesture.PressKey);
                     break;
                 case "keypad" or "ir-remote":
+                    SelectLocked(scene, part);
                     break;
                 case "dht" or "ds18b20" or "hc-sr04" or "ds3231":
+                    // A click selects the sensor, whose slider is in Properties; a drag changes the reading.
+                    SelectLocked(scene, part);
                     _activePart = part;
                     _liveName = part.LiveDragProperty(Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
                     _knobStart = _liveName is null ? 0 : part.LiveValue(_liveName);
@@ -273,7 +425,10 @@ public partial class SchematicCanvas : UserControl
                     Begin(Gesture.Pan);
                     break;
                 default:
-                    ShowHint(screen);
+                    // Nothing happens on this part while it runs except looking at it: a drag says why.
+                    SelectLocked(scene, part);
+                    _lockedPartPress = true;
+                    Begin(Gesture.LockedPart);
                     break;
             }
 
@@ -282,15 +437,25 @@ public partial class SchematicCanvas : UserControl
 
         if (scene.IsWiring)
         {
-            if (scene.PinAt(world, PinRadiusPx / _scale) is { } target)
+            if (scene.PinAt(world, scene.WireSnapRadius) is { } target)
             {
-                scene.FinishWire(target.Pin);
+                // Near its own start only because of the snap: not the deliberate click that cancels.
+                if (!scene.IsWireStart(target.Pin) || (target.Position - world).Length <= PinRadiusPx / _scale)
+                {
+                    scene.FinishWire(target.Pin);
+                }
             }
             else
             {
                 scene.AddCorner(world);
             }
 
+            return;
+        }
+
+        if (e.ClickCount == 2 && scene.CornerAt(world, PinRadiusPx / _scale) is { } doomed)
+        {
+            scene.RemoveCorner(doomed);
             return;
         }
 
@@ -307,10 +472,29 @@ public partial class SchematicCanvas : UserControl
             return;
         }
 
+        if (scene.WireEndAt(world, PinRadiusPx / _scale) is { } end)
+        {
+            _endHandle = end;
+            Begin(Gesture.WireEnd);
+            return;
+        }
+
         if (scene.PinAt(world, PinRadiusPx / _scale) is { } pin)
         {
             scene.StartWire(pin.Pin);
             scene.UpdateGhost(world);
+            _wireByPress = true;
+            return;
+        }
+
+        if (scene.WireOverPart(world, WireTolerancePx / _scale) is { } crossing)
+        {
+            scene.SelectWire(crossing.Wire.Id);
+            if (scene.BeginSegmentDrag(crossing.Wire.Id, crossing.Segment))
+            {
+                Begin(Gesture.Segment);
+            }
+
             return;
         }
 
@@ -362,9 +546,32 @@ public partial class SchematicCanvas : UserControl
         switch (_gesture)
         {
             case Gesture.Pan:
+                if ((screen - _pressedAt).Length > MoveThresholdPx)
+                {
+                    _lockedEmptyClick = false;
+                    _userMovedView = true;
+                }
+
                 _offset += screen - _gestureStartScreen;
                 _gestureStartScreen = screen;
                 ApplyTransform();
+                return;
+            case Gesture.LockedPart:
+                if (_lockedPartPress && (screen - _gestureStartScreen).Length > MoveThresholdPx)
+                {
+                    _lockedPartPress = false;
+                    ShowHint(screen);
+                }
+
+                return;
+            case Gesture.WireEnd when _endHandle is not null:
+                if (_endDragged || (screen - _gestureStartScreen).Length > MoveThresholdPx)
+                {
+                    _endDragged = true;
+                    scene.GhostReconnect(_endHandle, world);
+                    Cursor = scene.PinAt(world, PinRadiusPx / _scale) is not null ? Cursors.Cross : Cursors.No;
+                }
+
                 return;
             case Gesture.Knob when _activePart is not null:
                 _activePart.Value = Math.Clamp(_knobStart + ((_gestureStartScreen.Y - screen.Y) / 150), 0, 1);
@@ -438,11 +645,16 @@ public partial class SchematicCanvas : UserControl
 
         var pin = scene.PinAt(world, PinRadiusPx / _scale);
         WireViewModel? hoverWire = pin is null ? scene.WireAt(world, WireTolerancePx / _scale) : null;
+        PartViewModel? badge = pin is null ? scene.BadgeAt(world) : null;
         scene.Hover(pin?.Pin, hoverWire?.Id);
-        if (pin is { } p)
+        string? tip = pin is { } p ? scene.PinTooltip(p.Pin)
+            : badge is not null ? badge.WarningText
+            : hoverWire is not null ? scene.WireTooltip(hoverWire)
+            : null;
+        if (tip is not null)
         {
-            HoverText.Text = scene.PinTooltip(p.Pin);
-            Canvas.SetLeft(HoverTip, screen.X + 14);
+            HoverText.Text = tip;
+            Canvas.SetLeft(HoverTip, Math.Min(screen.X + 14, Math.Max(0, ActualWidth - 320)));
             Canvas.SetTop(HoverTip, screen.Y + 16);
             HoverTip.Visibility = Visibility.Visible;
         }
@@ -451,7 +663,10 @@ public partial class SchematicCanvas : UserControl
             HoverTip.Visibility = Visibility.Collapsed;
         }
 
-        Cursor = pin is not null && !scene.IsLocked ? Cursors.Cross
+        Cursor = badge is not null ? Cursors.Hand
+            : pin is not null && !scene.IsLocked ? Cursors.Cross
+            : !scene.IsLocked && scene.CornerAt(world, PinRadiusPx / _scale) is not null ? Cursors.SizeAll
+            : !scene.IsLocked && hoverWire is not null && scene.SelectedWire == hoverWire.Id ? Cursors.SizeAll
             : scene.IsLocked && scene.PartAt(world)?.Type is "pushbutton" or "slide-switch" or "rotary-encoder" or "joystick" or "keypad" or "ir-remote" ? Cursors.Hand
             : scene.IsLocked && scene.PartAt(world)?.Type is "potentiometer" or "dht" or "ds18b20" or "hc-sr04" or "ds3231" ? Cursors.SizeNS
             : _spaceDown ? Cursors.Hand : null;
@@ -465,8 +680,65 @@ public partial class SchematicCanvas : UserControl
             return;
         }
 
+        Point releasedAt = e.GetPosition(this);
+        Point releasedWorld = ToWorld(releasedAt);
+
+        // The right button pans; released where it was pressed, it opens the menu.
+        if (e.ChangedButton == MouseButton.Right && _rightPress)
+        {
+            _rightPress = false;
+            bool click = (releasedAt - _pressedAt).Length <= MoveThresholdPx;
+            End();
+            if (click)
+            {
+                ShowContextMenu(scene, releasedWorld);
+            }
+
+            return;
+        }
+
+        // A press on a pin released over another pin finishes the wire too (docs/UI.md §4.3).
+        if (_wireByPress && e.ChangedButton == MouseButton.Left && scene.IsWiring)
+        {
+            _wireByPress = false;
+            if ((releasedAt - _gestureStartScreen).Length >= WireDragPx && scene.PinAt(releasedWorld, scene.WireSnapRadius) is { } target && !scene.IsWireStart(target.Pin))
+            {
+                scene.FinishWire(target.Pin);
+            }
+        }
+
+        if (_lockedEmptyClick && e.ChangedButton == MouseButton.Left)
+        {
+            scene.ClearSelection();
+        }
+
+        _lockedEmptyClick = false;
+        // Parts that now meet exactly are connected, in the move's own undo step.
+        if (_gesture == Gesture.MoveParts && _checkpointed)
+        {
+            scene.Editor.JoinCoincidingPins([.. scene.SelectedParts]);
+        }
+
         switch (_gesture)
         {
+            case Gesture.WireEnd when _endHandle is { } end:
+                scene.ClearGhost();
+                Cursor = null;
+                if (!_endDragged)
+                {
+                    // Only a click: the pin starts a new wire, as any pin does.
+                    if (scene.PinAt(releasedWorld, PinRadiusPx / _scale) is { } clicked)
+                    {
+                        scene.StartWire(clicked.Pin);
+                        scene.UpdateGhost(releasedWorld);
+                    }
+                }
+                else if (scene.PinAt(releasedWorld, scene.WireSnapRadius) is { } dropped)
+                {
+                    scene.ReconnectWire(end, dropped.Pin);
+                }
+
+                break;
             case Gesture.PressButton:
                 _activePart?.Release();
                 break;
@@ -511,6 +783,44 @@ public partial class SchematicCanvas : UserControl
         End();
     }
 
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+        if (_gesture == Gesture.None)
+        {
+            return;
+        }
+
+        switch (_gesture)
+        {
+            case Gesture.PressButton:
+                _activePart?.Release();
+                break;
+            case Gesture.PressKey:
+                _activePart?.ReleaseKey();
+                break;
+            case Gesture.Stick:
+                _activePart?.MoveStick(0, 0);
+                _activePart?.Release();
+                break;
+            case Gesture.Encoder:
+                _activePart?.Release();
+                break;
+            case Gesture.Marquee:
+                Marquee.Visibility = Visibility.Collapsed;
+                break;
+            case Gesture.WireEnd:
+                Scene?.ClearGhost();
+                Cursor = null;
+                break;
+        }
+
+        End();
+    }
+
+    /// <summary>A drag or a held press is under way; Esc belongs to it.</summary>
+    public bool InGesture => _gesture != Gesture.None;
+
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
@@ -532,11 +842,20 @@ public partial class SchematicCanvas : UserControl
         else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
         {
             _offset += new Vector(e.Delta / 2.0, 0);
+            _userMovedView = true;
+            ApplyTransform();
+        }
+        else if (Scene is { WheelPans: true } && !Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            _offset += new Vector(0, e.Delta / 2.0);
+            _userMovedView = true;
             ApplyTransform();
         }
         else
         {
-            ZoomAt(screen, e.Delta > 0 ? 1.2 : 1 / 1.2);
+            // By the wheel's delta: a touchpad reports small steps, and a notch of a mouse is 120.
+            _userMovedView = true;
+            ZoomAt(screen, Math.Pow(1.2, e.Delta / 120.0));
         }
 
         e.Handled = true;
@@ -554,6 +873,31 @@ public partial class SchematicCanvas : UserControl
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        HandleKey(e);
+    }
+
+    /// <summary>Canvas commands that also work while another panel holds the focus (the window routes them here).</summary>
+    public bool HandlesKey(Key key, ModifierKeys modifiers)
+    {
+        if (Scene is not { } scene)
+        {
+            return false;
+        }
+
+        bool ctrl = modifiers == ModifierKeys.Control;
+        bool plain = modifiers is ModifierKeys.None or ModifierKeys.Shift;
+        bool hasSelection = scene.SelectedParts.Count > 0 || scene.SelectedWire is not null;
+        return (plain && hasSelection && key is Key.Delete or Key.R or Key.F)
+            || (plain && key == Key.A)
+            || (ctrl && key is Key.D0 or Key.D9 or Key.OemPlus or Key.Add or Key.OemMinus or Key.Subtract)
+            || (ctrl && hasSelection && key is Key.D or Key.X)
+            || (ctrl && key == Key.V);
+    }
+
+    /// <summary>The keyboard's commands on the canvas (docs/UI.md §4.2).</summary>
+    public void HandleKey(KeyEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
         if (Scene is not { } scene)
         {
             return;
@@ -561,7 +905,16 @@ public partial class SchematicCanvas : UserControl
 
         bool ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
         bool shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
-        Point cursor = ToWorld(Mouse.GetPosition(this));
+        Point pointer = Mouse.GetPosition(this);
+
+        if (!ctrl && scene.IsLocked && scene.SinglePart is { } live && HandleLiveKey(live, e.Key, shift))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        // With the mouse elsewhere (a key after a click in a panel), the view's center stands in for it.
+        Point cursor = ToWorld(IsMouseOver ? pointer : new Point(ActualWidth / 2, ActualHeight / 2));
         e.Handled = true;
         switch (e.Key)
         {
@@ -570,7 +923,18 @@ public partial class SchematicCanvas : UserControl
                 Cursor = Cursors.Hand;
                 return;
             case Key.Escape:
-                if (scene.IsWiring)
+                if (_gesture is Gesture.MoveParts or Gesture.Corner or Gesture.Segment or Gesture.WireEnd)
+                {
+                    // The drag never happened: back to where it started, with no redo entry.
+                    if (_checkpointed)
+                    {
+                        scene.Editor.CancelStep();
+                    }
+
+                    scene.ClearGhost();
+                    End();
+                }
+                else if (scene.IsWiring)
                 {
                     scene.CancelWire();
                 }
@@ -584,19 +948,59 @@ public partial class SchematicCanvas : UserControl
                 scene.VerticalFirst = !scene.VerticalFirst;
                 scene.UpdateGhost(cursor);
                 return;
+            case Key.Tab when !ctrl:
+                if (scene.SelectNext(shift) is { } next)
+                {
+                    BringIntoView(next);
+                }
+                else
+                {
+                    e.Handled = false;
+                }
+
+                return;
+            case Key.Left or Key.Right or Key.Up or Key.Down when scene.SelectedParts.Count == 0 && scene.SelectedWire is null && !scene.IsWiring:
+                // Nothing to nudge: the arrows move the view.
+                double pan = shift ? 200 : 40;
+                _offset += new Vector(e.Key == Key.Left ? pan : e.Key == Key.Right ? -pan : 0, e.Key == Key.Up ? pan : e.Key == Key.Down ? -pan : 0);
+                _userMovedView = true;
+                ApplyTransform();
+                return;
+            case Key.Enter when !scene.IsWiring:
+                if (scene.SelectedParts.Count > 0)
+                {
+                    OpenPropertiesRequested?.Invoke(this, EventArgs.Empty);
+                }
+
+                return;
+            case Key.A when !ctrl && !shift && !scene.IsWiring:
+                if (scene.IsLocked)
+                {
+                    ShowHint(pointer);
+                }
+                else
+                {
+                    AddPartRequested?.Invoke(this, EventArgs.Empty);
+                }
+
+                return;
             case Key.Back when scene.IsWiring:
                 scene.RemoveLastCorner(cursor);
                 return;
             case Key.D0 when ctrl:
+                _userMovedView = false;
                 Fit();
                 return;
             case Key.D9 when ctrl:
+                _userMovedView = true;
                 ZoomTo100();
                 return;
             case Key.OemPlus or Key.Add when ctrl:
+                _userMovedView = true;
                 ZoomStep(1);
                 return;
             case Key.OemMinus or Key.Subtract when ctrl:
+                _userMovedView = true;
                 ZoomStep(-1);
                 return;
             case Key.A when ctrl:
@@ -618,7 +1022,7 @@ public partial class SchematicCanvas : UserControl
             case Key.Delete or Key.Back:
                 scene.DeleteSelection();
                 break;
-            case Key.R:
+            case Key.R when !ctrl:
                 scene.RotateSelection(clockwise: !shift);
                 break;
             case Key.F when !ctrl:
@@ -652,6 +1056,87 @@ public partial class SchematicCanvas : UserControl
             _spaceDown = false;
             Cursor = null;
         }
+
+        // What a key holds down while running lets go with it.
+        if (Scene is { IsLocked: true, SinglePart: { } live })
+        {
+            switch (live.Type)
+            {
+                case "joystick" when e.Key is Key.Left or Key.Right or Key.Up or Key.Down:
+                    live.MoveStick(0, 0);
+                    break;
+                case "joystick" or "rotary-encoder" when e.Key == Key.Space:
+                    live.Release();
+                    break;
+                case "keypad" when KeypadIndex(e.Key, shift: false) is not null:
+                    live.ReleaseKey();
+                    break;
+            }
+        }
+    }
+
+    /// <summary>The selected input part while running (Tab reaches it): arrows, Page keys, Home and End, Space, and a keypad's own keys.</summary>
+    private static bool HandleLiveKey(PartViewModel part, Key key, bool shift)
+    {
+        int direction = key is Key.Up or Key.Right ? 1 : key is Key.Down or Key.Left ? -1 : 0;
+        switch (part.Type)
+        {
+            case "potentiometer":
+                double next = key switch
+                {
+                    Key.Home => 0,
+                    Key.End => 1,
+                    Key.PageUp => part.Value + 0.1,
+                    Key.PageDown => part.Value - 0.1,
+                    _ when direction != 0 => part.Value + (direction * (shift ? 0.1 : 0.01)),
+                    _ => double.NaN,
+                };
+                if (double.IsNaN(next))
+                {
+                    return false;
+                }
+
+                part.Value = Math.Clamp(next, 0, 1);
+                return true;
+            case "rotary-encoder" when direction != 0:
+                part.Turn(direction);
+                return true;
+            case "rotary-encoder" or "joystick" when key == Key.Space:
+                part.Press();
+                return true;
+            case "joystick" when direction != 0:
+                part.MoveStick(key is Key.Left or Key.Right ? direction : part.StickX, key is Key.Up or Key.Down ? direction : part.StickY);
+                return true;
+            case "dht" or "ds18b20" or "hc-sr04" or "ds3231" when direction != 0 && part.LiveDragProperty(shift) is { } name:
+                part.SetLive(name, part.LiveValue(name) + (direction * (name == "temperature" ? 0.5 : PartViewModel.LiveStep(name))));
+                return true;
+            case "keypad" when KeypadIndex(key, shift) is int index:
+                if (part.KeyIndex != index)
+                {
+                    part.PressKey(index);
+                }
+
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>A keypad's key by its label: digits, A-D, * and #.</summary>
+    private static int? KeypadIndex(Key key, bool shift)
+    {
+        char label = key switch
+        {
+            >= Key.D0 and <= Key.D9 when shift && key == Key.D8 => '*',
+            >= Key.D0 and <= Key.D9 when shift && key == Key.D3 => '#',
+            >= Key.D0 and <= Key.D9 => (char)('0' + (key - Key.D0)),
+            >= Key.NumPad0 and <= Key.NumPad9 => (char)('0' + (key - Key.NumPad0)),
+            >= Key.A and <= Key.D => (char)('A' + (key - Key.A)),
+            Key.Multiply => '*',
+            _ => '\0',
+        };
+        int index = ArduSim.Core.Components.Parts.MatrixKeypad.Labels.IndexOf(label, StringComparison.Ordinal);
+        return index < 0 ? null : index;
     }
 
     // ---- drag and drop from the palette -----------------------------------------------------------
@@ -699,7 +1184,12 @@ public partial class SchematicCanvas : UserControl
     {
         if (Scene is { IsLocked: false } scene)
         {
-            scene.Place(request, ToWorld(new Point(ActualWidth / 2, ActualHeight / 2)));
+            var view = new Rect(ToWorld(new Point(0, 0)), ToWorld(new Point(ActualWidth, ActualHeight)));
+            if (scene.PlaceFree(request, ToWorld(new Point(ActualWidth / 2, ActualHeight / 2)), view) is { } placed)
+            {
+                BringIntoView(placed);
+            }
+
             Focus();
         }
     }
@@ -759,6 +1249,7 @@ public partial class SchematicCanvas : UserControl
         _gesture = Gesture.None;
         _activePart = null;
         _corner = null;
+        _endHandle = null;
         Scene?.EndSegmentDrag();
         ReleaseMouseCapture();
     }
@@ -785,8 +1276,17 @@ public partial class SchematicCanvas : UserControl
     }
 
     private static bool IsStructural(Key key, bool ctrl) =>
-        key is Key.Delete or Key.Back or Key.R or Key.Left or Key.Right or Key.Up or Key.Down || (key == Key.F && !ctrl) ||
+        key is Key.Delete or Key.Back or Key.Left or Key.Right or Key.Up or Key.Down || (key is Key.F or Key.R && !ctrl) ||
         (ctrl && key is Key.X or Key.V or Key.D);
+
+    /// <summary>A click on a part while running selects it, leaving an unchanged selection alone (the panel would rebuild).</summary>
+    private static void SelectLocked(SceneViewModel scene, PartViewModel part)
+    {
+        if (!part.IsSelected)
+        {
+            scene.Select(part.Id, additive: false);
+        }
+    }
 
     private void ShowHint(Point screen)
     {
@@ -825,7 +1325,7 @@ public partial class SchematicCanvas : UserControl
         }
 
         bool editable = !scene.IsLocked;
-        if (scene.PartAt(world) is { } part)
+        if (scene.WireOverPart(world, WireTolerancePx / _scale) is null && scene.PartAt(world) is { } part)
         {
             if (!part.IsSelected)
             {
@@ -838,6 +1338,8 @@ public partial class SchematicCanvas : UserControl
             Item("Menu_Copy", "Ctrl+C", () => CopyToClipboard(scene), part.Type != "board");
             menu.Items.Add(new Separator());
             Item("Menu_Delete", "Del", scene.DeleteSelection, editable && part.Type != "board");
+            menu.Items.Add(new Separator());
+            Item("Menu_Properties", "Enter", () => OpenPropertiesRequested?.Invoke(this, EventArgs.Empty));
         }
         else if (scene.WireAt(world, WireTolerancePx / _scale) is { } wire)
         {
@@ -855,20 +1357,33 @@ public partial class SchematicCanvas : UserControl
             }
 
             menu.Items.Add(colors);
+            bool bent = scene.Editor.Scene.FindWire(wire.Id) is { Waypoints.Count: > 0 };
+            Item("Menu_ResetRoute", "", () => scene.ResetRoute(wire.Id), editable && bent);
             menu.Items.Add(new Separator());
             Item("Menu_Delete", "Del", scene.DeleteSelection, editable);
         }
         else
         {
+            Item("Menu_AddPart", "A", () => AddPartRequested?.Invoke(this, EventArgs.Empty), editable);
             Item("Menu_Paste", "Ctrl+V", () => PasteFromClipboard(scene, world), editable && Clipboard.ContainsText());
             Item("Menu_Fit", "Ctrl+0", Fit);
+            menu.Items.Add(new Separator());
+            Item("Menu_Help", "F1", () => ShowHelpRequested?.Invoke(this, EventArgs.Empty));
         }
 
         menu.PlacementTarget = this;
         menu.IsOpen = true;
     }
 
-    private void OnZoomReset(object sender, RoutedEventArgs e) => ZoomTo100();
+    private void OnZoomReset(object sender, RoutedEventArgs e)
+    {
+        _userMovedView = true;
+        ZoomTo100();
+    }
 
-    private void OnFit(object sender, RoutedEventArgs e) => Fit();
+    private void OnFit(object sender, RoutedEventArgs e)
+    {
+        _userMovedView = false;
+        Fit();
+    }
 }

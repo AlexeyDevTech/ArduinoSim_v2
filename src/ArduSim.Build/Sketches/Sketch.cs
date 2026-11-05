@@ -37,8 +37,10 @@ public sealed record Sketch(string Directory, string Name, IReadOnlyList<string>
         string? main = inos.FirstOrDefault(f => string.Equals(Path.GetFileNameWithoutExtension(f), folderName, StringComparison.OrdinalIgnoreCase));
         if (main is null)
         {
-            main = inos.Count == 1
-                ? inos[0]
+            // Our sketch folders are named "sketch", so the main file is the one with setup().
+            string[] withSetup = [.. inos.Where(f => File.ReadAllText(f).Contains("setup(", StringComparison.Ordinal))];
+            main = inos.Count == 1 ? inos[0]
+                : withSetup.Length == 1 ? withSetup[0]
                 : throw new SketchException($"{full} has several .ino files but none is named {folderName}.ino, so the main file is ambiguous.");
         }
 

@@ -4,7 +4,7 @@
              xmlns:vm="clr-namespace:ArduSim.App.ViewModels"
              xmlns:v="clr-namespace:ArduSim.App.Views"
              xmlns:l="clr-namespace:ArduSim.App.Localization"
-             Focusable="True" FocusVisualStyle="{x:Null}" AllowDrop="True" ClipToBounds="True"
+             Focusable="True" AllowDrop="True" ClipToBounds="True"
              Background="{DynamicResource Brush.Canvas}">
   <UserControl.Resources>
     <ResourceDictionary>
@@ -13,8 +13,21 @@
       </ResourceDictionary.MergedDictionaries>
       <v:PartTemplateSelector x:Key="PartTemplates" />
       <v:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+      <v:NullToVisibilityConverter x:Key="NullToVisibility" />
     </ResourceDictionary>
   </UserControl.Resources>
+  <UserControl.FocusVisualStyle>
+    <!-- Keyboard focus reached by Tab: inside the edge, as the canvas clips what is outside. -->
+    <Style>
+      <Setter Property="Control.Template">
+        <Setter.Value>
+          <ControlTemplate>
+            <Rectangle Margin="1" Stroke="{DynamicResource Brush.Accent}" StrokeThickness="2" SnapsToDevicePixels="True" />
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </UserControl.FocusVisualStyle>
 
   <Grid>
     <Rectangle x:Name="GridLayer" IsHitTestVisible="False" />
@@ -61,12 +74,30 @@
             <Grid>
               <Polyline x:Name="Halo" Points="{Binding Points}" Stroke="{DynamicResource Brush.Accent}" StrokeThickness="6" Opacity="0"
                         StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+              <!-- A casing in the canvas color: an upper wire shows a small gap where it crosses another. -->
+              <Polyline Points="{Binding Points}" Stroke="{DynamicResource Brush.Canvas}" StrokeThickness="3.8" StrokeLineJoin="Round" />
               <Polyline x:Name="Line" Points="{Binding Points}" Stroke="{Binding Stroke}" StrokeThickness="2.2"
                         StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+              <!-- While running: a bright core when the net is HIGH, dashes for PWM and tones. -->
+              <Polyline x:Name="Live" Points="{Binding Points}" Stroke="White" StrokeThickness="0.8" Opacity="0" StrokeLineJoin="Round" />
             </Grid>
             <DataTemplate.Triggers>
               <DataTrigger Binding="{Binding IsSelected}" Value="True">
                 <Setter TargetName="Halo" Property="Opacity" Value="0.35" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding Level}" Value="1">
+                <Setter TargetName="Line" Property="Opacity" Value="0.55" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding Level}" Value="2">
+                <Setter TargetName="Live" Property="Opacity" Value="0.8" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding Level}" Value="3">
+                <Setter TargetName="Live" Property="Opacity" Value="0.8" />
+                <Setter TargetName="Live" Property="StrokeDashArray" Value="3 3" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding Level}" Value="4">
+                <Setter TargetName="Live" Property="Opacity" Value="0.8" />
+                <Setter TargetName="Live" Property="StrokeDashArray" Value="1 2" />
               </DataTrigger>
               <DataTrigger Binding="{Binding Dimmed}" Value="True">
                 <Setter TargetName="Line" Property="Opacity" Value="0.4" />
@@ -159,6 +190,57 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
+      <!-- The selected wire's ends: round, so they read differently from its square corners. -->
+      <ItemsControl ItemsSource="{Binding WireEnds}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:WireEndHandle}">
+            <Ellipse Width="7" Height="7" Margin="-3.5,-3.5,0,0" Fill="{DynamicResource Brush.Accent}" Stroke="{DynamicResource Brush.Canvas}" StrokeThickness="1" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- Levels on the board's pins while running -->
+      <ItemsControl ItemsSource="{Binding PinLevels}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle>
+          <Style TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:PinLevelMarker}">
+            <Ellipse x:Name="Dot" Width="4.4" Height="4.4" Margin="-2.2,-2.2,0,0" Fill="#FF6B7280" />
+            <DataTemplate.Triggers>
+              <DataTrigger Binding="{Binding Kind}" Value="2">
+                <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource Brush.Running}" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding Kind}" Value="3">
+                <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource Brush.Accent}" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding Kind}" Value="4">
+                <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource Brush.Warning}" />
+              </DataTrigger>
+            </DataTemplate.Triggers>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
       <Polyline Points="{Binding Ghost}" Stroke="{DynamicResource Brush.Accent}" StrokeThickness="2" StrokeDashArray="3 2" Opacity="0.9" />
       <Rectangle x:Name="DropGhost" Stroke="{DynamicResource Brush.Accent}" StrokeThickness="1" StrokeDashArray="4 2" Visibility="Collapsed" />
     </Canvas>
@@ -176,11 +258,18 @@
       </Border>
     </Canvas>
 
+    <!-- One line about what can be done now (docs/UI.md §3.6) -->
+    <Border x:Name="HintBar" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12,0,160,14" Padding="8,3" CornerRadius="4" IsHitTestVisible="False"
+            Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+            Visibility="{Binding Hint, Converter={StaticResource NullToVisibility}}">
+      <TextBlock Text="{Binding Hint}" FontSize="{DynamicResource FontSize.Small}" Foreground="{DynamicResource Brush.Text.Secondary}" TextTrimming="CharacterEllipsis" />
+    </Border>
+
     <Border x:Name="ZoomBar" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12" Padding="4" CornerRadius="6"
             Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
       <StackPanel Orientation="Horizontal">
-        <Button x:Name="ZoomButton" Click="OnZoomReset" Padding="8,2" Margin="0,0,4,0" ToolTip="Ctrl+9" />
-        <Button Content="{l:Loc Canvas_Fit}" Click="OnFit" Padding="8,2" Margin="0" ToolTip="Ctrl+0" />
+        <Button x:Name="ZoomButton" Click="OnZoomReset" Padding="8,2" Margin="0,0,4,0" ToolTip="{l:Loc Canvas_ZoomTip}" />
+        <Button Content="{l:Loc Canvas_Fit}" Click="OnFit" Padding="8,2" Margin="0" ToolTip="{l:Loc Canvas_FitTip}" />
       </StackPanel>
     </Border>
   </Grid>

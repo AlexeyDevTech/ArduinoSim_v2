@@ -48,17 +48,20 @@ public partial class CodeEditor : UserControl
                 Editor.TextArea.TextView.InvalidateLayer(KnownLayer.Selection);
             }
         };
+        InstallAssist();
         Editor.MouseHover += OnMouseHover;
         Editor.MouseHoverStopped += (_, _) => _tip.IsOpen = false;
         ApplyTheme();
         Loaded += (_, _) => Theme.Changed += ApplyTheme;
         Unloaded += (_, _) => Theme.Changed -= ApplyTheme;
         DataContextChanged += (_, e) => Attach(e.NewValue as CodeDocumentViewModel);
-        IsVisibleChanged += (_, _) =>
+
+        // A file opened in its tab just now: the tab's selection came before this editor existed.
+        Loaded += (_, _) =>
         {
-            if (IsVisible)
+            if (_document is not null && Main?.SelectedTab == _document)
             {
-                _ = Dispatcher.BeginInvoke(() => Editor.TextArea.Focus(), DispatcherPriority.Input);
+                OnFocusRequested();
             }
         };
     }
@@ -80,6 +83,8 @@ public partial class CodeEditor : UserControl
         {
             _document.NavigateRequested -= OnNavigate;
             _document.PropertyChanged -= OnDocumentChanged;
+            _document.FocusRequested -= OnFocusRequested;
+            _document.FindRequested -= OpenFind;
         }
 
         _document = document;
@@ -87,6 +92,10 @@ public partial class CodeEditor : UserControl
         {
             document.NavigateRequested += OnNavigate;
             document.PropertyChanged += OnDocumentChanged;
+            document.FocusRequested += OnFocusRequested;
+            document.FindRequested += OpenFind;
+            _textDirty = true;
+            UpdateCaretText();
         }
 
         Redraw();
@@ -105,6 +114,8 @@ public partial class CodeEditor : UserControl
         Editor.TextArea.TextView.InvalidateLayer(KnownLayer.Selection);
         _margin.Refresh();
     }
+
+    private void OnFocusRequested() => _ = Dispatcher.BeginInvoke(() => Editor.TextArea.Focus(), DispatcherPriority.Input);
 
     private void OnNavigate(int line, int column)
     {
@@ -125,22 +136,25 @@ public partial class CodeEditor : UserControl
             DispatcherPriority.Loaded);
     }
 
-    private void OnMouseHover(object sender, MouseEventArgs e)
+    private async void OnMouseHover(object sender, MouseEventArgs e)
     {
         if (Editor.GetPositionFromPoint(e.GetPosition(Editor)) is not { } position)
         {
             return;
         }
 
-        string[] messages = [.. Diagnostics().Where(d => d.Line == position.Line).Select(d => d.Message)];
-        if (messages.Length == 0)
+        // A compiler message first, with its plain Russian; otherwise what clangd knows of the word.
+        string[] messages = [.. Diagnostics().Where(d => d.Line == position.Line).Select(d => DiagnosticHints.Explain(d) is { } hint ? hint + Environment.NewLine + d.Message : d.Message)];
+        string? text = messages.Length > 0 ? string.Join(Environment.NewLine, messages) : null;
+        e.Handled = true;
+        text ??= await HoverTextAsync(position.Line, position.Column);
+        if (text is null || !Editor.IsMouseOver)
         {
             return;
         }
 
         _tip.PlacementTarget = Editor;
-        _tip.Content = string.Join(Environment.NewLine, messages);
+        _tip.Content = text;
         _tip.IsOpen = true;
-        e.Handled = true;
     }
 }

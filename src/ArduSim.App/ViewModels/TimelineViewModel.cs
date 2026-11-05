@@ -28,6 +28,9 @@ public sealed partial class TimelineViewModel : ObservableObject
     private BoardProfile? _board;
     private double _viewWidth = 800;
 
+    /// <summary>Очистить dropped every pin's level during a run: the Runner has to say them again.</summary>
+    public event Action? Cleared;
+
     public TraceStore Store { get; } = new();
 
     public ObservableCollection<TimelineRow> Rows { get; } = [];
@@ -45,7 +48,7 @@ public sealed partial class TimelineViewModel : ObservableObject
     public partial ulong ViewStart { get; private set; }
 
     [ObservableProperty]
-    public partial double NsPerPixel { get; private set; } = 10_000;
+    public partial double NsPerPixel { get; private set; } = 1_000_000;
 
     /// <summary>The window keeps the latest time in view.</summary>
     [ObservableProperty]
@@ -182,6 +185,28 @@ public sealed partial class TimelineViewModel : ObservableObject
         AddBus(new BusChoice(title, () => decoder));
     }
 
+    /// <summary>The LogicAnalyzerDemo example's rows: every bus, its pins, and the byte it shifts out by hand on D4 and D3.</summary>
+    public void AddDemoRows()
+    {
+        foreach (BusChoice bus in BusChoices)
+        {
+            AddBus(bus);
+        }
+
+        foreach (string pin in (string[])["D3", "D4", "D5", "D10"])
+        {
+            if (_board?.FindPin(pin) is { } boardPin)
+            {
+                AddPin(boardPin);
+            }
+        }
+
+        CustomKind = "SPI";
+        CustomFirst = _board?.FindPin("D4");
+        CustomSecond = _board?.FindPin("D3");
+        AddCustomBus();
+    }
+
     /// <summary>The project's board changed: the rows belong to the old board's pins.</summary>
     public void SetBoard(BoardProfile? board)
     {
@@ -267,7 +292,11 @@ public sealed partial class TimelineViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Clear() => Reset();
+    private void Clear()
+    {
+        Reset();
+        Cleared?.Invoke();
+    }
 
     /// <summary>A block from the Runner, and the snapshot's virtual time.</summary>
     public void Append(TraceBlock? block, ulong now)
@@ -314,10 +343,38 @@ public sealed partial class TimelineViewModel : ObservableObject
     /// <param name="factor">Above 1 zooms out.</param>
     public void ZoomAt(double x, double factor)
     {
+        if (Following)
+        {
+            // Following stays on: the zoom is about the latest time, at the right edge.
+            NsPerPixel = Math.Clamp(NsPerPixel * factor, MinNsPerPixel, MaxNsPerPixel);
+            ViewStart = (ulong)Math.Max(0, Store.End - (_viewWidth * NsPerPixel));
+            Touch();
+            return;
+        }
+
         double pinned = ViewStart + (x * NsPerPixel);
         NsPerPixel = Math.Clamp(NsPerPixel * factor, MinNsPerPixel, MaxNsPerPixel);
         ViewStart = (ulong)Math.Max(0, pinned - (x * NsPerPixel));
+        Touch();
+    }
+
+    /// <summary>Вписать всё: the whole recording in the window; the view then stays put.</summary>
+    [RelayCommand]
+    private void FitAll()
+    {
+        double span = Math.Max(1, Store.End - Store.Start);
+        NsPerPixel = Math.Clamp(span / Math.Max(1, _viewWidth), MinNsPerPixel, MaxNsPerPixel);
+        ViewStart = Store.Start;
         Following = false;
+        Touch();
+    }
+
+    /// <summary>К последним: back to following the latest time.</summary>
+    [RelayCommand]
+    private void GoLive()
+    {
+        ViewStart = (ulong)Math.Max(0, Store.End - (_viewWidth * NsPerPixel));
+        Following = true;
         Touch();
     }
 
@@ -355,15 +412,30 @@ public sealed partial class TimelineViewModel : ObservableObject
     /// <summary>A time or a span in the unit that suits it.</summary>
     public static string FormatTime(ulong ns)
     {
-        (double value, string unit) = ns switch
-        {
-            >= 1_000_000_000 => (ns / 1e9, Strings.Get("Unit_Seconds")),
-            >= 1_000_000 => (ns / 1e6, Strings.Get("Unit_Milliseconds")),
-            >= 1_000 => (ns / 1e3, Strings.Get("Unit_Microseconds")),
-            _ => (ns, Strings.Get("Unit_Nanoseconds")),
-        };
-        return value.ToString("0.###", CultureInfo.CurrentCulture) + " " + unit;
+        (ulong scale, string unit) = UnitFor(ns);
+        return ((double)ns / scale).ToString("0.###", CultureInfo.CurrentCulture) + " " + unit;
     }
+
+    /// <summary>A ruler tick: as many decimals as its step needs, so neighbouring ticks never read the same.</summary>
+    public static string FormatTick(ulong tick, ulong step)
+    {
+        (ulong scale, string unit) = UnitFor(Math.Max(tick, step));
+        int decimals = 0;
+        for (ulong place = scale; step % place != 0; place /= 10)
+        {
+            decimals++;
+        }
+
+        return ((double)tick / scale).ToString("F" + decimals.ToString(CultureInfo.InvariantCulture), CultureInfo.CurrentCulture) + " " + unit;
+    }
+
+    private static (ulong Scale, string Unit) UnitFor(ulong ns) => ns switch
+    {
+        >= 1_000_000_000 => (1_000_000_000, Strings.Get("Unit_Seconds")),
+        >= 1_000_000 => (1_000_000, Strings.Get("Unit_Milliseconds")),
+        >= 1_000 => (1_000, Strings.Get("Unit_Microseconds")),
+        _ => (1, Strings.Get("Unit_Nanoseconds")),
+    };
 
     private void Follow()
     {

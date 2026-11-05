@@ -149,3 +149,19 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-05 — The Mega's ports A-L follow the ATmega2560's pin map; `__AVR__` stays undefined on every board, `ARDUINO_AVR_*` board macros are defined.
 - 2026-11-05 — PlatformIO import is in place, through «Открыть папку…», with `settings.defines` and `settings.includePaths` as optional additions to the project file (schema version stays 1); `lib_deps` are not downloaded (ADR-015).
 - 2026-11-05 — A sketch folder with no `.ino` is a plain C++ project; a library with `src/` and no header in its root is the recursive layout even without `library.properties`.
+- 2026-11-05 — Editor intelligence comes from the toolchain's clangd over LSP with fallback flags, no compile database in the project; it never replaces the build's diagnostics (ADR-016).
+- 2026-11-05 — `clang-format` style for Ctrl+T: Google, two spaces, no column limit, includes left in place.
+- 2026-11-05 — The toolbar's folding stage is chosen by measuring, not by width thresholds, because names vary (ADR-016).
+- 2026-11-05 — A bare board opens at 100 % in the upper part of the canvas; other scenes fit, and follow the canvas's size until the user pans or zooms.
+- 2026-11-05 — Deleting a sketch file goes to the Recycle Bin with no question; renaming or deleting the main file is refused.
+- 2026-11-05 — Palette search tiers: word prefix, substring, stem, typo distance (never under 4 letters), then the other keyboard layout; the strongest tier with a hit wins, so `led` finds no OLEDs.
+- 2026-11-05 — The Monitor shows no baud rate: the sketch's `Serial.begin` sets it and the App does not know it yet; the project's baud list, which changed nothing, is gone from Properties (the field stays in the file).
+- 2026-11-05 — An example's copy is recognized by its folder name, so the project file format does not change; Начать заново makes `<name> N` and keeps the edited copy.
+- 2026-11-05 — The Диаграмма opens at 1 ms per pixel, about a second across, so traffic twice a second is in view; time not recorded is a hole in `TraceStore`, closed by the first sample after recording restarts.
+- 2026-11-05 — The Monitor trims to three quarters of its 200 000 characters at a line start, so its text is replaced rarely; a selection is lost only then.
+- 2026-11-05 — Resuming the Плоттер adds one empty sample only when lines went by; series colors come from a dark or a light palette in `PlotterView`, by the series' position.
+- 2026-11-05 — The owner's additions to the usability pass: everything listed in docs/CHANGELOG.md; hover and panel transitions and the other leftovers are in docs/UI-BACKLOG.md, stopped at the owner's 30-minute limit.
+- 2026-11-05 — Automatic signal wire colors go by the net's board pin (green, blue, orange, purple, pink), so they do not change when other wires are added; a net with no board pin is green.
+- 2026-11-05 — A file changed on both sides stops Save, Build and Run at its tab; this replaces docs/UI.md's earlier wording, on the owner's choice.
+- 2026-11-05 — A sketch that is not valid UTF-8 is read as Windows-1251, said in a toast, and saved as UTF-8.
+- 2026-11-05 — Windows text size scales the interface through top-level `FontSize.*` resources; the code editor keeps 13.

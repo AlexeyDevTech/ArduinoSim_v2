@@ -13,6 +13,8 @@
   <Color x:Key="Color.Text.Primary">#FFE7E9EE</Color>
   <Color x:Key="Color.Text.Secondary">#FF9BA3B4</Color>
   <Color x:Key="Color.Text.Disabled">#FF5C6372</Color>
+  <Color x:Key="Color.Text.Hint">#FF8A92A3</Color>
+  <Color x:Key="Color.BorderInput">#FF6B7384</Color>
   <Color x:Key="Color.Accent">#FF2BC4A9</Color>
   <Color x:Key="Color.AccentHover">#FF3FD6BB</Color>
   <Color x:Key="Color.OnAccent">#FF0B1A17</Color>
@@ -31,6 +33,8 @@
   <SolidColorBrush x:Key="Brush.Text.Primary" Color="{StaticResource Color.Text.Primary}" />
   <SolidColorBrush x:Key="Brush.Text.Secondary" Color="{StaticResource Color.Text.Secondary}" />
   <SolidColorBrush x:Key="Brush.Text.Disabled" Color="{StaticResource Color.Text.Disabled}" />
+  <SolidColorBrush x:Key="Brush.Text.Hint" Color="{StaticResource Color.Text.Hint}" />
+  <SolidColorBrush x:Key="Brush.BorderInput" Color="{StaticResource Color.BorderInput}" />
   <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}" />
   <SolidColorBrush x:Key="Brush.AccentHover" Color="{StaticResource Color.AccentHover}" />
   <SolidColorBrush x:Key="Brush.AccentSoft" Color="{StaticResource Color.Accent}" Opacity="0.16" />

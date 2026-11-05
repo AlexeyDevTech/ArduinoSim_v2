@@ -58,19 +58,77 @@ public sealed partial class SceneViewModel : ObservableObject
 
     public ObservableCollection<CornerHandle> Corners { get; } = [];
 
+    /// <summary>The selected wire's two ends: drag one to another pin (docs/UI.md §4.3).</summary>
+    public ObservableCollection<WireEndHandle> WireEnds { get; } = [];
+
+    /// <summary>Levels on the board's pins while running: a mark per driven pin (docs/UI.md principle 2).</summary>
+    public ObservableCollection<PinLevelMarker> PinLevels { get; } = [];
+
+    /// <summary>The warning mark on a part was clicked.</summary>
+    public event Action<PartViewModel>? WarningClicked;
+
+    /// <summary>The levels on the board's pins changed in this snapshot.</summary>
+    public event Action? LevelsChanged;
+
+    /// <summary>The one-line hint at the bottom of the canvas shows (Параметры).</summary>
+    [ObservableProperty]
+    public partial bool HintsEnabled { get; set; }
+
+    /// <summary>What can be done right now, one line, chosen by the state (docs/UI.md §3.6).</summary>
+    public string Hint =>
+        !HintsEnabled ? ""
+        : IsLocked ? Strings.Get("Hint_Running")
+        : IsWiring ? Strings.Get("Hint_Wiring")
+        : SelectedWire is not null ? Strings.Get("Hint_Wire")
+        : Parts.Count <= 1 ? Strings.Get("Hint_Empty")
+        : _selected.Count > 0 ? Strings.Get("Hint_Part")
+        : "";
+
+    public void Warn(PartViewModel part) => WarningClicked?.Invoke(part);
+
+    /// <summary>The part whose warning mark is under a point, in canvas units.</summary>
+    public PartViewModel? BadgeAt(Point p) =>
+        Parts.LastOrDefault(part => part.HasWarning && new Rect(part.Bounds.Right - 8, part.Bounds.Top - 10, 16, 15).Contains(p));
+
+    public WireEndHandle? WireEndAt(Point p, double radius) => WireEnds.FirstOrDefault(e => (new Point(e.X, e.Y) - p).Length <= radius);
+
+    partial void OnHintsEnabledChanged(bool value) => OnPropertyChanged(nameof(Hint));
+
+    partial void OnIsLockedChanged(bool value)
+    {
+        if (value)
+        {
+            CancelWire();
+        }
+
+        RefreshSelection();
+    }
+
     public IReadOnlyCollection<string> SelectedParts => _selected;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Hint))]
     public partial string? SelectedWire { get; private set; }
 
     /// <summary>While a run is active the structure is locked; interactive parts stay live (docs/UI.md §4.4).</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Hint))]
     public partial bool IsLocked { get; set; }
 
     [ObservableProperty]
     public partial PointCollection? Ghost { get; private set; }
 
     public bool IsWiring => _wireStart is not null;
+
+    /// <summary>How near a pin the wire in progress snaps to it, in canvas units; the click uses the same, so it lands where the ghost shows.</summary>
+    public double WireSnapRadius { get; set; } = 7;
+
+    /// <summary>The pin the wire in progress starts from.</summary>
+    public bool IsWireStart(PinReference pin) => _wireStart == pin;
+
+    /// <summary>A wire crossing an unselected part is taken before the part under it; a selected part keeps its drag.</summary>
+    public (WireViewModel Wire, int Segment)? WireOverPart(Point p, double tolerance) =>
+        PartAt(p) is { IsSelected: false } ? WireSegmentAt(p, tolerance) : null;
 
     public bool VerticalFirst { get; set; }
 
@@ -147,8 +205,11 @@ public sealed partial class SceneViewModel : ObservableObject
 
     public PartViewModel? PartAt(Point p) => Parts.LastOrDefault(part => part.Bounds.Contains(p));
 
+    /// <summary>The nearest pin within <paramref name="radius"/>, so a click never lands on the neighbour of the pin it is closest to.</summary>
     public (PinReference Pin, Point Position)? PinAt(Point p, double radius)
     {
+        (PinReference Pin, Point Position)? best = null;
+        double bestDistance = double.MaxValue;
         foreach (PartViewModel part in Parts.Reverse())
         {
             if (part.Definition is not { } definition)
@@ -159,14 +220,16 @@ public sealed partial class SceneViewModel : ObservableObject
             foreach (PinDefinition pin in definition.Pins)
             {
                 Point position = part.PinPosition(pin);
-                if ((position - p).Length <= radius)
+                double distance = (position - p).Length;
+                if (distance <= radius && distance < bestDistance)
                 {
-                    return (new PinReference(part.Id, pin.Name), position);
+                    bestDistance = distance;
+                    best = (new PinReference(part.Id, pin.Name), position);
                 }
             }
         }
 
-        return null;
+        return best;
     }
 
     public WireViewModel? WireAt(Point p, double tolerance) =>
@@ -245,6 +308,24 @@ public sealed partial class SceneViewModel : ObservableObject
         RefreshSelection();
     }
 
+    /// <summary>
+    /// Tab on the canvas: the next or previous part in the scene's order (docs/UI.md §5). Past either
+    /// end it answers null with the selection cleared, so Tab can leave the canvas: no keyboard trap.
+    /// </summary>
+    public PartViewModel? SelectNext(bool backwards)
+    {
+        int current = SinglePart is { } part ? Parts.IndexOf(part) : -1;
+        int next = current < 0 ? (backwards ? Parts.Count - 1 : 0) : current + (backwards ? -1 : 1);
+        if (next < 0 || next >= Parts.Count)
+        {
+            ClearSelection();
+            return null;
+        }
+
+        Select(Parts[next].Id, additive: false);
+        return Parts[next];
+    }
+
     // ---- editing (thin wrappers over SceneEditor) ---------------------------------------------
 
     public void DeleteSelection()
@@ -259,9 +340,28 @@ public sealed partial class SceneViewModel : ObservableObject
 
     public void FlipSelection() => Editor.Flip([.. _selected]);
 
-    public void Nudge(double dx, double dy) => Editor.MoveParts([.. _selected], dx, dy);
+    public void Nudge(double dx, double dy)
+    {
+        Editor.MoveParts([.. _selected], dx, dy);
+        Editor.JoinCoincidingPins([.. _selected]);
+    }
+
+    /// <summary>The scroll wheel moves the view and Ctrl+wheel zooms, for a touchpad (Параметры).</summary>
+    public bool WheelPans { get; set; }
 
     public void DuplicateSelection() => SelectMany(Editor.Duplicate([.. _selected]), additive: false);
+
+    /// <summary>Places a part near a point of the view without covering another one (palette double-click, Enter).</summary>
+    public PartViewModel? PlaceFree(string request, Point center, Rect view)
+    {
+        if (Resolve(request) is not { } resolved)
+        {
+            return null;
+        }
+
+        (double x, double y) = Editor.FreeSpot(resolved.Definition.Width, resolved.Definition.Height, center.X, center.Y, (view.Left, view.Top, view.Right, view.Bottom));
+        return Place(request, new Point(x, y));
+    }
 
     public string? CopySelection() => Editor.Copy([.. _selected]);
 
@@ -283,6 +383,7 @@ public sealed partial class SceneViewModel : ObservableObject
         }
 
         PartModel part = Editor.AddPart(resolved.Type, at.X - (resolved.Definition.Width / 2), at.Y - (resolved.Definition.Height / 2), resolved.Values);
+        Editor.JoinCoincidingPins([part.Id]);
         Select(part.Id, additive: false);
         return Find(part.Id);
     }
@@ -306,8 +407,10 @@ public sealed partial class SceneViewModel : ObservableObject
     {
         _wireStart = pin;
         _corners.Clear();
+        VerticalFirst = false;
         ClearSelection();
         UpdatePinMarkers();
+        OnPropertyChanged(nameof(Hint));
     }
 
     public void AddCorner(Point p)
@@ -319,6 +422,12 @@ public sealed partial class SceneViewModel : ObservableObject
 
         Point last = _corners.Count > 0 ? new Point(_corners[^1].X, _corners[^1].Y) : PinPoint(_wireStart);
         Point corner = new(SceneEditor.Snap(p.X), SceneEditor.Snap(p.Y));
+        if (corner == last)
+        {
+            UpdateGhost(p);
+            return;
+        }
+
         if (VerticalFirst && last.X != corner.X && last.Y != corner.Y)
         {
             _corners.Add((last.X, corner.Y));
@@ -347,7 +456,7 @@ public sealed partial class SceneViewModel : ObservableObject
 
         Point start = PinPoint(_wireStart);
         var end = new Point(SceneEditor.Snap(cursor.X), SceneEditor.Snap(cursor.Y));
-        if (PinAt(cursor, 6) is { } target)
+        if (PinAt(cursor, WireSnapRadius) is { } target)
         {
             end = target.Position;
         }
@@ -370,13 +479,18 @@ public sealed partial class SceneViewModel : ObservableObject
         }
 
         List<(double X, double Y)> corners = [.. _corners];
-        if (VerticalFirst && corners.Count == 0)
+        if (corners.Count == 0)
         {
             Point a = PinPoint(start);
             Point b = PinPoint(pin);
-            if (a.X != b.X && a.Y != b.Y)
+            if (VerticalFirst && a.X != b.X && a.Y != b.Y)
             {
                 corners.Add((a.X, b.Y));
+            }
+            else if (!VerticalFirst)
+            {
+                // The bend that does not run along other pins (Tab overrides it).
+                corners.AddRange(Editor.BestCorner(start, pin));
             }
         }
 
@@ -395,6 +509,57 @@ public sealed partial class SceneViewModel : ObservableObject
         _corners.Clear();
         Ghost = null;
         UpdatePinMarkers();
+        OnPropertyChanged(nameof(Hint));
+    }
+
+    /// <summary>Moves a selected wire's end to <paramref name="pin"/>; false when that pin cannot take it.</summary>
+    public bool ReconnectWire(WireEndHandle end, PinReference pin)
+    {
+        ArgumentNullException.ThrowIfNull(end);
+        bool done = Editor.ReconnectWire(end.WireId, end.FromEnd, pin);
+        if (done)
+        {
+            RefreshSelection();
+        }
+
+        return done;
+    }
+
+    /// <summary>The route the dragged wire end would take, as a ghost.</summary>
+    public void GhostReconnect(WireEndHandle end, Point cursor)
+    {
+        ArgumentNullException.ThrowIfNull(end);
+        if (Editor.Scene.FindWire(end.WireId) is not { } wire)
+        {
+            return;
+        }
+
+        Point fixedEnd = PinPoint(end.FromEnd ? wire.To : wire.From);
+        Point moving = PinAt(cursor, WireSnapRadius) is { } target ? target.Position : new Point(SceneEditor.Snap(cursor.X), SceneEditor.Snap(cursor.Y));
+        Ghost = ToPoints(SceneEditor.Route((fixedEnd.X, fixedEnd.Y), [], (moving.X, moving.Y)));
+    }
+
+    public void ClearGhost() => Ghost = null;
+
+    /// <summary>Removes a corner of the selected wire (a double-click on it).</summary>
+    public void RemoveCorner(CornerHandle corner)
+    {
+        ArgumentNullException.ThrowIfNull(corner);
+        if (Editor.Scene.FindWire(corner.WireId) is { } wire && corner.Index < wire.Waypoints.Count)
+        {
+            List<(double X, double Y)> corners = [.. wire.Waypoints];
+            corners.RemoveAt(corner.Index);
+            Editor.SetWaypoints(corner.WireId, corners);
+        }
+    }
+
+    /// <summary>Сбросить маршрут: back to the plain route between the two pins.</summary>
+    public void ResetRoute(string wireId)
+    {
+        if (Editor.Scene.FindWire(wireId) is { Waypoints.Count: > 0 } wire)
+        {
+            Editor.SetWaypoints(wireId, Editor.BestCorner(wire.From, wire.To));
+        }
     }
 
     // ---- wire editing ------------------------------------------------------------------------
@@ -522,25 +687,120 @@ public sealed partial class SceneViewModel : ObservableObject
             string kind = boardPin.Has(PinCapabilities.Pwm) ? Strings.Get("Pin_DigitalPwm")
                 : boardPin.Has(PinCapabilities.Digital) ? Strings.Get("Pin_Digital") : Strings.Get("Pin_Analog");
             text += " · " + kind;
-            if (_boardPins.TryGetValue(boardPin.Number, out var drive))
+            if (RolesOf(boardPin) is { Length: > 0 } roles)
             {
-                text += " · " + drive.Kind switch
-                {
-                    1 => "LOW",
-                    2 => "HIGH",
-                    3 => string.Create(CultureInfo.InvariantCulture, $"PWM {drive.Value * 100 / 255}%"),
-                    4 => string.Create(CultureInfo.InvariantCulture, $"tone {drive.Value} Hz"),
-                    _ => Strings.Get("Pin_Input"),
-                };
+                text += " · " + roles;
             }
         }
         else
         {
-            text = $"{part.Id}.{pin.Pin}";
+            text = $"{part.Id}.{part.Definition?.FindPin(pin.Pin)?.Label ?? pin.Pin}";
         }
 
-        int connections = Editor.Scene.Wires.Count(w => w.From == pin || w.To == pin);
-        return connections == 0 ? text : text + " · " + Strings.Format("Pin_Wires", connections);
+        if (LevelText(pin) is { Length: > 0 } level)
+        {
+            text += " · " + level;
+        }
+
+        string[] others = [.. Editor.Scene.Wires.Where(w => w.From == pin || w.To == pin).Select(w => w.From == pin ? w.To : w.From).Select(o => $"{o.Component}.{o.Pin}")];
+        return others.Length == 0 ? text : text + " → " + string.Join(", ", others);
+    }
+
+    /// <summary>Where a wire goes, for the hover tip: every pin of its net.</summary>
+    public string WireTooltip(WireViewModel wire)
+    {
+        ArgumentNullException.ThrowIfNull(wire);
+        string[] pins = [.. wire.Net.Select(Editor.Scene.FindWire).OfType<WireModel>()
+            .SelectMany(w => (PinReference[])[w.From, w.To]).Distinct().Select(p => $"{p.Component}.{p.Pin}")];
+        string text = string.Join(", ", pins);
+        return Editor.Scene.FindWire(wire.Id) is { } model && LevelText(model.From) is { Length: > 0 } level ? text + " · " + level : text;
+    }
+
+    /// <summary>The buses this pin serves on this board.</summary>
+    private string RolesOf(BoardPin pin)
+    {
+        var roles = new List<string>();
+        foreach (I2cPins i2c in Board.I2c ?? [])
+        {
+            if (i2c.Sda == pin.Number)
+            {
+                roles.Add("I2C SDA");
+            }
+            else if (i2c.Scl == pin.Number)
+            {
+                roles.Add("I2C SCL");
+            }
+        }
+
+        foreach (SpiPins spi in Board.Spi ?? [])
+        {
+            if (spi.Mosi == pin.Number)
+            {
+                roles.Add("SPI MOSI");
+            }
+            else if (spi.Miso == pin.Number)
+            {
+                roles.Add("SPI MISO");
+            }
+            else if (spi.Sck == pin.Number)
+            {
+                roles.Add("SPI SCK");
+            }
+            else if (spi.Ss == pin.Number)
+            {
+                roles.Add("SPI SS");
+            }
+        }
+
+        return string.Join(", ", roles);
+    }
+
+    /// <summary>The board pin on the same net as <paramref name="pin"/>, if any.</summary>
+    private int? BoardPinOf(PinReference pin)
+    {
+        if (Find(pin.Component)?.Type == "board" && Board.FindPin(pin.Pin) is { } own)
+        {
+            return own.Number;
+        }
+
+        foreach (IReadOnlyList<WireModel> net in Editor.WireNets())
+        {
+            if (!net.Any(w => w.From == pin || w.To == pin))
+            {
+                continue;
+            }
+
+            foreach (WireModel wire in net)
+            {
+                foreach (PinReference end in (PinReference[])[wire.From, wire.To])
+                {
+                    if (Find(end.Component)?.Type == "board" && Board.FindPin(end.Pin) is { } board)
+                    {
+                        return board.Number;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The level a pin's net carries while running, as text; empty when stopped or unknown.</summary>
+    public string LevelText(PinReference pin)
+    {
+        if (_boardPins.Count == 0 || BoardPinOf(pin) is not { } number || !_boardPins.TryGetValue(number, out var drive))
+        {
+            return "";
+        }
+
+        return drive.Kind switch
+        {
+            1 => "LOW",
+            2 => "HIGH",
+            3 => string.Create(CultureInfo.InvariantCulture, $"PWM {drive.Value * 100 / 255}%"),
+            4 => string.Create(CultureInfo.InvariantCulture, $"tone {drive.Value} Hz"),
+            _ => Strings.Get("Pin_Input"),
+        };
     }
 
     // ---- live state --------------------------------------------------------------------------
@@ -559,9 +819,48 @@ public sealed partial class SceneViewModel : ObservableObject
 
     public void ApplyPins(IEnumerable<(int Pin, int Kind, int Value)> pins)
     {
+        bool changed = false;
         foreach ((int pin, int kind, int value) in pins)
         {
-            _boardPins[pin] = (kind, value);
+            if (!_boardPins.TryGetValue(pin, out var known) || known != (kind, value))
+            {
+                _boardPins[pin] = (kind, value);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            UpdateLevelMarkers();
+            LevelsChanged?.Invoke();
+        }
+    }
+
+    private void UpdateLevelMarkers()
+    {
+        PinLevels.Clear();
+        PartViewModel? board = Parts.FirstOrDefault(p => p.Type == "board");
+        if (board?.Definition is { } definition)
+        {
+            foreach ((int number, (int kind, int _)) in _boardPins)
+            {
+                if (kind is >= 1 and <= 4 && Board.FindPin(number) is { } pin && definition.FindPin(pin.Name) is { } drawn)
+                {
+                    Point at = board.PinPosition(drawn);
+                    PinLevels.Add(new PinLevelMarker(at.X, at.Y, kind));
+                }
+            }
+        }
+
+        foreach (WireViewModel wire in Wires)
+        {
+            int level = 0;
+            if (Editor.Scene.FindWire(wire.Id) is { } model && BoardPinOf(model.From) is { } number && _boardPins.TryGetValue(number, out var drive))
+            {
+                level = drive.Kind is >= 1 and <= 4 ? drive.Kind : 0;
+            }
+
+            wire.Level = level;
         }
     }
 
@@ -569,13 +868,15 @@ public sealed partial class SceneViewModel : ObservableObject
     public void ResetRuntime(bool clearWarnings)
     {
         _boardPins.Clear();
+        UpdateLevelMarkers();
+        LevelsChanged?.Invoke();
         foreach (PartViewModel part in Parts)
         {
             part.Apply(new Dictionary<string, double>(), reset: true);
             part.ClearDisplay();
             if (clearWarnings)
             {
-                part.HasWarning = false;
+                part.ClearWarnings();
             }
         }
     }
@@ -615,6 +916,7 @@ public sealed partial class SceneViewModel : ObservableObject
         _selected.IntersectWith(alive);
         RebuildWires();
         RefreshSelection();
+        OnPropertyChanged(nameof(Hint));
     }
 
     /// <summary>Redraws the wires in the current theme's colors (the scene itself is unchanged).</summary>
@@ -627,7 +929,8 @@ public sealed partial class SceneViewModel : ObservableObject
         {
             NetKind kind = SceneEditor.KindOf(net);
             string[] ids = [.. net.Select(w => w.Id)];
-            wires.AddRange(net.Select(wire => (wire, WirePalette.Brush(wire.Color, kind), ids)));
+            int? boardPin = net.SelectMany(w => (PinReference[])[w.From, w.To]).Where(p => Find(p.Component)?.Type == "board").Select(p => Board.FindPin(p.Pin)?.Number).FirstOrDefault(n => n is not null);
+            wires.AddRange(net.Select(wire => (wire, WirePalette.Brush(wire.Color, kind, boardPin), ids)));
         }
 
         // Dragging changes routes, not the set of wires: update the existing views in place then,
@@ -669,16 +972,26 @@ public sealed partial class SceneViewModel : ObservableObject
         }
 
         Corners.Clear();
+        WireEnds.Clear();
         if (SelectedWire is not null && Editor.Scene.FindWire(SelectedWire) is { } selected)
         {
             for (int i = 0; i < selected.Waypoints.Count; i++)
             {
                 Corners.Add(new CornerHandle(selected.Id, i, selected.Waypoints[i].X, selected.Waypoints[i].Y));
             }
+
+            if (!IsLocked)
+            {
+                Point from = PinPoint(selected.From);
+                Point to = PinPoint(selected.To);
+                WireEnds.Add(new WireEndHandle(selected.Id, true, from.X, from.Y));
+                WireEnds.Add(new WireEndHandle(selected.Id, false, to.X, to.Y));
+            }
         }
 
         UpdatePinMarkers();
         SelectionChanged?.Invoke();
+        OnPropertyChanged(nameof(Hint));
     }
 
     private void UpdateNetHighlight()
@@ -843,6 +1156,25 @@ public sealed partial class PartViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool HasWarning { get; set; }
+
+    /// <summary>What the part's warning mark says on hover: every message the run reported for it.</summary>
+    public string WarningText { get; private set; } = "";
+
+    public void AddWarning(string message)
+    {
+        if (!WarningText.Contains(message, StringComparison.Ordinal))
+        {
+            WarningText = WarningText.Length == 0 ? message : WarningText + Environment.NewLine + message;
+        }
+
+        HasWarning = true;
+    }
+
+    public void ClearWarnings()
+    {
+        WarningText = "";
+        HasWarning = false;
+    }
 
     [ObservableProperty]
     public partial bool Highlighted { get; set; }
@@ -1023,6 +1355,11 @@ public sealed partial class PartViewModel : ObservableObject
     /// <summary>Keypad key <c>k0</c>…<c>k15</c> or remote button <c>b0</c>…<c>b20</c>.</summary>
     public void PressKey(int index)
     {
+        if (KeyIndex >= 0 && KeyIndex != index)
+        {
+            ReleaseKey();
+        }
+
         KeyIndex = index;
         _scene.Input(Id, (Type == "ir-remote" ? "b" : "k") + index.ToString(CultureInfo.InvariantCulture), 1);
     }
@@ -1407,6 +1744,12 @@ public sealed record PinMarker(double X, double Y, bool IsHot);
 
 public sealed record CornerHandle(string WireId, int Index, double X, double Y);
 
+/// <summary>One end of the selected wire, as a handle.</summary>
+public sealed record WireEndHandle(string WireId, bool FromEnd, double X, double Y);
+
+/// <param name="Kind">1 LOW, 2 HIGH, 3 PWM, 4 tone.</param>
+public sealed record PinLevelMarker(double X, double Y, int Kind);
+
 /// <summary>A wire's polyline, color and live view state.</summary>
 public sealed partial class WireViewModel(string id, PointCollection points, Brush stroke, string[] net) : ObservableObject
 {
@@ -1440,6 +1783,10 @@ public sealed partial class WireViewModel(string id, PointCollection points, Bru
 
     [ObservableProperty]
     public partial bool Dimmed { get; set; }
+
+    /// <summary>What the net carries while running: 0 unknown, 1 LOW, 2 HIGH, 3 PWM, 4 tone.</summary>
+    [ObservableProperty]
+    public partial int Level { get; set; }
 }
 
 /// <summary>Wire and part colors (docs/UI.md §3.1).</summary>
@@ -1450,7 +1797,10 @@ public static class WirePalette
     // One frozen brush per color, so unchanged wires keep the same instance (no redraw).
     private static readonly Dictionary<Color, SolidColorBrush> Brushes = [];
 
-    public static Brush Brush(string color, NetKind kind)
+    private static readonly int[] SignalColors = [0x3BB273, 0x3E8BFF, 0xFF962E, 0xA66CFF, 0xFF6FAE];
+
+    /// <param name="boardPin">The net's board pin: automatic signal colors differ by it and stay put across edits.</param>
+    public static Brush Brush(string color, NetKind kind, int? boardPin = null)
     {
         Color c = color switch
         {
@@ -1468,7 +1818,7 @@ public static class WirePalette
                 NetKind.Ground => Theme.IsLight ? Rgb(0x2D3138) : Rgb(0x5A606E),
                 NetKind.I2cData => Rgb(0x3E8BFF),
                 NetKind.I2cClock => Rgb(0xF2C94C),
-                _ => Rgb(0x3BB273),
+                _ => Rgb(SignalColors[(boardPin ?? 0) % SignalColors.Length]),
             },
         };
         if (!Brushes.TryGetValue(c, out SolidColorBrush? brush))

@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using ArduSim.App.Localization;
 using ArduSim.App.Services;
 using ArduSim.App.ViewModels;
@@ -25,6 +26,8 @@ public partial class MainWindow : Window
     private const int WmNcLButtonUp = 0x00A2;
     private const int WmNcMouseLeave = 0x02A2;
     private const int HtMaxButton = 9;
+    private const int WmSysCommand = 0x0112;
+    private const long ScKeyMenu = 0xF100;
     private const double CollapsedSide = 24;
     private const double CollapsedBottom = 32;
 
@@ -34,6 +37,8 @@ public partial class MainWindow : Window
     private double _paletteWidth;
     private double _propertiesWidth;
     private double _bottomHeight;
+    private bool _serialFollows = true;
+    private bool _logFollows = true;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -51,8 +56,23 @@ public partial class MainWindow : Window
         _paletteWidth = Math.Clamp(layout.PaletteWidth, 180, 360);
         _propertiesWidth = Math.Clamp(layout.PropertiesWidth, 220, 420);
         _bottomHeight = Math.Max(120, layout.BottomHeight);
+        _splitRatio = Math.Clamp(layout.SplitRatio, 0.15, 0.85);
+        RestoreWindow(layout.Window);
+        OnStateChanged();
         ApplyLayout();
+        ApplyCenterLayout();
         viewModel.PropertyChanged += OnViewModelChanged;
+        viewModel.ShowPartRequested += part => Canvas.BringIntoView(part);
+        viewModel.SerialAppended += SerialOutput.AppendText;
+        viewModel.SerialReplaced += OnSerialReplaced;
+        viewModel.FocusSerialRequested += () => Dispatcher.BeginInvoke(() => SerialInputBox.Focus(), DispatcherPriority.Input);
+        viewModel.FocusNewProjectRequested += () => Dispatcher.BeginInvoke(
+            () =>
+            {
+                NewProjectBox.Focus();
+                NewProjectBox.SelectAll();
+            },
+            DispatcherPriority.Input);
         StateChanged += (_, _) => OnStateChanged();
         SourceInitialized += (_, _) => HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(WndProc);
         Loaded += (_, _) => ExampleThumbnails.Render(this, viewModel);
@@ -74,7 +94,8 @@ public partial class MainWindow : Window
         }
 
         RememberSizes();
-        _viewModel.SaveLayout(_paletteWidth, _propertiesWidth, _bottomHeight);
+        RememberSplit();
+        _viewModel.SaveLayout(_paletteWidth, _propertiesWidth, _bottomHeight, _splitRatio, CurrentBounds());
 
         // Stop the Runner before the window goes away; then close for real, outside this handler
         // (Close() is not allowed while a close is in progress, even when DisposeAsync finished synchronously).
@@ -95,8 +116,9 @@ public partial class MainWindow : Window
 
     private void OnStateChanged()
     {
-        // A maximized chrome-less window overhangs the screen by the resize border.
-        Root.Margin = WindowState == WindowState.Maximized ? SystemParameters.WindowResizeBorderThickness : default;
+        // A maximized chrome-less window overhangs the screen by its whole frame, on every side.
+        Thickness frame = SystemParameters.WindowNonClientFrameThickness;
+        Root.Margin = WindowState == WindowState.Maximized ? new Thickness(frame.Left, frame.Bottom, frame.Right, frame.Bottom) : default;
         MaxButton.Content = WindowState == WindowState.Maximized ? "" : "";
         MaxButton.ToolTip = Strings.Get(WindowState == WindowState.Maximized ? "Window_Restore" : "Window_Maximize");
     }
@@ -106,6 +128,11 @@ public partial class MainWindow : Window
     {
         switch (msg)
         {
+            case WmSysCommand when (wParam.ToInt64() & 0xFFF0) == ScKeyMenu && lParam == IntPtr.Zero && !Canvas.InGesture:
+                // Alt alone: custom chrome has no menu bar, so the project menu is the one that opens.
+                OnProjectMenu(ProjectButton, new RoutedEventArgs());
+                handled = true;
+                break;
             case WmNcHitTest when IsOverMaxButton(lParam):
                 MaxButton.Tag = "Hot";
                 handled = true;
@@ -165,18 +192,43 @@ public partial class MainWindow : Window
         {
             Canvas.Focus();
         }
+        else if (e.PropertyName == nameof(MainViewModel.SplitView))
+        {
+            RememberSplit();
+            ApplyCenterLayout();
+            _ = Dispatcher.BeginInvoke(Canvas.Refit, DispatcherPriority.Loaded);
+        }
+        else if (e.PropertyName == nameof(MainViewModel.AutoScroll) && _viewModel.AutoScroll)
+        {
+            _serialFollows = true;
+            SerialOutput.ScrollToEnd();
+        }
+        else if (e.PropertyName is nameof(MainViewModel.Status) or nameof(MainViewModel.ProjectName) or nameof(MainViewModel.SelectedBoard) or nameof(MainViewModel.HasProject))
+        {
+            _ = Dispatcher.BeginInvoke(UpdateToolbarStage, DispatcherPriority.Loaded);
+
+            // A run started from the editor: part keys need the keyboard (docs/UI.md §4.4).
+            if (e.PropertyName == nameof(MainViewModel.Status) && _viewModel.Status == SimStatus.Starting && _viewModel.IsCanvasVisible && Keyboard.FocusedElement is TextArea or TextBox)
+            {
+                Canvas.Focus();
+            }
+        }
     }
 
-    private void OnSplitterDragCompleted(object sender, DragCompletedEventArgs e) => RememberSizes();
+    private void OnSplitterDragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        RememberSizes();
+        RememberSplit();
+    }
 
     private void RememberSizes()
     {
-        if (_viewModel.PaletteOpen && PaletteColumn.ActualWidth > CollapsedSide)
+        if (!_narrow && _viewModel.PaletteOpen && PaletteColumn.ActualWidth > CollapsedSide)
         {
             _paletteWidth = PaletteColumn.ActualWidth;
         }
 
-        if (_viewModel.PropertiesOpen && PropertiesColumn.ActualWidth > CollapsedSide)
+        if (!_narrow && _viewModel.PropertiesOpen && PropertiesColumn.ActualWidth > CollapsedSide)
         {
             _propertiesWidth = PropertiesColumn.ActualWidth;
         }
@@ -191,10 +243,10 @@ public partial class MainWindow : Window
     {
         PaletteColumn.MinWidth = _viewModel.PaletteOpen ? 180 : CollapsedSide;
         PaletteColumn.MaxWidth = _viewModel.PaletteOpen ? 360 : CollapsedSide;
-        PaletteColumn.Width = new GridLength(_viewModel.PaletteOpen ? _paletteWidth : CollapsedSide);
+        PaletteColumn.Width = new GridLength(!_viewModel.PaletteOpen ? CollapsedSide : _narrow ? 200 : _paletteWidth);
         PropertiesColumn.MinWidth = _viewModel.PropertiesOpen ? 220 : CollapsedSide;
         PropertiesColumn.MaxWidth = _viewModel.PropertiesOpen ? 420 : CollapsedSide;
-        PropertiesColumn.Width = new GridLength(_viewModel.PropertiesOpen ? _propertiesWidth : CollapsedSide);
+        PropertiesColumn.Width = new GridLength(!_viewModel.PropertiesOpen ? CollapsedSide : _narrow ? 220 : _propertiesWidth);
         BottomRow.MinHeight = _viewModel.BottomOpen ? 120 : CollapsedBottom;
         BottomRow.MaxHeight = _viewModel.BottomOpen ? double.PositiveInfinity : CollapsedBottom;
         BottomRow.Height = new GridLength(_viewModel.BottomOpen ? _bottomHeight : CollapsedBottom);
@@ -244,6 +296,14 @@ public partial class MainWindow : Window
 
         // The bottom panel takes at most 60 % of the height (docs/UI.md §2.1).
         BottomRow.MaxHeight = _viewModel.BottomOpen ? Math.Max(120, ActualHeight * 0.6) : CollapsedBottom;
+        _viewModel.SetCompactHeight(ActualHeight < CompactHeight);
+        bool narrow = ActualWidth < NarrowWidth;
+        if (narrow != _narrow)
+        {
+            RememberSizes();
+            _narrow = narrow;
+            ApplyLayout();
+        }
     }
 
     // ---- keyboard ------------------------------------------------------------------------------
@@ -253,22 +313,76 @@ public partial class MainWindow : Window
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         Key key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (key == Key.F10 && Keyboard.Modifiers == ModifierKeys.None)
+        ModifierKeys modifiers = Keyboard.Modifiers;
+        if (key == Key.F10 && modifiers == ModifierKeys.None)
         {
             // F10 is a system key (it would focus the menu bar); here it steps one loop().
-            _viewModel.StepLoopCommand.Execute(null);
+            if (_viewModel.StepLoopCommand.CanExecute(null))
+            {
+                _viewModel.StepLoopCommand.Execute(null);
+            }
+
             e.Handled = true;
         }
-        else if (key == Key.F && Keyboard.Modifiers == ModifierKeys.Control && _viewModel.HasProject)
+        else if (key == Key.F11 && !e.IsRepeat)
         {
-            _viewModel.PaletteOpen = true;
-            PaletteSearch.Focus();
-            PaletteSearch.SelectAll();
+            string milliseconds = modifiers == ModifierKeys.Control ? "100" : modifiers == ModifierKeys.Shift ? "10" : "1";
+            if (_viewModel.StepTimeCommand.CanExecute(milliseconds))
+            {
+                _viewModel.StepTimeCommand.Execute(milliseconds);
+            }
+
             e.Handled = true;
         }
-        else if (!TextHasFocus && !e.IsRepeat && _viewModel.OnKey(key.ToString(), down: true))
+        else if (key == Key.F6 && (modifiers == ModifierKeys.Control || modifiers == (ModifierKeys.Control | ModifierKeys.Shift)))
+        {
+            CyclePanes(modifiers.HasFlag(ModifierKeys.Shift));
+            e.Handled = true;
+        }
+        else if (key == Key.F1 && modifiers == ModifierKeys.None)
+        {
+            ShortcutSheet.Open(this);
+            e.Handled = true;
+        }
+        else if (key == Key.F && modifiers == ModifierKeys.Control)
+        {
+            // Ctrl+F follows focus: the editor keeps it; otherwise the open tab, then the part search.
+            if (!_viewModel.HasProject)
+            {
+                ExampleSearchBox.Focus();
+                ExampleSearchBox.SelectAll();
+                e.Handled = true;
+            }
+            else if (Keyboard.FocusedElement is not TextArea)
+            {
+                if (_viewModel.IsSceneTab)
+                {
+                    FocusPaletteSearch();
+                }
+                else
+                {
+                    _viewModel.VisibleDocument?.RequestFind();
+                }
+
+                e.Handled = true;
+            }
+        }
+        else if (key == Key.Escape && _viewModel.Banner is not (BannerKind.None or BannerKind.Installing) && !TextHasFocus && !(_viewModel.Scene?.IsWiring ?? false)
+            && !Canvas.InGesture && Keyboard.FocusedElement is not (ComboBox or ComboBoxItem or MenuItem))
+        {
+            _viewModel.CloseBannerCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (!TextHasFocus && !e.IsRepeat && (modifiers & (ModifierKeys.Control | ModifierKeys.Alt)) == 0 && _viewModel.OnKey(key.ToString(), down: true))
         {
             e.Handled = true;
+        }
+        else if (_viewModel.IsCanvasVisible && !Canvas.IsKeyboardFocusWithin && !BottomTabs.IsKeyboardFocusWithin
+            && Keyboard.FocusedElement is not (TextBox or TextArea or ComboBox or ComboBoxItem or MenuItem or ListBoxItem) && Canvas.HandlesKey(key, modifiers))
+        {
+            // Canvas commands work whichever panel last had the focus.
+            Canvas.Focus();
+            Canvas.HandleKey(e);
         }
     }
 
@@ -302,9 +416,19 @@ public partial class MainWindow : Window
         }
 
         _dragStart = null;
-        if (PaletteItemAt(e.OriginalSource) is { } item && _viewModel.Scene is { IsLocked: false })
+        if (PaletteItemAt(e.OriginalSource) is { } item)
         {
-            _viewModel.SelectedTab = SceneTab.Instance;
+            if (_viewModel.Scene is { IsLocked: true })
+            {
+                _viewModel.ShowLockedToast();
+                return;
+            }
+
+            if (!_viewModel.IsCanvasVisible)
+            {
+                _viewModel.SelectedTab = SceneTab.Instance;
+            }
+
             DragDrop.DoDragDrop((DependencyObject)sender, new DataObject(SchematicCanvas.PartTypeFormat, item.Request), DragDropEffects.Copy);
         }
     }
@@ -328,7 +452,17 @@ public partial class MainWindow : Window
 
     private void PlacePart(PaletteItem item)
     {
-        _viewModel.SelectedTab = SceneTab.Instance;
+        if (_viewModel.Scene is { IsLocked: true })
+        {
+            _viewModel.ShowLockedToast();
+            return;
+        }
+
+        if (!_viewModel.IsCanvasVisible)
+        {
+            _viewModel.SelectedTab = SceneTab.Instance;
+        }
+
         Canvas.PlaceAtCenter(item.Request);
         Canvas.Focus();
     }
@@ -338,7 +472,11 @@ public partial class MainWindow : Window
     private void OnAddTab(object sender, RoutedEventArgs e)
     {
         var menu = new ContextMenu { PlacementTarget = AddTabButton, Placement = PlacementMode.Bottom };
+        var newFile = new MenuItem { Header = Strings.Get("Explorer_NewFile") };
+        newFile.Click += (_, _) => AskFileName(null, AddTabButton);
+        menu.Items.Add(newFile);
         IReadOnlyList<string> files = _viewModel.ClosedFiles();
+        menu.Items.Add(new Separator());
         if (files.Count == 0)
         {
             menu.Items.Add(new MenuItem { Header = Strings.Get("Tab_NoClosedFiles"), IsEnabled = false });
@@ -372,10 +510,35 @@ public partial class MainWindow : Window
 
     private void OnFieldKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && sender is FrameworkElement { DataContext: PropertyField field })
+        if (sender is not FrameworkElement { DataContext: PropertyField field })
         {
-            field.Commit();
-            e.Handled = true;
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case Key.Enter:
+                // A valid value hands the keyboard back to the schematic; an error stays with the field.
+                field.Commit();
+                if (field.Error.Length == 0 && _viewModel.IsCanvasVisible)
+                {
+                    Canvas.Focus();
+                }
+
+                e.Handled = true;
+                break;
+            case Key.Escape:
+                field.Revert();
+                if (_viewModel.IsCanvasVisible)
+                {
+                    Canvas.Focus();
+                }
+
+                e.Handled = true;
+                break;
+            case Key.Up or Key.Down when field.Step(e.Key == Key.Up ? 1 : -1):
+                e.Handled = true;
+                break;
         }
     }
 
@@ -412,14 +575,33 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.Enter)
         {
-            _viewModel.SendSerialCommand.Execute(null);
+            if (_viewModel.SendSerialCommand.CanExecute(null))
+            {
+                _viewModel.SendSerialCommand.Execute(null);
+            }
+            else
+            {
+                _viewModel.ShowEditorMessage(Strings.Get("Serial_NotRunning"));
+            }
+
             e.Handled = true;
         }
     }
 
-    private void OnSerialTextChanged(object sender, TextChangedEventArgs e)
+    private void OnSerialReplaced(string text)
     {
-        if (_viewModel.AutoScroll)
+        SerialOutput.Text = text;
+        _serialFollows |= text.Length == 0;
+    }
+
+    // The Monitor follows new text until the user scrolls away from the end; scrolling back resumes it.
+    private void OnSerialScrolled(object sender, ScrollChangedEventArgs e)
+    {
+        if (UserScrolled(e))
+        {
+            _serialFollows = AtEnd(e);
+        }
+        else if (_serialFollows && _viewModel.AutoScroll && SerialOutput.SelectionLength == 0)
         {
             SerialOutput.ScrollToEnd();
         }

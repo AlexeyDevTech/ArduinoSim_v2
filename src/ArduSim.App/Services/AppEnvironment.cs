@@ -31,16 +31,40 @@ public sealed class AppEnvironment(bool inProcess)
     public static string OpenExample(string examplePath)
     {
         string target = Path.Combine(ProjectsDirectory, Path.GetFileName(examplePath));
-        if (!Directory.Exists(target))
+        return Directory.Exists(target) ? target : CopyExample(examplePath, Path.GetFileName(examplePath));
+    }
+
+    /// <summary>A fresh copy of a bundled example under <paramref name="name"/>; the copy appears whole or not at all.</summary>
+    public static string CopyExample(string examplePath, string name)
+    {
+        string target = Path.Combine(ProjectsDirectory, name);
+        string partial = target + ".partial";
+        if (Directory.Exists(partial))
         {
-            foreach (string file in Directory.EnumerateFiles(examplePath, "*", SearchOption.AllDirectories))
-            {
-                string destination = Path.Combine(target, Path.GetRelativePath(examplePath, file));
-                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                File.Copy(file, destination);
-            }
+            Directory.Delete(partial, recursive: true);
         }
 
+        foreach (string file in Directory.EnumerateFiles(examplePath, "*", SearchOption.AllDirectories))
+        {
+            string destination = Path.Combine(partial, Path.GetRelativePath(examplePath, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Copy(file, destination);
+        }
+
+        Directory.Move(partial, target);
         return target;
+    }
+
+    /// <summary>The board an example is for; null when its project file cannot be read.</summary>
+    public static ArduSim.Core.Boards.BoardProfile? ExampleBoard(string examplePath)
+    {
+        try
+        {
+            return ArduSim.Boards.BoardCatalog.Find(ArduSim.Core.Projects.ProjectFile.Load(examplePath).Board);
+        }
+        catch (Exception e) when (e is ArduSim.Core.Projects.ProjectFormatException or IOException)
+        {
+            return null;
+        }
     }
 }

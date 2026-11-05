@@ -1,29 +1,20 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
 namespace ArduSim.App.ViewModels;
 
 /// <summary>One plotted value: its name (a label, or its position on the line) and its samples.</summary>
-public sealed class PlotSeries(string name, Color color)
+public sealed class PlotSeries(string name)
 {
+    /// <summary>Hidden from the lines and from the scale by a click on the legend.</summary>
+    public bool Visible { get; set; } = true;
+
     public string Name { get; } = name;
-
-    public Color Color { get; } = color;
-
-    public Brush Brush { get; } = Frozen(color);
 
     /// <summary>Samples by line number; NaN where a line did not carry this value.</summary>
     public List<double> Values { get; } = [];
-
-    private static SolidColorBrush Frozen(Color color)
-    {
-        var brush = new SolidColorBrush(color);
-        brush.Freeze();
-        return brush;
-    }
 }
 
 /// <summary>
@@ -35,15 +26,10 @@ public sealed partial class PlotterViewModel : ObservableObject
 {
     public const int Capacity = 500;
 
-    private static readonly Color[] Palette =
-    [
-        Color.FromRgb(0x2B, 0xC4, 0xA9), Color.FromRgb(0xF0, 0xB4, 0x4C), Color.FromRgb(0x3E, 0x8B, 0xFF), Color.FromRgb(0xF0, 0x60, 0x5A),
-        Color.FromRgb(0xA6, 0x6C, 0xFF), Color.FromRgb(0x3B, 0xB2, 0x73), Color.FromRgb(0xFF, 0x6F, 0xAE), Color.FromRgb(0xB8, 0xBE, 0xC8),
-    ];
-
     private static readonly char[] Separators = [' ', '\t', ','];
 
     private string _partial = "";
+    private bool _skipped;
 
     public ObservableCollection<PlotSeries> Series { get; } = [];
 
@@ -72,6 +58,7 @@ public sealed partial class PlotterViewModel : ObservableObject
         _partial = buffered[(end + 1)..];
         if (Paused)
         {
+            _skipped = true;
             return;
         }
 
@@ -93,11 +80,24 @@ public sealed partial class PlotterViewModel : ObservableObject
         Series.Clear();
         Count = 0;
         _partial = "";
+        _skipped = false;
         Version++;
     }
 
     [RelayCommand]
     private void TogglePause() => Paused = !Paused;
+
+    // Lines went by during the pause: the plot shows a break there, not a line joining what was on both sides.
+    partial void OnPausedChanged(bool value)
+    {
+        if (!value && _skipped && Count > 0)
+        {
+            AddSample([]);
+            Version++;
+        }
+
+        _skipped = false;
+    }
 
     private bool AddLine(string line)
     {
@@ -124,12 +124,18 @@ public sealed partial class PlotterViewModel : ObservableObject
         {
             if (!Series.Any(s => s.Name == name))
             {
-                var series = new PlotSeries(name, Palette[Series.Count % Palette.Length]);
+                var series = new PlotSeries(name);
                 series.Values.AddRange(Enumerable.Repeat(double.NaN, Count));
                 Series.Add(series);
             }
         }
 
+        AddSample(values);
+        return true;
+    }
+
+    private void AddSample(List<(string Name, double Value)> values)
+    {
         foreach (PlotSeries series in Series)
         {
             series.Values.Add(values.FirstOrDefault(v => v.Name == series.Name) is { Name: not null } hit ? hit.Value : double.NaN);
@@ -140,6 +146,5 @@ public sealed partial class PlotterViewModel : ObservableObject
         }
 
         Count = Math.Min(Count + 1, Capacity);
-        return true;
     }
 }

@@ -10,13 +10,14 @@
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         Title="{Binding WindowTitle}"
-        Width="1360" Height="860" MinWidth="1000" MinHeight="640"
+        Width="1360" Height="860" MinWidth="960" MinHeight="560"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource Brush.Background}"
         Foreground="{DynamicResource Brush.Text.Primary}"
         FontFamily="{DynamicResource Font.Ui}"
         FontSize="{DynamicResource FontSize.Body}"
-        PreviewKeyDown="OnPreviewKeyDown" PreviewKeyUp="OnPreviewKeyUp">
+        PreviewKeyDown="OnPreviewKeyDown" PreviewKeyUp="OnPreviewKeyUp"
+        AllowDrop="True" PreviewDragOver="OnWindowDragOver" PreviewDragLeave="OnWindowDragLeave" PreviewDrop="OnWindowDrop">
   <WindowChrome.WindowChrome>
     <WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
   </WindowChrome.WindowChrome>
@@ -25,10 +26,20 @@
     <KeyBinding Key="N" Modifiers="Control" Command="{Binding NewProjectCommand}" />
     <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenProjectCommand}" />
     <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveCommand}" />
+    <KeyBinding Key="S" Modifiers="Control+Shift" Command="{Binding SaveProjectAsCommand}" />
+    <KeyBinding Key="Oem5" Modifiers="Control+Shift" Command="{Binding ToggleAllPanelsCommand}" />
     <KeyBinding Key="Z" Modifiers="Control" Command="{Binding UndoCommand}" />
     <KeyBinding Key="Y" Modifiers="Control" Command="{Binding RedoCommand}" />
     <KeyBinding Key="Z" Modifiers="Control+Shift" Command="{Binding RedoCommand}" />
     <KeyBinding Key="B" Modifiers="Control" Command="{Binding BuildCommand}" />
+    <KeyBinding Key="B" Modifiers="Control+Shift" Command="{Binding BuildCommand}" />
+    <KeyBinding Key="R" Modifiers="Control" Command="{Binding BuildCommand}" />
+    <KeyBinding Key="U" Modifiers="Control" Command="{Binding RunCommand}" />
+    <KeyBinding Key="M" Modifiers="Control+Shift" Command="{Binding ShowMonitorCommand}" />
+    <KeyBinding Key="E" Modifiers="Control+Shift" Command="{Binding ShowExplorerCommand}" />
+    <KeyBinding Key="F7" Command="{Binding FlipCodeCommand}" />
+    <KeyBinding Key="OemPipe" Modifiers="Control" Command="{Binding ToggleSplitCommand}" />
+    <KeyBinding Key="Oem5" Modifiers="Control" Command="{Binding ToggleSplitCommand}" />
     <KeyBinding Key="F5" Command="{Binding RunCommand}" />
     <KeyBinding Key="F5" Modifiers="Shift" Command="{Binding StopCommand}" />
     <KeyBinding Key="F6" Command="{Binding PauseCommand}" />
@@ -38,6 +49,7 @@
     <KeyBinding Key="D2" Modifiers="Control" Command="{Binding TogglePropertiesCommand}" />
     <KeyBinding Key="D3" Modifiers="Control" Command="{Binding ToggleBottomCommand}" />
     <KeyBinding Key="Tab" Modifiers="Control" Command="{Binding NextTabCommand}" />
+    <KeyBinding Key="Tab" Modifiers="Control+Shift" Command="{Binding PreviousTabCommand}" />
     <KeyBinding Key="W" Modifiers="Control" Command="{Binding CloseTabCommand}" />
   </Window.InputBindings>
 
@@ -51,6 +63,40 @@
     <v:SameToVisibilityConverter x:Key="SameToVisibility" />
     <v:PositiveToVisibilityConverter x:Key="PositiveToVisibility" />
     <v:InvertBoolConverter x:Key="InvertBool" />
+    <v:SeverityToGlyphConverter x:Key="SeverityToGlyph" />
+
+    <!-- Banner: crash, busy firmware, toolchain download, runner exit; also over the start view -->
+    <DataTemplate x:Key="BannerTemplate">
+      <Border Style="{StaticResource Border.FadeIn}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="16,16,16,0" MaxWidth="720" Padding="16,12"
+              Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}"
+              Effect="{DynamicResource Shadow}"
+              Visibility="{Binding Banner, Converter={StaticResource IsHiddenWhen}, ConverterParameter=None}">
+        <StackPanel>
+          <TextBlock Text="{Binding BannerTitle}" FontSize="{DynamicResource FontSize.Title}" FontWeight="SemiBold" Margin="0,0,0,6" />
+          <TextBlock Text="{Binding BannerBody}" TextWrapping="Wrap" Margin="0,0,0,8" />
+          <TextBox Style="{StaticResource TextBox.Output}" Text="{Binding BannerDetails, Mode=OneWay}" MaxHeight="220" Margin="0,0,0,10" TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto"
+                   Visibility="{Binding BannerDetails, Converter={StaticResource NullToVisibility}}" />
+          <ProgressBar Margin="0,0,0,10" Minimum="0" Maximum="100" Value="{Binding ToolchainPercent}" IsIndeterminate="{Binding ToolchainIndeterminate}"
+                       Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Installing}" />
+          <StackPanel Orientation="Horizontal">
+            <Button Content="{l:Loc Dialog_Cancel}" Command="{Binding CancelToolchainCommand}"
+                    Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Installing}" />
+            <Button Content="{l:Loc Banner_Rerun}" Command="{Binding RunCommand}" Style="{StaticResource Button.Primary}"
+                    Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Crash}" />
+            <Button Content="{l:Loc Banner_OpenLine}" Command="{Binding OpenCrashLocationCommand}"
+                    Visibility="{Binding HasCrashLocation, Converter={StaticResource BoolToVisibility}}" />
+            <Button Content="{l:Loc Banner_Stop}" Command="{Binding StopCommand}" Style="{StaticResource Button.Primary}"
+                    Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Busy}" />
+            <Button Content="{l:Loc Banner_Download}" Command="{Binding DownloadToolchainCommand}" Style="{StaticResource Button.Primary}"
+                    Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Toolchain}" />
+            <Button Content="{l:Loc Banner_CreateHere}" Command="{Binding CreateProjectHereCommand}" Style="{StaticResource Button.Primary}"
+                    Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=NoProject}" />
+            <Button Content="{l:Loc Banner_Close}" Command="{Binding CloseBannerCommand}"
+                    Visibility="{Binding Banner, Converter={StaticResource IsHiddenWhen}, ConverterParameter=Installing}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
 
     <!-- Center tab headers -->
     <DataTemplate DataType="{x:Type vm:SceneTab}">
@@ -85,7 +131,8 @@
       <MenuItem Header="{l:Loc Menu_Examples}" ItemsSource="{Binding Examples}" IsEnabled="{Binding CanEdit}">
         <MenuItem.ItemContainerStyle>
           <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
-            <Setter Property="Header" Value="{Binding Name}" />
+            <Setter Property="Header" Value="{Binding Title}" />
+            <Setter Property="ToolTip" Value="{Binding Description}" />
             <Setter Property="Command" Value="{Binding DataContext.OpenExampleCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
             <Setter Property="CommandParameter" Value="{Binding}" />
           </Style>
@@ -93,9 +140,11 @@
       </MenuItem>
       <Separator />
       <MenuItem Header="{l:Loc Menu_Save}" InputGestureText="Ctrl+S" Command="{Binding SaveCommand}" IsEnabled="{Binding HasProject}" />
+      <MenuItem Header="{l:Loc Menu_SaveAs}" InputGestureText="Ctrl+Shift+S" Command="{Binding SaveProjectAsCommand}" IsEnabled="{Binding HasProject}" />
       <MenuItem Header="{l:Loc Menu_Reveal}" Command="{Binding RevealProjectCommand}" IsEnabled="{Binding HasProject}" />
       <MenuItem Header="{l:Loc Menu_CloseProject}" Command="{Binding CloseProjectCommand}" IsEnabled="{Binding HasProject}" />
       <Separator />
+      <MenuItem Header="{l:Loc Menu_Help}" InputGestureText="F1" Click="OnHelpMenu" />
       <MenuItem Header="{l:Loc Menu_Settings}" Click="OnSettings" />
       <MenuItem Header="{l:Loc Menu_Accuracy}" Click="OnAccuracy" />
     </ContextMenu>
@@ -110,21 +159,22 @@
       <RowDefinition Height="24" />
     </Grid.RowDefinitions>
 
-    <!-- ===== Title bar + toolbar, 48 px ===== -->
+    <!-- ===== Title bar + toolbar, 48 px; narrow windows fold it by stages (docs/UI.md §2.2) ===== -->
     <Border Grid.Row="0" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1">
-      <DockPanel LastChildFill="True">
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
+      <DockPanel x:Name="TitleRow" LastChildFill="True" SizeChanged="OnTitleRowSized">
+        <StackPanel x:Name="CaptionButtons" DockPanel.Dock="Right" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
           <Button Style="{StaticResource Button.Caption}" Content="&#xE921;" ToolTip="{l:Loc Window_Minimize}" Click="OnMinimize" />
           <Button x:Name="MaxButton" Style="{StaticResource Button.Caption}" Content="&#xE922;" ToolTip="{l:Loc Window_Maximize}" Click="OnMaximize" />
           <Button Style="{StaticResource Button.Close}" Content="&#xE8BB;" ToolTip="{l:Loc Window_Close}" Click="OnCloseWindow" />
         </StackPanel>
 
         <!-- Clock and status, right-aligned before the window buttons -->
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,12,0" WindowChrome.IsHitTestVisibleInChrome="True">
-          <Button Style="{StaticResource Button.Flat}" Command="{Binding ToggleClockCommand}" ToolTip="{l:Loc Toolbar_ClockTip}" MinWidth="88" Height="28">
+        <StackPanel x:Name="ToolbarRight" DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,12,0" WindowChrome.IsHitTestVisibleInChrome="True"
+                    Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}">
+          <Button Style="{StaticResource Button.Flat}" Command="{Binding ToggleClockCommand}" ToolTip="{l:Loc Toolbar_ClockTip}" MinWidth="80" Height="28">
             <TextBlock Text="{Binding VirtualTime}" FontFamily="{DynamicResource Font.Mono}" />
           </Button>
-          <Button Command="{Binding ShowStatusPanelCommand}" Height="28" Padding="10,0" Margin="8,0,0,0" Background="{DynamicResource Brush.SurfaceRaised}">
+          <Button x:Name="StatusPill" Command="{Binding ShowStatusPanelCommand}" ToolTip="{Binding StatusTip}" Height="28" Padding="10,0" Margin="8,0,0,0" MinWidth="104" Background="{DynamicResource Brush.SurfaceRaised}">
             <StackPanel Orientation="Horizontal">
               <Ellipse x:Name="StatusDot" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center">
                 <Ellipse.Style>
@@ -153,12 +203,12 @@
                   </Style>
                 </Ellipse.Style>
               </Ellipse>
-              <TextBlock Text="{Binding StatusText}" />
+              <TextBlock x:Name="StatusLabel" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" />
             </StackPanel>
           </Button>
         </StackPanel>
 
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True">
+        <StackPanel x:Name="ToolbarLeft" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left" WindowChrome.IsHitTestVisibleInChrome="True">
           <!-- App mark and project menu -->
           <Rectangle Width="12" Height="12" Fill="{DynamicResource Brush.Accent}" Margin="16,0,10,0" RadiusX="2" RadiusY="2" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False">
             <Rectangle.RenderTransform>
@@ -168,75 +218,99 @@
           <Button x:Name="ProjectButton" Style="{StaticResource Button.Flat}" Height="32" Click="OnProjectMenu" ToolTip="{Binding ProjectDirectory}">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="ArduSim" FontWeight="SemiBold" Visibility="{Binding HasProject, Converter={StaticResource InvertBoolToVisibility}}" />
-              <TextBlock Text="{Binding ProjectName}" FontWeight="SemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis" />
-              <TextBlock Text=" ●" Foreground="{DynamicResource Brush.Accent}" Visibility="{Binding IsDirty, Converter={StaticResource BoolToVisibility}}" ToolTip="{l:Loc Toolbar_Unsaved}" />
+              <TextBlock x:Name="ProjectNameLabel" Text="{Binding ProjectName}" FontWeight="SemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text=" &#x25CF;" Foreground="{DynamicResource Brush.Accent}" Visibility="{Binding IsDirty, Converter={StaticResource BoolToVisibility}}" ToolTip="{l:Loc Toolbar_Unsaved}" />
               <TextBlock Style="{StaticResource Icon}" FontSize="10" Text="&#xE70D;" Margin="8,0,0,0" Foreground="{DynamicResource Brush.Text.Secondary}" />
             </StackPanel>
           </Button>
-          <Rectangle Width="1" Height="24" Fill="{DynamicResource Brush.Border}" Margin="12,0" />
 
-          <!-- Build and run -->
-          <Button Style="{StaticResource Button.Flat}" Command="{Binding BuildCommand}" ToolTip="Ctrl+B" Height="32">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource Icon}" Text="&#xE90F;" Margin="0,0,6,0" />
-              <TextBlock Text="{l:Loc Toolbar_Build}" />
-            </StackPanel>
-          </Button>
-          <Button Style="{StaticResource Button.Primary}" Command="{Binding RunCommand}" ToolTip="F5" Height="32" Margin="6,0,6,0" Padding="12,0">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource Icon}" Text="&#xE768;" Margin="0,0,6,0" />
-              <TextBlock Text="{l:Loc Toolbar_Run}" />
-            </StackPanel>
-          </Button>
-          <Button Style="{StaticResource Button.Flat}" Command="{Binding PauseCommand}" ToolTip="F6" Height="32" MinWidth="104">
-            <Grid>
-              <StackPanel Orientation="Horizontal" Visibility="{Binding IsPaused, Converter={StaticResource InvertBoolToVisibility}}">
-                <TextBlock Style="{StaticResource Icon}" Text="&#xE769;" Margin="0,0,6,0" />
-                <TextBlock Text="{l:Loc Toolbar_Pause}" />
+          <!-- Nothing here runs without a project: the start view shows no dead buttons. -->
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}">
+            <Rectangle x:Name="ToolbarSeparator1" Width="1" Height="24" Fill="{DynamicResource Brush.Border}" Margin="8,0" />
+
+            <!-- Build and run -->
+            <Button Style="{StaticResource Button.Flat}" Command="{Binding BuildCommand}" ToolTip="{Binding BuildTip}" Height="32">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource Icon.Toolbar}" Text="&#xE90F;" />
+                <TextBlock x:Name="BuildLabel" Text="{l:Loc Toolbar_Build}" Margin="6,0,0,0" />
               </StackPanel>
-              <StackPanel Orientation="Horizontal" Visibility="{Binding IsPaused, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Style="{StaticResource Icon}" Text="&#xE768;" Margin="0,0,6,0" />
-                <TextBlock Text="{l:Loc Toolbar_Resume}" />
+            </Button>
+            <Button Style="{StaticResource Button.Primary}" Command="{Binding RunCommand}" ToolTip="{Binding RunTip}" Height="32" Margin="6,0,6,0" Padding="12,0" MinWidth="122"
+                    Visibility="{Binding IsRunning, Converter={StaticResource InvertBoolToVisibility}}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource Icon.Toolbar}" Text="&#xE768;" Margin="0,0,6,0" />
+                <TextBlock Text="{l:Loc Toolbar_Run}" />
               </StackPanel>
-            </Grid>
-          </Button>
-          <Button Style="{StaticResource Button.Flat}" Command="{Binding StopCommand}" ToolTip="Shift+F5" Height="32">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource Icon}" Text="&#xE71A;" Margin="0,0,6,0" />
-              <TextBlock Text="{l:Loc Toolbar_Stop}" />
+            </Button>
+            <Button Style="{StaticResource Button.Flat}" Command="{Binding RunCommand}" ToolTip="{Binding RunTip}" Height="32" Margin="6,0,6,0" Padding="12,0" MinWidth="122"
+                    Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource Icon.Toolbar}" Text="&#xE72C;" Margin="0,0,6,0" />
+                <TextBlock Text="{l:Loc Toolbar_Restart}" />
+                <Ellipse Width="8" Height="8" Margin="6,0,0,0" VerticalAlignment="Center" Fill="{DynamicResource Brush.Warning}" Visibility="{Binding IsRunStale, Converter={StaticResource BoolToVisibility}}" />
+              </StackPanel>
+            </Button>
+            <Button x:Name="PauseButton" Style="{StaticResource Button.Flat}" Command="{Binding PauseCommand}" ToolTip="{Binding PauseTip}" Height="32" MinWidth="108">
+              <Grid>
+                <StackPanel Orientation="Horizontal" Visibility="{Binding IsPaused, Converter={StaticResource InvertBoolToVisibility}}">
+                  <TextBlock Style="{StaticResource Icon.Toolbar}" Text="&#xE769;" />
+                  <TextBlock x:Name="PauseLabel" Text="{l:Loc Toolbar_Pause}" Margin="6,0,0,0" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Visibility="{Binding IsPaused, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Style="{StaticResource Icon.Toolbar}" Text="&#xE76C;" />
+                  <TextBlock x:Name="ResumeLabel" Text="{l:Loc Toolbar_Resume}" Margin="6,0,0,0" />
+                </StackPanel>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource Button.Flat}" Command="{Binding StopCommand}" ToolTip="{Binding StopTip}" Height="32">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource Icon.Toolbar}" Text="&#xE71A;" />
+                <TextBlock x:Name="StopLabel" Text="{l:Loc Toolbar_Stop}" Margin="6,0,0,0" />
+              </StackPanel>
+            </Button>
+            <Rectangle x:Name="ToolbarSeparator2" Width="1" Height="24" Fill="{DynamicResource Brush.Border}" Margin="6,0" />
+
+            <!-- Step: four buttons, or one menu when the window is narrow -->
+            <StackPanel x:Name="StepButtons" Orientation="Horizontal" VerticalAlignment="Center">
+              <Button Style="{StaticResource Button.Flat}" Height="28" Padding="4,0" Command="{Binding StepLoopCommand}" ToolTip="{Binding StepTip}">
+                <TextBlock Text="loop()" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" />
+              </Button>
+              <Button Style="{StaticResource Button.Flat}" Height="28" Padding="4,0" Command="{Binding StepTimeCommand}" CommandParameter="1" ToolTip="{Binding Step1Tip}">
+                <TextBlock Text="{l:Loc Toolbar_Step1}" FontSize="{DynamicResource FontSize.Small}" />
+              </Button>
+              <Button Style="{StaticResource Button.Flat}" Height="28" Padding="4,0" Command="{Binding StepTimeCommand}" CommandParameter="10" ToolTip="{Binding Step10Tip}">
+                <TextBlock Text="{l:Loc Toolbar_Step10}" FontSize="{DynamicResource FontSize.Small}" />
+              </Button>
+              <Button Style="{StaticResource Button.Flat}" Height="28" Padding="4,0" Command="{Binding StepTimeCommand}" CommandParameter="100" ToolTip="{Binding Step100Tip}">
+                <TextBlock Text="{l:Loc Toolbar_Step100}" FontSize="{DynamicResource FontSize.Small}" />
+              </Button>
             </StackPanel>
-          </Button>
-          <Rectangle Width="1" Height="24" Fill="{DynamicResource Brush.Border}" Margin="8,0" />
+            <Button x:Name="StepMenuButton" Style="{StaticResource Button.Flat}" Height="28" Padding="6,0" Click="OnStepMenu" ToolTip="{Binding StepTip}" Visibility="Collapsed">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{l:Loc Toolbar_StepMenu}" FontSize="{DynamicResource FontSize.Small}" />
+                <TextBlock Style="{StaticResource Icon}" FontSize="10" Text="&#xE70D;" Margin="6,0,0,0" Foreground="{DynamicResource Brush.Text.Secondary}" />
+              </StackPanel>
+            </Button>
+            <Rectangle x:Name="ToolbarSeparator3" Width="1" Height="24" Fill="{DynamicResource Brush.Border}" Margin="6,0" />
 
-          <!-- Step -->
-          <Button Style="{StaticResource Button.Icon}" Content="&#xE8EE;" Command="{Binding StepLoopCommand}" ToolTip="{l:Loc Toolbar_StepLoopTip}" />
-          <Button Style="{StaticResource Button.Flat}" Height="28" Padding="6,0" Command="{Binding StepTimeCommand}" CommandParameter="1" ToolTip="{l:Loc Toolbar_StepTip}">
-            <TextBlock Text="{l:Loc Toolbar_Step1}" FontSize="{DynamicResource FontSize.Small}" />
-          </Button>
-          <Button Style="{StaticResource Button.Flat}" Height="28" Padding="6,0" Command="{Binding StepTimeCommand}" CommandParameter="10" ToolTip="{l:Loc Toolbar_StepTip}">
-            <TextBlock Text="{l:Loc Toolbar_Step10}" FontSize="{DynamicResource FontSize.Small}" />
-          </Button>
-          <Button Style="{StaticResource Button.Flat}" Height="28" Padding="6,0" Command="{Binding StepTimeCommand}" CommandParameter="100" ToolTip="{l:Loc Toolbar_StepTip}">
-            <TextBlock Text="{l:Loc Toolbar_Step100}" FontSize="{DynamicResource FontSize.Small}" />
-          </Button>
-          <Rectangle Width="1" Height="24" Fill="{DynamicResource Brush.Border}" Margin="8,0" />
-
-          <!-- Sound, speed and board -->
-          <CheckBox Style="{StaticResource CheckBox.Sound}" IsChecked="{Binding SoundOn}" ToolTip="{l:Loc Toolbar_Sound}" Margin="0,0,6,0" VerticalAlignment="Center" />
-          <ComboBox ItemsSource="{Binding Speeds}" SelectedItem="{Binding SelectedSpeed}" MinWidth="76" ToolTip="{l:Loc Toolbar_Speed}" Margin="0,0,6,0">
-            <ComboBox.ItemTemplate>
-              <DataTemplate DataType="{x:Type vm:SpeedOption}">
-                <TextBlock Text="{Binding Label}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-          <ComboBox ItemsSource="{Binding Boards}" SelectedItem="{Binding SelectedBoard}" MinWidth="120" ToolTip="{l:Loc Toolbar_Board}" IsEnabled="{Binding CanEdit}">
-            <ComboBox.ItemTemplate>
-              <DataTemplate>
-                <TextBlock Text="{Binding DisplayName}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
+            <!-- Sound, speed and board -->
+            <CheckBox x:Name="SoundBox" Style="{StaticResource CheckBox.Sound}" IsChecked="{Binding SoundOn}" ToolTip="{l:Loc Toolbar_Sound}" Margin="0,0,6,0" VerticalAlignment="Center" />
+            <ComboBox x:Name="SpeedBox" ItemsSource="{Binding Speeds}" SelectedItem="{Binding SelectedSpeed}" MinWidth="68" ToolTip="{l:Loc Toolbar_Speed}" Margin="0,0,6,0">
+              <ComboBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:SpeedOption}">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button x:Name="MoreButton" Style="{StaticResource Button.Icon}" Content="&#xE712;" Click="OnMoreMenu" ToolTip="{l:Loc Toolbar_More}" Margin="0,0,6,0" Visibility="Collapsed" />
+            <ComboBox x:Name="BoardBox" ItemsSource="{Binding Boards}" SelectedItem="{Binding SelectedBoard}" MinWidth="104" ToolTip="{Binding BoardTip}" IsEnabled="{Binding CanEdit}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </StackPanel>
         </StackPanel>
       </DockPanel>
     </Border>
@@ -251,41 +325,113 @@
         <ColumnDefinition x:Name="PropertiesColumn" Width="280" />
       </Grid.ColumnDefinitions>
 
-      <!-- Palette -->
+      <!-- Left panel: parts or the project explorer -->
       <Border Grid.Column="0" Background="{DynamicResource Brush.Surface}">
         <Grid>
           <DockPanel Visibility="{Binding PaletteOpen, Converter={StaticResource BoolToVisibility}}">
             <DockPanel DockPanel.Dock="Top" Height="36" Margin="12,0,4,0">
               <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE76B;" FontSize="12" Command="{Binding TogglePaletteCommand}" ToolTip="{l:Loc Panel_CollapseTip1}" />
-              <TextBlock Style="{StaticResource PanelHeader}" Text="{l:Loc Panel_Palette}" />
+              <ListBox Style="{StaticResource ListBox.Segmented}" SelectedIndex="{Binding LeftTab}" HorizontalAlignment="Left">
+                <ListBoxItem Content="{l:Loc Panel_Palette}" ToolTip="{l:Loc Panel_PaletteTip}" />
+                <ListBoxItem Content="{l:Loc Panel_Project}" ToolTip="{l:Loc Panel_ProjectTip}" />
+              </ListBox>
             </DockPanel>
-            <Grid DockPanel.Dock="Top" Margin="12,0,12,8">
-              <TextBox x:Name="PaletteSearch" Text="{Binding Palette.Search, UpdateSourceTrigger=PropertyChanged}" Padding="30,0,6,0" Height="28" />
-              <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE721;" HorizontalAlignment="Left" Margin="9,0,0,0" Foreground="{DynamicResource Brush.Text.Secondary}" IsHitTestVisible="False" />
-              <TextBlock Text="{l:Loc Palette_Search}" Margin="31,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Text.Disabled}" IsHitTestVisible="False"
-                         Visibility="{Binding Palette.Search, Converter={StaticResource VisibleWhenNull}}" />
+
+            <Grid x:Name="LeftPanel">
+            <!-- Parts -->
+            <DockPanel Visibility="{Binding LeftTab, Converter={StaticResource IsVisibleWhen}, ConverterParameter=0}">
+              <Grid DockPanel.Dock="Top" Margin="12,0,12,8">
+                <TextBox x:Name="PaletteSearch" Text="{Binding Palette.Search, UpdateSourceTrigger=PropertyChanged}" Padding="30,0,28,0" Height="28" PreviewKeyDown="OnPaletteSearchKey" ToolTip="{l:Loc Palette_SearchTip}" />
+                <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE721;" HorizontalAlignment="Left" Margin="9,0,0,0" Foreground="{DynamicResource Brush.Text.Secondary}" IsHitTestVisible="False" />
+                <TextBlock Text="{l:Loc Palette_Search}" Margin="33,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Text.Hint}" IsHitTestVisible="False"
+                           Visibility="{Binding Palette.Search, Converter={StaticResource VisibleWhenNull}}" />
+                <Button Style="{StaticResource Button.Icon}" Width="24" Height="24" HorizontalAlignment="Right" Margin="0,0,2,0" FontSize="10" Content="&#xE711;" Focusable="False" ToolTip="{l:Loc Palette_ClearTip}"
+                        Command="{Binding Palette.ClearSearchCommand}" Visibility="{Binding Palette.Search, Converter={StaticResource NullToVisibility}}" />
+              </Grid>
+              <TextBlock DockPanel.Dock="Top" Text="{l:Loc Palette_NoMatches}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="12,4,12,0"
+                         Visibility="{Binding Palette.HasNoMatches, Converter={StaticResource BoolToVisibility}}" />
+              <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8">
+                <ItemsControl ItemsSource="{Binding Palette.Groups}" IsTabStop="False">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:PaletteGroup}">
+                      <StackPanel>
+                        <ToggleButton Style="{StaticResource ToggleButton.Group}" Content="{Binding Header}" IsChecked="{Binding IsExpanded}" />
+                        <ListBox Style="{StaticResource ListBox.Palette}" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                                 Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibility}}"
+                                 PreviewMouseLeftButtonDown="OnPaletteMouseDown" PreviewMouseMove="OnPaletteMouseMove"
+                                 MouseDoubleClick="OnPaletteDoubleClick" KeyDown="OnPaletteKeyDown">
+                          <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:PaletteItem}">
+                              <DockPanel>
+                                <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" FontSize="14" Text="{Binding Glyph}" Margin="0,0,8,0" Foreground="{DynamicResource Brush.Text.Secondary}" />
+                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                              </DockPanel>
+                            </DataTemplate>
+                          </ListBox.ItemTemplate>
+                        </ListBox>
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </DockPanel>
+
+            <!-- Project explorer -->
+            <DockPanel Visibility="{Binding LeftTab, Converter={StaticResource IsVisibleWhen}, ConverterParameter=1}">
+              <Popup x:Name="FileNamePopup" Placement="Bottom" PlacementTarget="{Binding ElementName=NewFileButton}" StaysOpen="False" AllowsTransparency="True">
+                <Border Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}" Padding="12">
+                  <StackPanel Width="220">
+                    <TextBlock x:Name="FileNamePrompt" Style="{StaticResource Caption}" Margin="0,0,0,4" />
+                    <TextBox x:Name="FileNameBox" Height="28" FontFamily="{DynamicResource Font.Mono}" KeyDown="OnFileNameKeyDown" />
+                    <TextBlock x:Name="FileNameError" Foreground="{DynamicResource Brush.Error}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" />
+                  </StackPanel>
+                </Border>
+              </Popup>
+
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="12,0,12,8">
+                <Button x:Name="NewFileButton" Click="OnNewFile" ToolTip="{l:Loc Explorer_NewFileTip}">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE710;" Margin="0,0,6,0" />
+                    <TextBlock Text="{l:Loc Explorer_NewFile}" />
+                  </StackPanel>
+                </Button>
+                <Button Style="{StaticResource Button.Icon}" Content="&#xE838;" Command="{Binding RevealProjectCommand}" ToolTip="{l:Loc Menu_Reveal}" />
+              </StackPanel>
+              <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8">
+                <ItemsControl ItemsSource="{Binding ExplorerGroups}" IsTabStop="False">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:ExplorerGroup}">
+                      <StackPanel>
+                        <ToggleButton Style="{StaticResource ToggleButton.Group}" Content="{Binding Name}" IsChecked="{Binding IsExpanded}" />
+                        <ItemsControl ItemsSource="{Binding Items}" IsTabStop="False" Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibility}}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:ExplorerEntry}">
+                              <Button Style="{StaticResource Button.Row}" Command="{Binding DataContext.OpenExplorerEntryCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                                      IsEnabled="{Binding CanOpen}" MouseRightButtonUp="OnExplorerRowMenu">
+                                <DockPanel>
+                                  <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" FontSize="14" Margin="0,0,8,0" Foreground="{DynamicResource Brush.Text.Secondary}">
+                                    <TextBlock.Text>
+                                      <Binding Path="Kind">
+                                        <Binding.Converter>
+                                          <v:ExplorerGlyphConverter />
+                                        </Binding.Converter>
+                                      </Binding>
+                                    </TextBlock.Text>
+                                  </TextBlock>
+                                  <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" Style="{StaticResource Caption}" Margin="8,0,0,0" MaxWidth="110" TextTrimming="CharacterEllipsis" />
+                                  <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding Title}" />
+                                </DockPanel>
+                              </Button>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </DockPanel>
             </Grid>
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8">
-              <ItemsControl ItemsSource="{Binding Palette.Groups}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate DataType="{x:Type vm:PaletteGroup}">
-                    <StackPanel>
-                      <ToggleButton Style="{StaticResource ToggleButton.Group}" Content="{Binding Name}" IsChecked="{Binding IsExpanded}" />
-                      <ListBox Style="{StaticResource ListBox.Palette}" ItemsSource="{Binding Items}"
-                               Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibility}}"
-                               PreviewMouseLeftButtonDown="OnPaletteMouseDown" PreviewMouseMove="OnPaletteMouseMove"
-                               MouseDoubleClick="OnPaletteDoubleClick" KeyDown="OnPaletteKeyDown">
-                        <ListBox.ItemTemplate>
-                          <DataTemplate DataType="{x:Type vm:PaletteItem}">
-                            <TextBlock Text="{Binding Name}" ToolTip="{l:Loc Palette_ItemTip}" />
-                          </DataTemplate>
-                        </ListBox.ItemTemplate>
-                      </ListBox>
-                    </StackPanel>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </ScrollViewer>
           </DockPanel>
           <!-- Collapsed: a 24 px strip with a vertical label -->
           <Button Style="{StaticResource Button.Strip}" Command="{Binding TogglePaletteCommand}" ToolTip="Ctrl+1"
@@ -307,15 +453,40 @@
           <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Border Grid.Row="0" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1">
-          <StackPanel Orientation="Horizontal">
-            <ListBox Style="{StaticResource ListBox.Tabs}" ItemsSource="{Binding Tabs}" SelectedItem="{Binding SelectedTab}" />
-            <Button x:Name="AddTabButton" Style="{StaticResource Button.Icon}" Content="&#xE710;" FontSize="12" Margin="4,0,0,0" ToolTip="{l:Loc Tab_OpenFile}" Click="OnAddTab" />
-          </StackPanel>
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Height="28" Margin="4,0,8,0" Command="{Binding ToggleSplitCommand}" ToolTip="{l:Loc Tab_SplitTip}">
+              <Button.Style>
+                <Style TargetType="Button" BasedOn="{StaticResource Button.Flat}">
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding SplitView}" Value="True">
+                      <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Button.Style>
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE90D;" Margin="0,0,6,0" />
+                <TextBlock Text="{l:Loc Tab_Split}" />
+              </StackPanel>
+            </Button>
+            <Button x:Name="AddTabButton" DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE710;" FontSize="12" Margin="4,0,0,0" ToolTip="{l:Loc Tab_OpenFile}" Click="OnAddTab" />
+            <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" PreviewMouseWheel="OnTabsWheel" Focusable="False">
+              <ListBox x:Name="CenterTabs" Style="{StaticResource ListBox.Tabs}" ItemsSource="{Binding Tabs}" SelectedItem="{Binding SelectedTab}"
+                       SelectionChanged="OnCenterTabChanged" PreviewMouseDown="OnCenterTabMouseDown" />
+            </ScrollViewer>
+          </DockPanel>
         </Border>
         <Grid Grid.Row="1">
-          <v:SchematicCanvas x:Name="Canvas" DataContext="{Binding Scene}"
-                             Visibility="{Binding DataContext.IsSceneTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
-          <ItemsControl ItemsSource="{Binding Tabs}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="CanvasColumn" Width="*" />
+            <ColumnDefinition x:Name="SplitColumn" Width="0" />
+            <ColumnDefinition x:Name="CodeColumn" Width="0" />
+          </Grid.ColumnDefinitions>
+          <v:SchematicCanvas x:Name="Canvas" DataContext="{Binding Scene}" ShowHelpRequested="OnShowHelp" AddPartRequested="OnAddPartRequested" OpenPropertiesRequested="OnOpenProperties"
+                             Visibility="{Binding DataContext.IsCanvasVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
+          <GridSplitter x:Name="CodeSplitter" Grid.Column="1" Style="{StaticResource Splitter.Vertical}" DragCompleted="OnSplitterDragCompleted"
+                        Visibility="{Binding SplitView, Converter={StaticResource BoolToVisibility}}" />
+          <ItemsControl x:Name="Editors" ItemsSource="{Binding Tabs}" IsTabStop="False">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <Grid />
@@ -328,7 +499,7 @@
                   <v:CodeEditor.Visibility>
                     <MultiBinding Converter="{StaticResource SameToVisibility}">
                       <Binding />
-                      <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=Window}" />
+                      <Binding Path="DataContext.VisibleDocument" RelativeSource="{RelativeSource AncestorType=Window}" />
                     </MultiBinding>
                   </v:CodeEditor.Visibility>
                 </v:CodeEditor>
@@ -336,29 +507,30 @@
             </ItemsControl.Resources>
           </ItemsControl>
 
-          <!-- Banner: crash, busy firmware, toolchain download, runner exit -->
-          <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="16,16,16,0" MaxWidth="720" Padding="16,12"
-                  Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}"
-                  Effect="{DynamicResource Shadow}"
-                  Visibility="{Binding Banner, Converter={StaticResource IsHiddenWhen}, ConverterParameter=None}">
-            <StackPanel>
-              <TextBlock Text="{Binding BannerTitle}" FontSize="{DynamicResource FontSize.Title}" FontWeight="SemiBold" Margin="0,0,0,6" />
-              <TextBlock Text="{Binding BannerBody}" TextWrapping="Wrap" Margin="0,0,0,8" />
-              <TextBox Style="{StaticResource TextBox.Output}" Text="{Binding BannerDetails, Mode=OneWay}" MaxHeight="220" Margin="0,0,0,10" TextWrapping="NoWrap"
-                       Visibility="{Binding BannerDetails, Converter={StaticResource NullToVisibility}}" />
-              <StackPanel Orientation="Horizontal">
-                <Button Content="{l:Loc Banner_Rerun}" Command="{Binding RunCommand}" Style="{StaticResource Button.Primary}"
-                        Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Crash}" />
-                <Button Content="{l:Loc Banner_OpenLine}" Command="{Binding OpenCrashLocationCommand}"
-                        Visibility="{Binding HasCrashLocation, Converter={StaticResource BoolToVisibility}}" />
-                <Button Content="{l:Loc Banner_Stop}" Command="{Binding StopCommand}" Style="{StaticResource Button.Primary}"
-                        Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Busy}" />
-                <Button Content="{l:Loc Banner_Download}" Command="{Binding DownloadToolchainCommand}" Style="{StaticResource Button.Primary}"
-                        Visibility="{Binding Banner, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Toolchain}" />
-                <Button Content="{l:Loc Banner_Close}" Command="{Binding CloseBannerCommand}" />
-              </StackPanel>
-            </StackPanel>
+          <!-- A running schematic looks it: a 2 px bar in the status color above the center. -->
+          <Border Grid.ColumnSpan="3" Height="2" VerticalAlignment="Top" IsHitTestVisible="False">
+            <Border.Style>
+              <Style TargetType="Border">
+                <Setter Property="Visibility" Value="Collapsed" />
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding Status}" Value="Running">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{DynamicResource Brush.Running}" />
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding Status}" Value="Paused">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{DynamicResource Brush.Warning}" />
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding Status}" Value="Busy">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{DynamicResource Brush.Warning}" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Border.Style>
           </Border>
+
+          <ContentControl Grid.ColumnSpan="3" Content="{Binding}" ContentTemplate="{StaticResource BannerTemplate}" IsTabStop="False" VerticalAlignment="Top" />
         </Grid>
       </Grid>
       <GridSplitter Grid.Column="3" Style="{StaticResource Splitter.Vertical}" IsEnabled="{Binding PropertiesOpen}" DragCompleted="OnSplitterDragCompleted" />
@@ -366,14 +538,14 @@
       <!-- Properties -->
       <Border Grid.Column="4" Background="{DynamicResource Brush.Surface}">
         <Grid>
-          <DockPanel Visibility="{Binding PropertiesOpen, Converter={StaticResource BoolToVisibility}}" DataContext="{Binding Properties}">
+          <DockPanel x:Name="PropertiesPanel" Visibility="{Binding DataContext.PropertiesOpen, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" DataContext="{Binding Properties}">
             <DockPanel DockPanel.Dock="Top" Height="36" Margin="12,0,4,0">
               <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE76C;" FontSize="12"
                       Command="{Binding DataContext.TogglePropertiesCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="{l:Loc Panel_CollapseTip2}" />
               <TextBlock Style="{StaticResource PanelHeader}" Text="{l:Loc Panel_Properties}" />
             </DockPanel>
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,0,12,12">
-              <StackPanel>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,0,12,12" Focusable="False">
+              <StackPanel x:Name="PropertiesBody">
                 <!-- Header: id (editable for a part) and type -->
                 <DockPanel Margin="0,0,0,12">
                   <TextBlock DockPanel.Dock="Right" Text="{Binding Subtitle}" Style="{StaticResource Caption}" Margin="8,0,0,0" MaxWidth="120" TextTrimming="CharacterEllipsis" />
@@ -388,6 +560,21 @@
                 <TextBlock Text="{Binding IdError}" Foreground="{DynamicResource Brush.Error}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,-8,0,8"
                            Visibility="{Binding IdError, Converter={StaticResource NullToVisibility}}" />
 
+                <!-- A bundled example says what it does and what to try, while nothing is selected. -->
+                <Border Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}" Padding="12" Margin="0,0,0,12"
+                        DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" Visibility="{Binding ShowExampleInfo, Converter={StaticResource BoolToVisibility}}">
+                  <StackPanel>
+                    <TextBlock Text="{Binding ExampleInfo.Title}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding ExampleInfo.Description}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                    <TextBlock Text="{l:Loc Example_TryTitle}" FontWeight="SemiBold" FontSize="{DynamicResource FontSize.Small}" Margin="0,0,0,2" />
+                    <TextBlock Text="{Binding ExampleInfo.Try}" TextWrapping="Wrap" FontSize="{DynamicResource FontSize.Small}" Margin="0,0,0,8" />
+                    <WrapPanel>
+                      <Button Content="{l:Loc Example_ShowCode}" Command="{Binding ShowMainCodeCommand}" Margin="0,0,6,4" />
+                      <Button Content="{l:Loc Example_StartOver}" Command="{Binding StartExampleOverCommand}" ToolTip="{l:Loc Example_StartOverTip}" Margin="0,0,0,4" />
+                    </WrapPanel>
+                  </StackPanel>
+                </Border>
+
                 <!-- Fields -->
                 <ItemsControl ItemsSource="{Binding Fields}">
                   <ItemsControl.ItemTemplate>
@@ -397,7 +584,7 @@
                         <DockPanel>
                           <TextBlock DockPanel.Dock="Right" Text="{Binding Unit}" Style="{StaticResource Caption}" Margin="8,0,0,0" />
                           <Grid>
-                            <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" Height="28" KeyDown="OnFieldKeyDown" LostKeyboardFocus="OnFieldLostFocus"
+                            <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" Height="28" PreviewKeyDown="OnFieldKeyDown" PreviewMouseWheel="OnFieldWheel" LostKeyboardFocus="OnFieldLostFocus"
                                      Visibility="{Binding Editor, Converter={StaticResource IsVisibleWhen}, ConverterParameter=text}" />
                             <TextBox Text="{Binding Text, Mode=OneWay}" Height="28" IsReadOnly="True" PreviewKeyDown="OnKeyFieldKeyDown" ToolTip="{l:Loc Properties_KeyTip}"
                                      Visibility="{Binding Editor, Converter={StaticResource IsVisibleWhen}, ConverterParameter=key}" />
@@ -422,7 +609,7 @@
                           </Grid>
                         </DockPanel>
                         <!-- A sensor reading while the run goes on (ADR-011): a slider beside the text, applied at once, not saved. -->
-                        <Slider Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Value="{Binding SliderValue}" Margin="0,6,0,0" IsMoveToPointEnabled="True"
+                        <Slider Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Value="{Binding SliderValue}" Margin="0,6,0,0" IsMoveToPointEnabled="True" SmallChange="{Binding SliderStep}" LargeChange="{Binding SliderLargeStep}"
                                 Visibility="{Binding IsLive, Converter={StaticResource BoolToVisibility}}" />
                         <TextBlock Text="{l:Loc Properties_LiveHint}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
                                    Visibility="{Binding IsLive, Converter={StaticResource BoolToVisibility}}" />
@@ -432,6 +619,12 @@
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
+
+                <!-- The project's saved memory: only this button resets it short of deleting files by hand. -->
+                <Button DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" Command="{Binding ClearEepromCommand}" HorizontalAlignment="Left" Margin="0,0,0,12"
+                        ToolTip="{l:Loc Properties_ClearEepromTip}" Visibility="{Binding ShowProjectActions, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{Binding ClearEepromLabel}" />
+                </Button>
 
                 <!-- Wire color -->
                 <StackPanel Visibility="{Binding Mode, Converter={StaticResource IsVisibleWhen}, ConverterParameter=Wire}" Margin="0,0,0,10">
@@ -454,7 +647,8 @@
                 <ItemsControl ItemsSource="{Binding Pins}" Margin="0,0,0,12">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:PinRow}">
-                      <DockPanel Height="24">
+                      <DockPanel Height="24" Background="Transparent" Cursor="Hand" MouseLeftButtonUp="OnPinRowClick" ToolTip="{Binding Tip}">
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding Level}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Center" Margin="6,0,0,0" />
                         <TextBlock Text="{Binding Pin}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" Width="64" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding Connection}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
                                    Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
@@ -508,93 +702,185 @@
     </Grid>
 
     <!-- ===== Start view (no project open, docs/UI.md §2.7) ===== -->
-    <ScrollViewer Grid.Row="1" Grid.RowSpan="3" VerticalScrollBarVisibility="Auto" Background="{DynamicResource Brush.Background}"
-                  Visibility="{Binding HasProject, Converter={StaticResource InvertBoolToVisibility}}">
-      <StackPanel MaxWidth="880" Margin="48,56,48,48">
-        <TextBlock Text="ArduSim" FontSize="{DynamicResource FontSize.Display}" FontWeight="SemiBold" />
-        <TextBlock Text="{l:Loc Start_Tagline}" Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,4,0,24" />
-        <StackPanel Orientation="Horizontal" Margin="0,0,0,40">
-          <Button Style="{StaticResource Button.Primary}" Command="{Binding NewProjectCommand}" Height="36" Padding="16,0" Margin="0,0,12,0">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource Icon}" Text="&#xE710;" Margin="0,0,8,0" />
-              <TextBlock Text="{l:Loc Start_New}" />
-            </StackPanel>
-          </Button>
-          <Button Command="{Binding OpenProjectCommand}" Height="36" Padding="16,0">
+    <Grid Grid.Row="1" Grid.RowSpan="3" Background="{DynamicResource Brush.Background}" Visibility="{Binding HasProject, Converter={StaticResource InvertBoolToVisibility}}">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <!-- A new project: a name and one tile per board -->
+      <StackPanel Grid.Row="0" Margin="32,20,32,12">
+        <DockPanel Margin="0,0,0,12">
+          <Button DockPanel.Dock="Right" Command="{Binding OpenProjectCommand}" Height="32" Padding="12,0" Margin="0" ToolTip="{l:Loc Start_OpenTip}">
             <StackPanel Orientation="Horizontal">
               <TextBlock Style="{StaticResource Icon}" Text="&#xE838;" Margin="0,0,8,0" />
               <TextBlock Text="{l:Loc Start_Open}" />
             </StackPanel>
           </Button>
-        </StackPanel>
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="2*" />
-            <ColumnDefinition Width="32" />
-            <ColumnDefinition Width="3*" />
-          </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0">
-            <TextBlock Text="{l:Loc Start_Recent}" Style="{StaticResource PanelHeader}" Margin="0,0,0,12" />
-            <TextBlock Text="{l:Loc Start_NoRecent}" Foreground="{DynamicResource Brush.Text.Secondary}"
-                       Visibility="{Binding Recent.Count, Converter={StaticResource IsVisibleWhen}, ConverterParameter=0}" />
-            <ItemsControl ItemsSource="{Binding Recent}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{l:Loc Start_New}" Style="{StaticResource PanelHeader}" />
+            <TextBox x:Name="NewProjectBox" Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" Width="180" Height="28" Margin="16,0,0,0" ToolTip="{l:Loc Start_NameTip}" />
+            <Button Style="{StaticResource Button.Flat}" Height="28" Margin="8,0,0,0" Content="{l:Loc Start_OtherFolder}" Command="{Binding CreateInFolderCommand}" ToolTip="{l:Loc Start_OtherFolderTip}" />
+            <TextBlock Text="{Binding NewProjectError}" Foreground="{DynamicResource Brush.Error}" Style="{StaticResource Caption}" Margin="12,0,0,0" />
+          </StackPanel>
+        </DockPanel>
+        <ItemsControl ItemsSource="{Binding BoardTiles}" IsTabStop="False">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:BoardTile}">
+              <Button Width="136" Margin="0,0,8,8" Padding="0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" ToolTip="{l:Loc Start_BoardTip}"
+                      Command="{Binding DataContext.CreateProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
+                <StackPanel>
+                  <Border Height="58" Margin="1,1,1,0" CornerRadius="5,5,0,0" Background="{DynamicResource Brush.Canvas}" ClipToBounds="True">
+                    <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                  </Border>
+                  <TextBlock Text="{Binding Board.DisplayName}" Margin="8,4,8,0" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSize.Small}" />
+                  <TextBlock Text="{Binding Summary}" Style="{StaticResource Caption}" Margin="8,0,8,6" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <Grid Grid.Row="1" Margin="32,0,32,16">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="268" />
+          <ColumnDefinition Width="24" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Recent projects, or the first steps on a first launch -->
+        <DockPanel Grid.Column="0">
+          <TextBlock DockPanel.Dock="Top" Text="{l:Loc Start_Recent}" Style="{StaticResource PanelHeader}" Margin="0,0,0,8"
+                     Visibility="{Binding ShowFirstSteps, Converter={StaticResource InvertBoolToVisibility}}" />
+          <Border DockPanel.Dock="Top" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}" Padding="16"
+                  Visibility="{Binding ShowFirstSteps, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+              <TextBlock Text="{l:Loc Start_FirstTitle}" Style="{StaticResource PanelHeader}" Margin="0,0,0,8" />
+              <TextBlock Text="{l:Loc Start_FirstBody}" TextWrapping="Wrap" Margin="0,0,0,12" />
+              <Button Style="{StaticResource Button.Primary}" Content="{l:Loc Start_FirstOpen}" Command="{Binding OpenExampleCommand}" CommandParameter="{Binding BlinkExample}" Height="32" HorizontalAlignment="Left" />
+              <TextBlock Text="{Binding ToolchainNote}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"
+                         Visibility="{Binding ToolchainNote, Converter={StaticResource NullToVisibility}}" />
+            </StackPanel>
+          </Border>
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Recent}" IsTabStop="False">
               <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="{x:Type s:RecentProject}">
-                  <Button Style="{StaticResource Button.Flat}" HorizontalContentAlignment="Stretch" Padding="8,6" Margin="-8,0,0,2"
+                  <Button Style="{StaticResource Button.Row}" Height="44" Padding="8,4" Margin="0,0,0,2" ToolTip="{Binding Path}"
                           Command="{Binding DataContext.OpenRecentCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
-                    <StackPanel HorizontalAlignment="Left">
-                      <TextBlock Text="{Binding Name}" />
+                    <StackPanel>
+                      <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                       <TextBlock Text="{Binding Path}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                   </Button>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-          </StackPanel>
-          <StackPanel Grid.Column="2">
-            <TextBlock Text="{l:Loc Start_Examples}" Style="{StaticResource PanelHeader}" Margin="0,0,0,12" />
-            <ItemsControl ItemsSource="{Binding Examples}">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <WrapPanel />
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
+          </ScrollViewer>
+        </DockPanel>
+
+        <!-- The examples: search, a family filter, topics -->
+        <DockPanel Grid.Column="2">
+          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <TextBlock DockPanel.Dock="Left" Text="{l:Loc Start_Examples}" Style="{StaticResource PanelHeader}" Margin="0,0,16,0" />
+            <ListBox DockPanel.Dock="Right" Style="{StaticResource ListBox.Segmented}" Margin="12,0,0,0" ItemsSource="{Binding ExampleFamilies}" SelectedItem="{Binding SelectedFamily}">
+              <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:OptionItem}">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <Grid>
+              <TextBox x:Name="ExampleSearchBox" Text="{Binding ExampleSearch, UpdateSourceTrigger=PropertyChanged}" Padding="30,0,6,0" Height="28" PreviewKeyDown="OnExampleSearchKey" />
+              <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE721;" HorizontalAlignment="Left" Margin="9,0,0,0" Foreground="{DynamicResource Brush.Text.Secondary}" IsHitTestVisible="False" />
+              <TextBlock Text="{l:Loc Start_SearchHint}" Margin="33,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Text.Hint}" IsHitTestVisible="False" TextTrimming="CharacterEllipsis"
+                         Visibility="{Binding ExampleSearch, Converter={StaticResource VisibleWhenNull}}" />
+            </Grid>
+          </DockPanel>
+          <TextBlock DockPanel.Dock="Top" Text="{Binding NoExamplesText}" Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,16,0,0"
+                     Visibility="{Binding NoExampleMatches, Converter={StaticResource BoolToVisibility}}" />
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding ExampleGroups}" IsTabStop="False">
               <ItemsControl.ItemTemplate>
-                <DataTemplate DataType="{x:Type vm:ExampleItem}">
-                  <Button Width="156" Margin="0,0,12,12" Padding="0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
-                          Command="{Binding DataContext.OpenExampleCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
-                    <StackPanel>
-                      <!-- Thumbnail of the example's scene (rendered at idle); the icon shows until it arrives. -->
-                      <Border Height="{x:Static v:ExampleThumbnails.Height}" Margin="1,1,1,0" CornerRadius="5,5,0,0" Background="{DynamicResource Brush.Canvas}"
-                              BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" ClipToBounds="True">
-                        <Grid>
-                          <TextBlock Style="{StaticResource Icon}" Text="&#xE945;" Foreground="{DynamicResource Brush.Accent}" />
-                          <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
-                        </Grid>
-                      </Border>
-                      <TextBlock Text="{Binding Name}" Margin="10,6,10,8" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                  </Button>
+                <DataTemplate DataType="{x:Type vm:ExampleGroup}">
+                  <StackPanel Margin="0,0,0,8">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Margin="0,4,0,6" />
+                    <ItemsControl ItemsSource="{Binding Items}" IsTabStop="False">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:ExampleItem}">
+                          <Button Width="156" Margin="0,0,10,10" Padding="0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" ToolTip="{Binding Description}"
+                                  Command="{Binding DataContext.OpenExampleCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
+                            <StackPanel>
+                              <!-- Thumbnail of the example's scene (rendered at idle); the icon shows until it arrives. -->
+                              <Border Height="{x:Static v:ExampleThumbnails.Height}" Margin="1,1,1,0" CornerRadius="5,5,0,0" Background="{DynamicResource Brush.Canvas}"
+                                      BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" ClipToBounds="True">
+                                <Grid>
+                                  <TextBlock Style="{StaticResource Icon}" Text="&#xE945;" Foreground="{DynamicResource Brush.Accent}" />
+                                  <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                                </Grid>
+                              </Border>
+                              <TextBlock Text="{Binding Title}" Margin="10,6,10,0" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" FontSize="{DynamicResource FontSize.Small}" />
+                              <TextBlock Text="{Binding Description}" Style="{StaticResource Caption}" Margin="10,2,10,0" TextWrapping="Wrap" Height="32" TextTrimming="CharacterEllipsis" VerticalAlignment="Top" />
+                              <TextBlock Text="{Binding BoardName}" Style="{StaticResource Caption}" Margin="10,2,10,8" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Brush.Text.Hint}" />
+                            </StackPanel>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-          </StackPanel>
-        </Grid>
-      </StackPanel>
-    </ScrollViewer>
+          </ScrollViewer>
+        </DockPanel>
+      </Grid>
+
+      <ContentControl Grid.RowSpan="2" Content="{Binding}" ContentTemplate="{StaticResource BannerTemplate}" IsTabStop="False" VerticalAlignment="Top" />
+    </Grid>
 
     <!-- ===== Bottom panel ===== -->
     <GridSplitter x:Name="BottomSplitter" Grid.Row="2" Style="{StaticResource Splitter.Horizontal}" IsEnabled="{Binding BottomOpen}" DragCompleted="OnSplitterDragCompleted"
                   Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}" />
     <Grid Grid.Row="3" Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}">
-      <TabControl SelectedIndex="{Binding SelectedBottomTab}" Visibility="{Binding BottomOpen, Converter={StaticResource BoolToVisibility}}">
+      <TabControl x:Name="BottomTabs" SelectedIndex="{Binding SelectedBottomTab}" Visibility="{Binding BottomOpen, Converter={StaticResource BoolToVisibility}}">
         <TabControl.Tag>
-          <Button Style="{StaticResource Button.Icon}" Content="&#xE70D;" FontSize="12" Command="{Binding ToggleBottomCommand}" ToolTip="{l:Loc Panel_CollapseTip3}" />
+          <!-- What the open tab can do, in one place on the tabs' row, and the panel's folding. -->
+          <StackPanel Orientation="Horizontal">
+            <StackPanel Orientation="Horizontal" Visibility="{Binding SelectedBottomTab, Converter={StaticResource IsVisibleWhen}, ConverterParameter=0}">
+              <ComboBox ItemsSource="{Binding SerialPorts}" SelectedItem="{Binding SelectedSerialPort}" DisplayMemberPath="Name" ToolTip="{l:Loc Serial_Port}" Margin="0,0,12,0" MinWidth="90"
+                        Visibility="{Binding HasSeveralSerialPorts, Converter={StaticResource BoolToVisibility}}" />
+              <CheckBox Content="{l:Loc Serial_AutoScroll}" IsChecked="{Binding AutoScroll}" VerticalAlignment="Center" Margin="0,0,12,0" />
+              <CheckBox Content="{l:Loc Serial_Timestamps}" IsChecked="{Binding TimestampSerial}" ToolTip="{l:Loc Serial_TimestampsTip}" VerticalAlignment="Center" Margin="0,0,12,0" />
+              <Button Content="{l:Loc Serial_Clear}" Command="{Binding ClearSerialCommand}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Visibility="{Binding SelectedBottomTab, Converter={StaticResource IsVisibleWhen}, ConverterParameter=1}">
+              <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE946;" Margin="0,0,8,0" ToolTip="{l:Loc Plotter_Hint}" Foreground="{DynamicResource Brush.Text.Secondary}" />
+              <Button Command="{Binding Plotter.TogglePauseCommand}">
+                <Grid>
+                  <TextBlock Text="{l:Loc Toolbar_Pause}" Visibility="{Binding Plotter.Paused, Converter={StaticResource InvertBoolToVisibility}}" />
+                  <TextBlock Text="{l:Loc Toolbar_Resume}" Visibility="{Binding Plotter.Paused, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+              </Button>
+              <Button Content="{l:Loc Serial_Clear}" Command="{Binding Plotter.ClearCommand}" />
+            </StackPanel>
+            <Button Style="{StaticResource Button.Icon}" Content="&#xE70D;" FontSize="12" Command="{Binding ToggleBottomCommand}" ToolTip="{l:Loc Panel_CollapseTip3}" />
+          </StackPanel>
         </TabControl.Tag>
         <TabItem Header="{l:Loc Tab_Serial}">
           <DockPanel>
             <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" LastChildFill="True">
-              <Button DockPanel.Dock="Right" Content="{l:Loc Serial_Send}" Command="{Binding SendSerialCommand}" Margin="8,0,0,0" />
+              <Button DockPanel.Dock="Right" Content="{l:Loc Serial_Send}" Command="{Binding SendSerialCommand}" ToolTip="{Binding SendTip}" Margin="8,0,0,0" />
               <ListBox DockPanel.Dock="Right" Style="{StaticResource ListBox.Segmented}" ItemsSource="{Binding LineEndings}" SelectedItem="{Binding SelectedLineEnding}" Margin="8,0,0,0">
                 <ListBox.ItemTemplate>
                   <DataTemplate DataType="{x:Type vm:LineEndingOption}">
@@ -603,60 +889,76 @@
                 </ListBox.ItemTemplate>
               </ListBox>
               <TextBlock DockPanel.Dock="Right" Text="{l:Loc Serial_LineEnding}" Style="{StaticResource Caption}" Margin="8,0,0,0" />
-              <TextBox Text="{Binding SerialInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource Font.Mono}" Height="28" KeyDown="OnSerialInputKeyDown" />
+              <Grid>
+                <TextBox x:Name="SerialInputBox" Text="{Binding SerialInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="{DynamicResource Font.Mono}" Height="28" KeyDown="OnSerialInputKeyDown" />
+                <TextBlock Text="{l:Loc Serial_NotRunning}" Margin="8,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Text.Hint}" IsHitTestVisible="False" TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding ShowSerialPlaceholder, Converter={StaticResource BoolToVisibility}}" />
+              </Grid>
             </DockPanel>
-            <StackPanel DockPanel.Dock="Right" Margin="12,0,0,0" Width="150">
-              <ComboBox ItemsSource="{Binding SerialPorts}" SelectedItem="{Binding SelectedSerialPort}" DisplayMemberPath="Name" ToolTip="{l:Loc Serial_Port}" Margin="0,0,0,8"
-                        Visibility="{Binding HasSeveralSerialPorts, Converter={StaticResource BoolToVisibility}}" />
-              <TextBlock Text="{Binding BaudText}" Style="{StaticResource Caption}" Margin="0,0,0,8" />
-              <CheckBox Content="{l:Loc Serial_AutoScroll}" IsChecked="{Binding AutoScroll}" Margin="0,0,0,8" />
-              <Button Content="{l:Loc Serial_Clear}" Command="{Binding ClearSerialCommand}" HorizontalAlignment="Left" />
-            </StackPanel>
-            <TextBox x:Name="SerialOutput" Style="{StaticResource TextBox.Output}" Text="{Binding SerialText, Mode=OneWay}" TextChanged="OnSerialTextChanged" />
+
+            <Grid>
+              <!-- Filled from code: appending keeps the selection and the scroll position, and undo would keep every chunk. -->
+              <TextBox x:Name="SerialOutput" Style="{StaticResource TextBox.Output}" IsUndoEnabled="False" ScrollViewer.ScrollChanged="OnSerialScrolled" />
+              <TextBlock Text="{l:Loc Serial_Empty}" Style="{StaticResource Caption}" Margin="12,10,12,0" VerticalAlignment="Top" TextWrapping="Wrap" IsHitTestVisible="False"
+                         Visibility="{Binding SerialIsEmpty, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
           </DockPanel>
         </TabItem>
         <TabItem Header="{l:Loc Tab_Plotter}">
           <DockPanel>
-            <StackPanel DockPanel.Dock="Right" Margin="12,0,0,0" Width="150">
-              <TextBlock Text="{l:Loc Plotter_Hint}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
-              <Button Command="{Binding Plotter.TogglePauseCommand}" HorizontalAlignment="Left" Margin="0,0,0,8">
-                <Grid>
-                  <TextBlock Text="{l:Loc Toolbar_Pause}" Visibility="{Binding Plotter.Paused, Converter={StaticResource InvertBoolToVisibility}}" />
-                  <TextBlock Text="{l:Loc Toolbar_Resume}" Visibility="{Binding Plotter.Paused, Converter={StaticResource BoolToVisibility}}" />
-                </Grid>
-              </Button>
-              <Button Content="{l:Loc Serial_Clear}" Command="{Binding Plotter.ClearCommand}" HorizontalAlignment="Left" />
-            </StackPanel>
+
             <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" ClipToBounds="True">
               <v:PlotterView Plotter="{Binding Plotter}" Version="{Binding Plotter.Version}" />
             </Border>
           </DockPanel>
         </TabItem>
-        <TabItem Header="{l:Loc Tab_Build}">
+        <TabItem>
+          <TabItem.Header>
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{l:Loc Tab_Build}" />
+              <Border Style="{StaticResource Badge.Error}" Visibility="{Binding BuildErrors, Converter={StaticResource PositiveToVisibility}}">
+                <TextBlock Text="{Binding BuildErrors}" FontSize="{DynamicResource FontSize.Caption}" Foreground="{DynamicResource Brush.OnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" />
+              </Border>
+              <Border Style="{StaticResource Badge}" Visibility="{Binding BuildWarnings, Converter={StaticResource PositiveToVisibility}}">
+                <TextBlock Text="{Binding BuildWarnings}" FontSize="{DynamicResource FontSize.Caption}" Foreground="{DynamicResource Brush.OnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" />
+              </Border>
+            </StackPanel>
+          </TabItem.Header>
           <Grid>
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*" />
               <ColumnDefinition Width="8" />
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{l:Loc Build_Empty}" Style="{StaticResource Caption}" Margin="12,10,12,0" VerticalAlignment="Top" TextWrapping="Wrap" Panel.ZIndex="1" IsHitTestVisible="False"
+                       Visibility="{Binding Diagnostics.Count, Converter={StaticResource IsVisibleWhen}, ConverterParameter=0}" />
             <ListBox Grid.Column="0" ItemsSource="{Binding Diagnostics}" Background="{DynamicResource Brush.Canvas}" BorderBrush="{DynamicResource Brush.Border}"
-                     Foreground="{DynamicResource Brush.Text.Primary}" HorizontalContentAlignment="Stretch" KeyDown="OnDiagnosticKeyDown">
+                     Foreground="{DynamicResource Brush.Text.Primary}" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" KeyDown="OnDiagnosticKeyDown">
               <ListBox.ItemTemplate>
                 <DataTemplate DataType="{x:Type vm:DiagnosticItem}">
                   <DockPanel Cursor="Hand" MouseLeftButtonUp="OnDiagnosticClick">
-                    <TextBlock DockPanel.Dock="Left" FontFamily="{DynamicResource Font.Icons}" FontSize="12" Margin="0,2,8,0" VerticalAlignment="Top"
-                               Style="{StaticResource Text.Severity}">
-                      <TextBlock.Text>
-                        <Binding Path="Severity">
-                          <Binding.Converter>
-                            <v:SeverityToGlyphConverter />
-                          </Binding.Converter>
-                        </Binding>
-                      </TextBlock.Text>
-                    </TextBlock>
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding Severity, Converter={StaticResource SeverityToGlyph}}" FontFamily="{DynamicResource Font.Icons}" FontSize="12" Margin="0,2,8,0" VerticalAlignment="Top"
+                               Style="{StaticResource Text.Severity}" />
                     <TextBlock DockPanel.Dock="Left" Text="{Binding Location}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
                                Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,0,8,0" />
-                    <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="{DynamicResource FontSize.Small}" />
+                    <Button DockPanel.Dock="Right" Content="{Binding Fix.Label}" Padding="8,0" MinHeight="22" Margin="8,0,0,0" ToolTip="{l:Loc Build_FixTip}"
+                            Command="{Binding DataContext.ApplyFixCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                            Visibility="{Binding Fix, Converter={StaticResource NullToVisibility}}" />
+                    <StackPanel>
+                      <TextBlock Text="{Binding Hint}" TextWrapping="Wrap" FontSize="{DynamicResource FontSize.Small}" Visibility="{Binding Hint, Converter={StaticResource NullToVisibility}}" />
+                      <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="{DynamicResource FontSize.Small}">
+                        <TextBlock.Style>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding Hint}" Value="{x:Null}">
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBlock.Style>
+                      </TextBlock>
+                    </StackPanel>
                   </DockPanel>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -674,13 +976,32 @@
               </Border>
             </StackPanel>
           </TabItem.Header>
-          <ListBox ItemsSource="{Binding Log}" Background="{DynamicResource Brush.Canvas}" BorderBrush="{DynamicResource Brush.Border}" HorizontalContentAlignment="Stretch">
+          <DockPanel>
+          <ListBox DockPanel.Dock="Top" Style="{StaticResource ListBox.Segmented}" HorizontalAlignment="Left" Margin="0,0,0,8" ItemsSource="{Binding LogFilters}" SelectedItem="{Binding SelectedLogFilter}">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:OptionItem}">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <Grid>
+          <TextBlock Text="{Binding LogEmptyText}" Style="{StaticResource Caption}" Margin="12,10,12,0" VerticalAlignment="Top" TextWrapping="Wrap" Panel.ZIndex="1" IsHitTestVisible="False"
+                     Visibility="{Binding LogIsEmpty, Converter={StaticResource BoolToVisibility}}" />
+          <ListBox x:Name="LogList" ItemsSource="{Binding Log}" SelectedItem="{Binding SelectedLogItem}" SelectionChanged="OnLogSelectionChanged" Background="{DynamicResource Brush.Canvas}" BorderBrush="{DynamicResource Brush.Border}" HorizontalContentAlignment="Stretch"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.ScrollChanged="OnLogScrolled" KeyDown="OnLogKeyDown" ContextMenuOpening="OnLogMenuOpening">
+            <ListBox.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="{l:Loc Log_CopyLine}" InputGestureText="Ctrl+C" Click="OnLogCopy" />
+              </ContextMenu>
+            </ListBox.ContextMenu>
             <ListBox.ItemTemplate>
               <DataTemplate DataType="{x:Type vm:LogItem}">
                 <DockPanel>
                   <Button DockPanel.Dock="Right" Content="{l:Loc Log_Show}" Padding="8,0" MinHeight="22" Margin="8,0,0,0"
                           Command="{Binding DataContext.ShowPartCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding ComponentId}"
                           Visibility="{Binding ComponentId, Converter={StaticResource NullToVisibility}}" />
+                  <TextBlock DockPanel.Dock="Left" Text="{Binding Severity, Converter={StaticResource SeverityToGlyph}}" FontFamily="{DynamicResource Font.Icons}" FontSize="12" Margin="0,2,8,0" VerticalAlignment="Top"
+                             Style="{StaticResource Text.Severity}" />
                   <TextBlock DockPanel.Dock="Left" Text="{Binding Time}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
                              Foreground="{DynamicResource Brush.Text.Secondary}" Width="90" />
                   <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Style="{StaticResource Text.Severity}" />
@@ -688,6 +1009,8 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
+          </Grid>
+          </DockPanel>
         </TabItem>
         <TabItem Header="{l:Loc Tab_Diagram}">
           <DockPanel>
@@ -696,6 +1019,8 @@
               <Button Content="{l:Loc Serial_Clear}" Command="{Binding Timeline.ClearCommand}" Margin="0,0,12,0" />
               <Button x:Name="AddSignalButton" Content="{l:Loc Timeline_AddSignal}" Click="OnAddSignal" Margin="0,0,6,0" />
               <Button x:Name="AddBusButton" Content="{l:Loc Timeline_AddBus}" Click="OnAddBus" Margin="0,0,12,0" />
+              <Button Content="{l:Loc Timeline_FitAll}" Command="{Binding Timeline.FitAllCommand}" ToolTip="{l:Loc Timeline_FitAllTip}" />
+              <Button Content="{l:Loc Timeline_GoLive}" Command="{Binding Timeline.GoLiveCommand}" ToolTip="{l:Loc Timeline_GoLiveTip}" Margin="0,0,12,0" />
               <TextBlock Text="{Binding Timeline.Readout}" Style="{StaticResource Caption}" VerticalAlignment="Center" FontFamily="{DynamicResource Font.Mono}" />
               <TextBlock Text="{l:Loc Timeline_Gaps}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="{DynamicResource Brush.Warning}"
                          Visibility="{Binding Timeline.HasGaps, Converter={StaticResource BoolToVisibility}}" />
@@ -722,7 +1047,7 @@
                 </StackPanel>
               </Border>
             </Popup>
-            <v:TimelineView Timeline="{Binding Timeline}" Version="{Binding Timeline.Version}" />
+            <v:TimelineView Timeline="{Binding Timeline}" Version="{Binding Timeline.Version}" Focusable="True" FocusVisualStyle="{StaticResource Focus.Ring}" />
           </DockPanel>
         </TabItem>
       </TabControl>
@@ -749,7 +1074,7 @@
     </Grid>
 
     <!-- Toast (bottom-right, 3 s) -->
-    <Border Grid.Row="1" Grid.RowSpan="3" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,24" Padding="14,8" IsHitTestVisible="False"
+    <Border Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,24" Padding="14,8" IsHitTestVisible="False"
             Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="1" CornerRadius="{StaticResource Radius.Floating}"
             Effect="{DynamicResource Shadow}" Visibility="{Binding Toast, Converter={StaticResource NullToVisibility}}">
       <StackPanel Orientation="Horizontal">
@@ -758,10 +1083,17 @@
       </StackPanel>
     </Border>
 
+    <!-- A folder dragged over the window (docs/UI.md §2.7) -->
+    <Border x:Name="DropOverlay" Grid.RowSpan="5" Margin="8" IsHitTestVisible="False" Visibility="Collapsed"
+            Background="{DynamicResource Brush.AccentSoft}" BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="2" CornerRadius="{StaticResource Radius.Floating}">
+      <TextBlock Text="{l:Loc Window_DropHint}" FontSize="{DynamicResource FontSize.Title}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Border>
+
     <!-- ===== Status bar, 24 px ===== -->
     <Border Grid.Row="4" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0" Padding="12,0">
       <DockPanel>
-        <TextBlock DockPanel.Dock="Right" Text="{Binding ActualSpeed}" Style="{StaticResource Caption}" FontFamily="{DynamicResource Font.Mono}" Margin="12,0,0,0" />
+        <TextBlock DockPanel.Dock="Right" Text="{Binding ActualSpeed}" Style="{StaticResource Caption}" FontFamily="{DynamicResource Font.Mono}" Margin="12,0,0,0" ToolTip="{l:Loc Status_SpeedTip}" />
+        <TextBlock DockPanel.Dock="Right" Text="{Binding VisibleDocument.CaretText}" Style="{StaticResource Caption}" FontFamily="{DynamicResource Font.Mono}" Margin="12,0,0,0" />
         <TextBlock DockPanel.Dock="Right" Text="{l:Loc Inproc_Badge}" Foreground="{DynamicResource Brush.Warning}" FontSize="{DynamicResource FontSize.Small}" VerticalAlignment="Center"
                    Visibility="{Binding InProcess, Converter={StaticResource BoolToVisibility}}" />
         <StackPanel Orientation="Horizontal">

@@ -13,12 +13,26 @@ public static class ExampleThumbnails
 {
     public const double Width = 154;
     public const double Height = 96;
+    public const double TileHeight = 58;
 
     public static void Render(Visual owner, MainViewModel viewModel)
     {
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(viewModel);
         double dpiScale = VisualTreeHelper.GetDpi(owner).DpiScaleX;
+        foreach (BoardTile tile in viewModel.BoardTiles)
+        {
+            _ = owner.Dispatcher.BeginInvoke(
+                () =>
+                {
+                    if (viewModel.PreviewBoard(tile.Board) is { } scene)
+                    {
+                        tile.Thumbnail = SchematicCanvas.Snapshot(scene, Width, TileHeight, dpiScale);
+                    }
+                },
+                DispatcherPriority.ApplicationIdle);
+        }
+
         foreach (ExampleItem example in viewModel.Examples)
         {
             _ = owner.Dispatcher.BeginInvoke(

@@ -92,17 +92,30 @@ public sealed class TimelineTests
         TimelineViewModel timeline = NanoTimeline();
         double ns = timeline.NsPerPixel;
 
-        timeline.Append(Block((0, 13, SignalLevel.Low)), 50_000_000);
+        timeline.Append(Block((0, 13, SignalLevel.Low)), 5_000_000_000);
         Assert.True(timeline.Following);
-        Assert.Equal(50_000_000 - (ulong)(1000 * ns), timeline.ViewStart);
+        Assert.Equal(5_000_000_000 - (ulong)(1000 * ns), timeline.ViewStart);
 
+        // Zooming stays live: the right edge keeps to the latest time.
         timeline.ZoomAt(500, 0.5);
+        Assert.True(timeline.Following);
+        timeline.Append(null, 6_000_000_000);
+        Assert.Equal(6_000_000_000 - (ulong)(1000 * timeline.NsPerPixel), timeline.ViewStart);
+
+        // Dragging back in time stops following, and the view stays there.
+        timeline.PanBy(-500);
         Assert.False(timeline.Following);
         ulong start = timeline.ViewStart;
-        timeline.Append(null, 60_000_000);
+        timeline.Append(null, 7_000_000_000);
         Assert.Equal(start, timeline.ViewStart);
 
         timeline.PanBy(1e9); // drag to the end
+        Assert.True(timeline.Following);
+
+        timeline.FitAllCommand.Execute(null);
+        Assert.False(timeline.Following);
+        Assert.Equal(timeline.Store.Start, timeline.ViewStart);
+        timeline.GoLiveCommand.Execute(null);
         Assert.True(timeline.Following);
     }
 
@@ -110,7 +123,9 @@ public sealed class TimelineTests
     public void Zooming_keeps_the_time_under_the_pointer_in_place()
     {
         TimelineViewModel timeline = NanoTimeline();
-        timeline.Append(null, 100_000_000);
+        timeline.Append(null, 5_000_000_000);
+        timeline.PanBy(-200); // not following: the zoom is about the pointer
+        Assert.False(timeline.Following);
         double before = timeline.ViewStart + (300 * timeline.NsPerPixel);
 
         timeline.ZoomAt(300, 0.8);
@@ -128,7 +143,68 @@ public sealed class TimelineTests
         timeline.SetMarker(100);
         timeline.SetCursor(200);
 
-        Assert.Contains("Δ 1 ", timeline.Readout, StringComparison.Ordinal); // 100 pixels at 10 µs each: 1 ms
+        Assert.Contains("Δ 100 ", timeline.Readout, StringComparison.Ordinal); // 100 pixels at 1 ms each: 100 ms
+    }
+
+    [Fact]
+    public void It_opens_about_a_second_across_so_traffic_twice_a_second_is_in_view()
+    {
+        TimelineViewModel timeline = NanoTimeline();
+
+        Assert.Equal(1e9, 1000 * timeline.NsPerPixel);
+    }
+
+    [Fact]
+    public void Neighbouring_ruler_ticks_never_read_the_same()
+    {
+        const ulong Step = 200; // the scale at which bus bytes are readable
+        string[] ticks = [.. Enumerable.Range(0, 6).Select(i => TimelineViewModel.FormatTick(1_000_000_000 + ((ulong)i * Step), Step))];
+
+        Assert.Equal(ticks.Length, ticks.Distinct().Count());
+        Assert.Contains("0000002", ticks[1], StringComparison.Ordinal);
+        Assert.Contains("0 ", TimelineViewModel.FormatTick(0, 2_000_000), StringComparison.Ordinal);
+        Assert.Equal(TimelineViewModel.FormatTime(2_000_000), TimelineViewModel.FormatTick(2_000_000, 2_000_000));
+    }
+
+    [Fact]
+    public void A_second_run_starts_the_clock_and_the_window_over()
+    {
+        TimelineViewModel timeline = NanoTimeline();
+        timeline.Append(Block((0, 13, SignalLevel.Low)), 20_000_000_000);
+        Assert.True(timeline.ViewStart > 0);
+
+        timeline.Reset();
+        Assert.Equal(0UL, timeline.Store.End);
+        Assert.Equal(0UL, timeline.Store.Start);
+        Assert.Equal(0UL, timeline.ViewStart);
+
+        timeline.Append(Block((0, 13, SignalLevel.High)), 2_000_000_000);
+        Assert.Equal(2_000_000_000UL, timeline.Store.End);
+        Assert.Equal(1_000_000_000UL, timeline.ViewStart);
+    }
+
+    [Fact]
+    public void Only_the_clear_button_asks_for_the_levels_again()
+    {
+        TimelineViewModel timeline = NanoTimeline();
+        int asked = 0;
+        timeline.Cleared += () => asked++;
+
+        timeline.Reset();
+        Assert.Equal(0, asked);
+
+        timeline.ClearCommand.Execute(null);
+        Assert.Equal(1, asked);
+    }
+
+    [Fact]
+    public void The_demo_rows_include_the_bit_banged_byte_and_all_its_pins()
+    {
+        TimelineViewModel timeline = NanoTimeline();
+
+        timeline.AddDemoRows();
+
+        Assert.Equal(["I2C (A4, A5)", "SPI (D11, D13)", "Serial TX (D1)", "Serial RX (D0)", "D3", "D4", "D5", "D10", "SPI (D4, D3)"], timeline.Rows.Select(r => r.Title));
     }
 
     [Theory]

@@ -23,7 +23,30 @@ public sealed record PanelLayout
     public bool BottomOpen { get; init; } = true;
 
     public int BottomTab { get; init; }
+
+    /// <summary>The left panel's page: 0 Детали, 1 Проект.</summary>
+    public int LeftTab { get; init; }
+
+    /// <summary>Code beside the schematic (the Рядом mode), and the schematic's share of the width.</summary>
+    public bool SplitView { get; init; }
+
+    public double SplitRatio { get; init; } = 0.55;
+
+    /// <summary>Palette categories the user folded; null until the first toggle means the default (Дисплеи).</summary>
+    public IReadOnlyList<string>? CollapsedCategories { get; init; }
+
+    /// <summary>Show the one-line hint at the bottom of the schematic.</summary>
+    public bool CanvasHints { get; init; } = true;
+
+    /// <summary>The wheel moves the schematic, for a touchpad; Ctrl+wheel zooms.</summary>
+    public bool WheelPans { get; init; }
+
+    /// <summary>The window's normal bounds; null before the first close.</summary>
+    public WindowBounds? Window { get; init; }
 }
+
+/// <summary>The window's restored bounds, in device-independent pixels.</summary>
+public sealed record WindowBounds(double Left, double Top, double Width, double Height, bool Maximized);
 
 /// <summary>
 /// Per-user app state that is not part of any project: recent projects, the panel layout and the theme,
@@ -90,6 +113,17 @@ public sealed partial class UserState
         }
     }
 
+    /// <summary>The board the last new project used.</summary>
+    public string? LastBoard
+    {
+        get => _data.LastBoard;
+        set
+        {
+            _data = _data with { LastBoard = value };
+            Save();
+        }
+    }
+
     /// <summary>Moves (or adds) a project to the top of the recent list.</summary>
     public void Touch(string directory)
     {
@@ -146,5 +180,7 @@ public sealed partial class UserState
         public string Theme { get; init; } = "dark";
 
         public bool Sound { get; init; } = true;
+
+        public string? LastBoard { get; init; }
     }
 }

@@ -1,13 +1,13 @@
 # ArduSim UI
 
-- Status: Approved by the owner on 2026-11-02, including the five proposals in §6.
+- Status: Approved by the owner on 2026-11-02, including the five proposals in §6. The usability pass of 2026-11-05 (ADR-016) was approved by the owner the same day and is written in below.
 - Date: 2026-11-02
 - Scope: the M3 schematic editor and the shell it lives in. Items marked *(M4)* / *(M5)* are placed now so the layout does not change later, and built in those milestones.
 - Fixed by the brief and ADR-004: WPF, our own theme (dark default, light variant), flat surfaces, one accent color, 8 px rhythm, Segoe UI, subtle motion only on state changes, Russian strings from `.resx`, custom split layout (no docking library), Wokwi as the UX reference for canvas and wiring.
 
 ## 1. Principles
 
-1. **The canvas is the product.** Panels frame it; nothing floats over it except transient banners, menus and tooltips.
+1. **The canvas is the product.** Panels frame it; nothing floats over it except transient banners, menus, tooltips and one line of hint at its bottom edge (§3.6).
 2. **Live state is visible where it happens.** An LED glows on the part, a level shows on the pin, a warning sits on the part it concerns — not only in a log.
 3. **Loud, specific, actionable.** Every problem says what happened, where, and offers the next action (jump to line, show part, rerun, stop, re-download).
 4. **Keyboard-first for frequent actions, mouse-first for placement.** Every command has a shortcut; every shortcut is shown in its tooltip.
@@ -15,7 +15,7 @@
 
 ## 2. Layout
 
-### 2.1 Main window (1360 × 860, minimum 1000 × 640)
+### 2.1 Main window (1360 × 860, minimum 960 × 560; it reopens where it was, and never larger than the screen)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -38,7 +38,7 @@
 │ ▾ Дисплеи(M4)│                                                               │               │
 ├──────────────┴───────────────────────────────────────────────────────────────┴───────────────┤
 │ [Монитор порта] [Плоттер (M5)] [Сборка] [Журнал ⚠1] [Диаграмма (позже)]                  ▾  │
-│ ┌──────────────────────────────────────────────────────────────────┐  9600 бод              │
+│ ┌──────────────────────────────────────────────────────────────────┐                        │
 │ │ Press the button to toggle the LED.                              │  ☑ Автопрокрутка       │
 │ │ LED on                                                           │  ☐ Время               │
 │ └──────────────────────────────────────────────────────────────────┘  [Очистить]           │
@@ -51,10 +51,10 @@
 | Region | Size | Behavior |
 | --- | --- | --- |
 | Title bar + toolbar | 48 px, one row | Custom window chrome: app mark, project menu, run controls, board, clock, status, window buttons (maximize supports Windows 11 snap layouts). |
-| Palette (left) | 240 px (180–360) | Collapsible (Ctrl+1), resizable, width persisted. |
-| Center tabs | rest | "Схема" is always the first tab and cannot close; one tab per sketch file. |
+| Left panel | 240 px (180–360) | Two pages: Детали (the palette, §2.3) and Проект (the explorer, §2.9). Collapsible (Ctrl+1), resizable, width persisted. Below 1200 px of window width both side panels draw at their minimums; the saved widths stay. |
+| Center tabs | rest | "Схема" is always the first tab and cannot close; one tab per sketch file. The strip scrolls by wheel; a middle click closes a code tab. **Рядом** (Ctrl+\, off by default, remembered) shows the code to the right of the schematic with a movable divider: code tabs pick the file, Схема moves the focus to the canvas. Without it F7 flips between Схема and the last code tab, and Run returns to Схема. |
 | Properties (right) | 280 px (220–420) | Collapsible (Ctrl+2), resizable, persisted. |
-| Bottom tabs | 240 px (120–60 % of height) | Collapsible (Ctrl+3 or the ▾ button); selected tab and height persisted. |
+| Bottom tabs | 240 px (120–60 % of height) | Collapsible (Ctrl+3 or the ▾ button); selected tab and height persisted. On a window under 760 px high it folds itself and opens on the first output, warning or build error; the user's own toggle wins. Ctrl+Shift+\ hides all three panels and brings them back as they were. |
 | Status bar | 24 px | Project path, board, last build time, toolchain, actual speed. |
 
 Panels collapse to a 24 px strip with a vertical label, so they can be reopened by mouse. Splitters are 1 px lines with a 6 px hit area.
@@ -63,13 +63,17 @@ Panels collapse to a 24 px strip with a vertical label, so they can be reopened 
 
 | Group | Content | Notes |
 | --- | --- | --- |
-| Project | `◆` mark, project name with ▾ menu (Новый, Открыть…, Недавние ▸, Примеры ▸, Сохранить, Открыть папку в проводнике, Параметры, О точности симуляции), `●` when unsaved | The only menu; everything else is a button. |
-| Build & run | Собрать (Ctrl+B), **Запуск** (F5, primary), Пауза/Продолжить (F6), Стоп (Shift+F5) | Icon + label for these four. |
-| Step | loop() (F10), 1 / 10 / 100 мс | Icon buttons with tooltips; enabled while paused or running (a step pauses first). |
+| Project | `◆` mark, project name with ▾ menu (Новый, Открыть…, Недавние ▸, Примеры ▸, Сохранить, Сохранить как…, Открыть папку в проводнике, Параметры, О точности симуляции), `●` when unsaved | The only menu; everything else is a button. Alt opens it, and its items have access keys. |
+| Build & run | Собрать (Ctrl+B), **Запуск** (F5, primary), Пауза/Продолжить (F6), Стоп (Shift+F5) | Icon + label for these four. While a run exists Запуск reads **Перезапуск** (flat, a dot when the code changed after the run started). Стоп also cancels a build or the compiler download; the status counts units and seconds while building. |
+| Step | loop() (F10), 1 / 10 / 100 мс (F11, Shift+F11, Ctrl+F11) | Enabled while paused or running (a step pauses first). |
 | Speed | 0.1× 0.5× 1× 2× 10× макс, as a compact dropdown | Applies live. |
 | Board | Nano ▾ | Board picker; changing it rebuilds and is undoable. |
 | Clock | Virtual time `12.345 с`, tabular digits | Click toggles s / ms. |
 | Status | Pill: Готово · Сборка… · Работает · Пауза · Прошивка упала · Не отвечает | Color dot per §3.1; click opens the relevant panel. |
+
+Without a project the toolbar holds only the mark and the menu.
+
+Every button says what it does and its key, and a disabled one says why it is disabled. A narrow window folds the toolbar by stages, the first that fits: (1) Собрать, Пауза and Стоп lose their labels; (2) the step buttons become one Шаг ▾ menu; (3) sound and speed move into a ⋯ menu. Запуск, the board, the clock and the status never leave, and nothing wraps.
 
 ### 2.3 Palette
 
@@ -84,8 +88,11 @@ Panels collapse to a 24 px strip with a vertical label, so they can be reopened 
 └──────────────────────┘
 ```
 
+- Categories in the order a beginner needs them: Свет, звук, движение; Резисторы; Управление; Датчики; Дисплеи (folded at first); Модули. Headers show their row counts; folding is remembered.
+- The search understands everyday Russian words («датчик», «экран», «мотор»), both keyboard layouts and small typos, and says so when nothing matches. `A` on the canvas or Ctrl+F opens it; ↑↓ move the highlight, Enter places the highlighted part and returns to the canvas, Esc clears it, then leaves.
+- A row's tooltip: name, one line about the part, its pins.
 - Drag a row onto the canvas: a ghost of the part at the current zoom follows the cursor and snaps to the grid; Esc cancels.
-- Double-click or Enter adds the part at the center of the view, selected.
+- Double-click or Enter adds the part near the center of the view, on the nearest spot that covers no other part, selected.
 - Presets appear as their own rows (e.g. "LCD 1602 I2C" = LCD with interface I2C, ADR-006) *(M4)*.
 
 The toolbar has a speaker toggle next to the speed selector: buzzers sound or not, remembered between sessions *(M11)*.
@@ -97,7 +104,7 @@ The toolbar has a speaker toggle next to the speed selector: buzzers sound or no
 │ ◖ led1              LED    │   id is editable (unique, [a-z0-9-]); type on the right
 ├────────────────────────────┤
 │ Цвет      ● ● ● ● ● ●      │   choices: ≤ 4 → segmented control, colors → swatches, else dropdown
-│ Сопротивл.[ 220     ] Ω    │   numbers: unit suffix, ↑/↓ and wheel step, Enter commits, Esc reverts
+│ Сопротивл.[ 220     ] Ω    │   numbers: unit suffix, ↑/↓ and focused wheel step, Enter commits and returns to the canvas, Esc reverts; 10k, 4,7к, 1М are understood
 │ Клавиша   [ Пробел  ]      │   key capture field: "press a key"
 ├────────────────────────────┤
 │ Пины                       │
@@ -108,8 +115,9 @@ The toolbar has a speaker toggle next to the speed selector: buzzers sound or no
 └────────────────────────────┘
 ```
 
-- Nothing selected → project properties: board, sketch folder, baud and line ending defaults, speed, library paths, EEPROM (size, "Очистить EEPROM").
-- Several parts selected → common properties only, with "—" for mixed values.
+- Nothing selected → project properties: library paths, and Очистить EEPROM, which asks on its first click and removes `eeprom.bin` and `preferences.json`. Board, speed and line ending are in the toolbar and the Monitor. In a bundled example a block above says what it does and what to try, with Показать код and Начать заново (a new copy; yours stays).
+- Several parts selected → common properties only, with "—" for mixed values; an edit changes all of them, in one undo step.
+- A click on a pin row lights that net on the schematic.
 - A wire selected → color swatches, its two ends, Delete.
 - An SD card module → its folder (a path in the project, default `sd`) and a button «Открыть папку» that opens it in Explorer; the folder is the card's contents *(M9)*.
 - Every edit is one undo step; invalid input keeps the old value and shows the reason under the field.
@@ -126,42 +134,55 @@ The toolbar has a speaker toggle next to the speed selector: buzzers sound or no
  ⚠ Файл изменён вне ArduSim.  [Загрузить с диска] [Оставить мою версию]   ← inline bar, only on conflict
 ```
 
-- AvalonEdit, Cascadia Mono 13, tab = 2 spaces (Arduino convention), auto-indent, bracket matching, current-line highlight.
+- AvalonEdit, Cascadia Mono 13, tab = 2 spaces (Arduino convention), auto-indent, bracket matching, current-line highlight. Brackets and quotes close themselves, and a closer typed where one stands steps over it.
+- Ctrl+F finds in the file when the code has the focus (elsewhere: the part search on the schematic, the open file's find on a code tab); Ctrl+H replaces, Ctrl+G or Ctrl+L goes to a line, Ctrl+/ comments, Ctrl+T or Shift+Alt+F formats (clang-format), Alt+↑↓ moves lines, Ctrl+Shift+D duplicates. Right click shows them.
+- clangd (ADR-016) answers while typing: completion after `.`, `->`, `::`, `#include <` and two letters (Ctrl+Space by hand), signatures after `(`, hover, F12 or Ctrl+click for the definition. Its answers never replace the build's diagnostics.
 - Build errors: red squiggle and gutter ✖; warnings amber ⚠; F8 / Shift+F8 next / previous diagnostic; Run with errors opens the first one.
-- The sketch folder is the source of truth: files reload silently when unchanged in the editor; the conflict bar appears only when both changed.
+- The sketch folder is the source of truth: files reload silently when unchanged in the editor, keeping the caret, and Ctrl+Z brings the text back; the conflict bar appears only when both changed, with Оставить мою версию as its main button. While it is open, Save, Build and Run stop at that file and ask for a version first, so the other version is never written over.
 - Run and Build save open files first (as the Arduino IDE does); Ctrl+S saves.
 
 ### 2.6 Bottom tabs
 
 | Tab | Content |
 | --- | --- |
-| Монитор порта | Output (mono, autoscroll, optional time stamps), input line, line ending segmented, baud label, Очистить. On boards with several UARTs, a port list above the baud label picks what the Monitor and Plotter show and where input goes *(M11)*. |
-| Плоттер *(M5)* | Live chart of numbers parsed from Serial lines (Arduino Serial Plotter format), auto-scaling, pause. |
-| Сборка | Left: parsed diagnostics (icon, file:line, message), click opens the editor at the location. Right: raw compiler output. Summary line with time and cache hits. |
-| Журнал | Simulation messages with time, severity filter (Все / Предупреждения / Ошибки), "Показать" jumps to and flashes the part. The tab shows a count badge for unseen warnings. |
-| Диаграмма *(M11)* | Logic analyzer. Top: Запись (checkbox), Очистить, + Сигнал (board pins), + Шина (the board's I2C, SPI and UART; «Другие выводы…» opens a form for bit-banged buses on any pins), the scale and Δ. Left: names, ✕ removes a row. Right: time ruler, one waveform per pin, one row of labeled frames per bus. Wheel zooms about the pointer, a drag pans, a click sets the marker Δ measures from. A click on a wire on the running schematic adds its board pins. Records while the tab is open and Запись is on. |
+| Монитор порта | Output (mono, wrapped, optional time stamps), input line, line ending segmented, Очистить. Автопрокрутка follows new text until the user scrolls away or selects text; scrolling back to the end, or ticking the box, resumes it. On boards with several UARTs, a port list picks what the Monitor and Plotter show and where input goes *(M11)*. |
+| Плоттер *(M5)* | Live chart of numbers parsed from Serial lines (Arduino Serial Plotter format), auto-scaling, pause (lines that go by leave a break in the plot; a new run clears it). A click on a legend item hides that series and takes it out of the scale. |
+| Сборка | Left: parsed diagnostics (icon, file:line, a plain Russian line when a rule knows the message, the message), click opens the editor at the location; Исправить where the compiler names a fix. Right: raw compiler output. Summary line with time and cache hits. The tab shows the error and warning counts. |
+| Журнал | Simulation messages with a severity icon and time, severity filter (Все / Предупреждения / Ошибки), "Показать" jumps to and flashes the part. New rows are followed while the last row is in view; Копировать строку in the context menu or Ctrl+C. The tab shows a count badge for unseen warnings. |
+| Диаграмма *(M11)* | Logic analyzer. Top: Запись (checkbox), Очистить, + Сигнал (board pins), + Шина (the board's I2C, SPI and UART; «Другие выводы…» opens a form for bit-banged buses on any pins), the scale and Δ. Left: names, ✕ removes a row. Right: time ruler, one waveform per pin, one row of labeled frames per bus. Wheel over the names scrolls rows; wheel over the plot zooms about the pointer, or about the latest time while following, which zooming does not stop; Вписать всё and К последним are beside the scale; with the keyboard, ←/→ pan, + and − zoom, Home fits all, End goes to the latest; a drag pans, a click sets the marker Δ measures from. A click on a wire on the running schematic adds its board pins. Records while the tab is open and Запись is on; time not recorded stays empty, shaded and captioned «не записано». A new run starts over at time 0. |
 
 ### 2.7 Start view (no project open)
 
 ```
-┌──────────────────────────────────────────────────────┐
-│  ArduSim                                             │
-│  [+ Новый проект]   [Открыть папку…]                 │
-│                                                      │
-│  Недавние                      Примеры               │
-│  Blink      D:\Projects\Blink  ┌──────┐ ┌──────┐     │
-│  Button     …\Button           │Blink │ │Button│ …   │  examples gallery cards (M5: thumbnails)
-└──────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  Новый проект [Проект 3   ] Другая папка…       [Открыть папку…] │
+│  [Nano] [Uno] [Mega] [Pro Mini] [ESP32] [NodeMCU] [Wemos]        │  one tile per board: a click creates the project
+│                                                                  │
+│  Недавние            Примеры [Поиск…]  Все 51|Arduino|ESP32|8266 │
+│  Blink               С чего начать                               │
+│  Button              [Мигание] [Кнопка] [Потенциометр] …         │  by topic, with Russian titles and a line each
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-New project: pick a folder and a board; the app creates `project.simproj.json`, `sketch/<name>.ino` with empty `setup()`/`loop()`, and opens the scene with the board placed. Открыть папку… on a folder with `platformio.ini` and no project imports it in place *(M11)*.
+New project: a name and a click on a board's tile create `Документы\ArduSim\Projects\<name>` with `project.simproj.json` and `sketch/<name>.ino` with empty `setup()`/`loop()`, and open the scene with the board placed. Другая папка… picks the place. Ctrl+N inside a project comes back here, with the name ready to type. On a first launch the Недавние column suggests the first steps instead.
+
+Открыть папку…, or a folder dropped on the window: a project opens; a folder with `platformio.ini` imports in place *(M11)*; a folder with `.ino` files gets a project file beside them and stays where it is; a folder with neither offers to create a project there.
 
 ### 2.8 Banners, dialogs, toasts
 
-- **Banner** (top of the canvas, max 720 px, dismissible): run outcomes that need a decision — crash (exception, `file:line`, last API calls, Перезапустить / Открыть строку), firmware busy (Остановить), Runner exited (exit code, stderr in an expandable block), toolchain needed or failed (progress bar while downloading; Скачать / Повторить).
+- **Banner** (top of the canvas, or of the start view, max 720 px, dismissible, also by Esc): run outcomes that need a decision — crash (exception, `file:line`, last API calls, Перезапустить / Открыть строку; the details stay in Журнал), firmware busy (Остановить; it hides itself when the sketch comes back), Runner exited (exit code, stderr in an expandable block), toolchain needed or failed (progress bar and Отмена while downloading; Скачать), a folder without a project (Создать проект здесь).
 - **Toast** (bottom-right, 3 s, no action required): "Проект сохранён", "Файл перезагружен с диска".
 - **Modal dialogs** only for: file and folder pickers, unsaved-changes on close, Settings, "О точности симуляции" (a side sheet listing the fidelity limits of brief §3.1).
-- **Part badges**: an amber ⚠ on a part with an active warning (floating input, short); click → the log entry. Cleared on the next run.
+- **Part badges**: an amber ⚠ on a part with an active warning (floating input, short); hover shows the message, click → the log entry. Cleared on the next run.
+
+### 2.9 Project explorer
+
+The Проект page of the left panel (Ctrl+Shift+E). Groups, each foldable:
+
+- **Скетч**: the sketch's files. A click opens one; its menu has Открыть, Переименовать, Удалить в корзину (no question: it can be brought back) and Показать в проводнике. The main file, named after the project, cannot be renamed or deleted here. Новый файл… is at the top and in the + of the tab strip.
+- **Структура: file**: the functions, types and variables of the file on screen, from clangd; a click goes to the line.
+- **Схема**: the parts by id and kind; a click selects one and brings it into view. The row of the open file or the selected part is marked.
+- **Библиотеки**: what the last build used.
 
 ## 3. Visual language
 
@@ -182,6 +203,8 @@ One accent (teal). Semantic colors mark states only.
 | `TextPrimary` | `#E7E9EE` | `#1B1E25` | text |
 | `TextSecondary` | `#9BA3B4` | `#5C6372` | labels, hints |
 | `TextDisabled` | `#5C6372` | `#A3AAB6` | disabled |
+| `TextHint` | `#8A92A3` | `#697080` | placeholders, line numbers, minor captions (4.5:1) |
+| `BorderInput` | `#6B7384` | `#8A92A0` | edges of fields and sliders (3:1) |
 | `Accent` | `#2BC4A9` | `#0B7A69` | primary button, selection, focus ring, active tab |
 | `OnAccent` | `#0B1A17` | `#FFFFFF` | text on accent |
 | `Running` | `#3AE06A` | `#1E9E4A` | status dot "Работает" |
@@ -190,7 +213,7 @@ One accent (teal). Semantic colors mark states only.
 
 Checked against WCAG AA (4.5:1 for 13 px text): `TextPrimary`, `TextSecondary`, `Accent`, `Warning` and `Error` on `Surface` and `Background`, and `OnAccent` on `Accent`, pass in both themes (lowest: dark `Error` on `SurfaceRaised` 4.64, light `Accent` on `Background` 4.81). `TextDisabled` is exempt, as WCAG allows for disabled controls.
 
-**Wires** (stroke 2.2 canvas units ≈ 2 px at 100 %): power `#E54848`, ground `#5A606E` (dark) / `#2D3138` (light), I2C fixed SDA `#3E8BFF` and SCL `#F2C94C` *(M4)*, other signals default `#3BB273`, selectable from 8 swatches (green, blue, yellow, orange, purple, pink, white, grey). Wire colors are never the only cue: hovering shows the net name and its pins.
+**Wires** (stroke 2.2 canvas units ≈ 2 px at 100 %; a casing in the canvas color makes an upper wire show a gap where it crosses another): power `#E54848`, ground `#5A606E` (dark) / `#2D3138` (light), I2C fixed SDA `#3E8BFF` and SCL `#F2C94C` *(M4)*, other signals by their board pin, so they stay put across edits (green, blue, orange, purple, pink), selectable from 8 swatches (green, blue, yellow, orange, purple, pink, white, grey). Wire colors are never the only cue: hovering shows the net name and its pins.
 
 ### 3.2 Typography
 
@@ -212,15 +235,15 @@ Sentence case everywhere ("Открыть папку", not "Открыть Па�
 - Control height 28 px (toolbar, fields), list rows 28 px (palette 32 px), panel header 36 px.
 - Radii: 6 px controls, 8 px banners/menus/cards, 4 px chips and badges.
 - Elevation: none on docked surfaces (1 px borders separate them). Floating elements (menus, tooltips, banners, drag ghosts) get a 1 px border plus shadow `0 4 16 rgba(0,0,0,.35)` (dark) / `rgba(16,24,40,.12)` (light).
-- Focus: 2 px `Accent` outline, 2 px offset, on every focusable element; never removed.
+- Focus: 2 px `Accent` outline, 2 px offset, on every focusable element; never removed. Each style names this ring, because WPF otherwise takes the system's dotted one, which cannot be seen on the dark theme. The canvas draws it inside its edge.
 
 ### 3.4 Icons
 
-Fluent UI System Icons, Regular, 20 px in the toolbar and 16 px in lists; Filled only for an active toggle. One icon per concept across the app (e.g. the same ▶ for Run in toolbar, menu and banner).
+Fluent UI System Icons, Regular, 20 px in the toolbar's build-and-run group and 16 px elsewhere; Filled only for an active toggle. One icon per concept across the app (e.g. the same ▶ for Run in toolbar, menu and banner).
 
 ### 3.5 Motion
 
-- Color and opacity transitions on hover/press: 100 ms ease-out. Panel collapse and banner appearance: 160 ms ease-out. Nothing else animates.
+- Banner appearance: 160 ms ease-out. Nothing else animates yet; hover at 100 ms and panel collapse at 160 ms are approved and in `docs/UI-BACKLOG.md`.
 - Simulation state is never animated or eased: an LED is as bright as the snapshot says, the moment it arrives.
 - When Windows "Show animations" is off, all transitions are instant.
 
@@ -228,10 +251,12 @@ Fluent UI System Icons, Regular, 20 px in the toolbar and 16 px in lists; Filled
 
 - Background `Canvas` with a dot every 0.1 inch (the pin pitch); dots fade out below 50 % zoom.
 - Parts are flat, slightly stylized drawings of the real part (Wokwi-like, not schematic symbols), drawn from vector art in their definitions (ADR-007), crisp at every zoom.
-- Board pins: gold rings with labels; other parts' pins appear as small rings on hover and while wiring.
+- Board pins: gold rings with labels, which grow a little at far zoom; other parts' pins appear as small rings on hover and while wiring.
+- While running: a dot on every driven board pin (grey LOW, green HIGH, accent PWM, amber tone), wires of a HIGH net with a bright core, of a LOW net dimmed, of a PWM or tone net with dashes; a 2 px bar in the status color above the center.
+- **One line of hint** at the bottom left, chosen by the state: only the board placed, wiring, a wire selected, a part selected, running. It can be switched off in Параметры.
 - Live state: LED glow scaled by brightness, pushbutton cap pressed, slide-switch knob position, pot knob angle, buzzer frequency label, encoder knob angle, keypad and remote keys held, joystick cap leaning, sensor readings above the part *(M8)*, servo horn angle, relay LED and contact, seven-segment and TM1637 digits, MAX7219 matrices and WS2812 LEDs from their frames *(M9)*, displays from framebuffers *(M4/M5)*, color TFTs dimmed by their backlight, the Nokia 5110 glass darkening with its contrast, grayscale OLED levels *(M10)*: LCD with a visible 5×8 dot grid and backlight variants, OLED with pixel glow and color variants, nearest-neighbor scaling.
 - Selection: 1 px `Accent` outline 3 px outside the part's bounds; multi-selection draws the union box too.
-- Hover on a pin or wire: the whole net is highlighted (other wires dim to 40 %), tooltip "D13 · выход · HIGH" (running) or "D13 · цифровой, ШИМ нет" (stopped).
+- Hover on a pin or wire: the whole net is highlighted (other wires dim to 40 %), tooltip with the pin's kind and bus role, its level while running, and what it joins.
 - Zoom indicator bottom-right of the canvas: percentage (click = 100 %) and "Вписать" (fit).
 
 ## 4. Interaction rules
@@ -240,8 +265,10 @@ Fluent UI System Icons, Regular, 20 px in the toolbar and 16 px in lists; Filled
 
 | Gesture | Action |
 | --- | --- |
-| Mouse wheel | Zoom to cursor, 25 %–800 %, in 1.2× steps (Wokwi convention) |
-| Middle-drag, or Space + left-drag | Pan |
+| Mouse wheel | Zoom to cursor, 25 %–800 %, 1.2× per notch and in proportion for a touchpad's small steps (Wokwi convention) |
+| Middle-drag, right-drag, or Space + left-drag | Pan (right button released in place: the context menu) |
+| Arrows with nothing selected | Pan |
+| A touchpad | Параметры → Прокрутка: the wheel pans and Ctrl+wheel or a pinch zooms |
 | Shift + wheel | Pan horizontally |
 | Ctrl+0 / Ctrl+9 | Fit scene / 100 % |
 | Ctrl+= / Ctrl+− | Zoom in / out around the view center |
@@ -261,22 +288,29 @@ Fluent UI System Icons, Regular, 20 px in the toolbar and 16 px in lists; Filled
 | Delete / Backspace | Delete selection (wires attached to deleted parts go too) |
 | Ctrl+C / Ctrl+X / Ctrl+V | Copy / cut / paste (pasted at the cursor, ids renumbered, wires inside the selection kept) |
 | Ctrl+D | Duplicate with a 0.2 inch offset |
-| Right-click | Context menu: Повернуть, Отразить, Дублировать, Удалить, Свойства (part); Цвет ▸, Удалить (wire); Вставить, Вписать (canvas) |
+| Right-click | Context menu: Повернуть, Отразить, Дублировать, Удалить, Свойства (part); Цвет ▸, Сбросить маршрут, Удалить (wire); Добавить деталь, Вставить, Вписать, Клавиши и жесты (canvas). While wiring it cancels the wire instead. |
+| Tab / Shift+Tab | Next / previous part, brought into view |
+| Enter | The keyboard goes to the selected part's properties |
+| A | The part search |
+| Esc during a drag | Back to where it started, with no undo entry |
+
+These commands work whichever panel last had the focus, except in text fields and lists.
 
 ### 4.3 Wires
 
-- **Start**: click a pin (pins show rings on hover). A ghost wire follows the cursor as an orthogonal L (horizontal first; Tab toggles vertical-first).
+- **Start**: click a pin (pins show rings on hover; the nearest pin wins). A ghost wire follows the cursor as an orthogonal L (horizontal first; Tab toggles vertical-first).
 - **Waypoints**: click on empty canvas to fix a corner; Backspace removes the last one.
-- **Finish**: click another pin. Valid targets glow while wiring; a click on the start pin or Esc cancels. Wires always end on pins (ADR-008); several wires may share a pin.
-- **Edit**: click selects a wire; drag a segment to move it perpendicular to itself (neighbors stay orthogonal); drag a corner to move it; double-click a segment to add a corner; Delete removes the wire.
+- **Finish**: click another pin, or press on one pin and release on another (past 10 px, so a shaky click never joins neighbours). Valid targets glow while wiring; a click on the start pin, Esc or the right button cancels. Without a corner set by hand, the wire takes the L that does not run along other pins or through parts. Wires always end on pins (ADR-008); several wires may share a pin.
+- **Edit**: click selects a wire; drag a segment to move it perpendicular to itself (neighbors stay orthogonal); drag a corner to move it; double-click a segment to add a corner, or a corner to remove it; drag an end (the round handles) to another pin; Сбросить маршрут in its menu; Delete removes the wire.
+- **Coinciding pins**: a part's pin moved or placed exactly on another part's pin is connected, by a zero-length wire in the same undo step.
 - **Color**: automatic by net type (§3.1) until the user picks a swatch; the choice is stored in the project.
 - **One click "connect to board"** *(nice-to-have, M5)*: on modules with VCC/GND/SDA/SCL, a context-menu item wires them to the board's matching pins.
 
 ### 4.4 Running
 
-- Run (F5) saves files, autosaves the scene, builds and starts; Stop (Shift+F5) ends the run; Pause/Resume (F6); F10 steps one `loop()`.
-- **While running, the scene's structure is locked** (no adding, deleting, moving or rewiring; properties read-only). The first such attempt shows a hint "Остановите симуляцию, чтобы изменить схему" next to the cursor. Interactive parts stay live: press buttons (mouse or their key), flip switches, drag pot knobs vertically (wheel for fine steps), type in the Serial Monitor. *(M8, approved 2026-11-03)* Encoder: the wheel or a drag around the knob turns it one detent per notch / 18°, a click without moving presses the shaft (holding still holds it). Keypad and IR remote: press and hold keys with the mouse. Joystick: drag the cap (it springs back on release), a click without moving presses it. Sensor readings (temperature, humidity, distance) stay editable in Properties (text field and slider) and change by a vertical drag on the part (Shift: the second reading) or the wheel; while running they are inputs, not saved and not undoable.
-- Part keys work whenever no text field has focus.
+- Run (F5) saves files, autosaves the scene, builds and starts, from the schematic; Stop (Shift+F5) ends the run; Pause/Resume (F6); F10 steps one `loop()`. While a run exists F5 restarts it with the latest code.
+- **While running, the scene's structure is locked** (no adding, deleting, moving or rewiring; properties read-only). An attempt to change it shows a hint "Идёт симуляция, схема заблокирована. Остановить: Shift+F5" next to the cursor; a plain click only selects. A click selects sensors and parts that are not inputs, so their properties can be read and readings changed; a click on empty canvas clears the selection; buttons, switches, knobs and keys keep their click as input. Interactive parts stay live: press buttons (mouse or their key), flip switches, drag pot knobs vertically (wheel for fine steps), type in the Serial Monitor. *(M8, approved 2026-11-03)* Encoder: the wheel or a drag around the knob turns it one detent per notch / 18°, a click without moving presses the shaft (holding still holds it). Keypad and IR remote: press and hold keys with the mouse. Joystick: drag the cap (it springs back on release), a click without moving presses it. Sensor readings (temperature, humidity, distance) stay editable in Properties (text field and slider) and change by a vertical drag on the part (Shift: the second reading) or the wheel; while running they are inputs, not saved and not undoable.
+- Part keys work whenever no text field has focus. Ctrl+click latches a pushbutton or a keypad or remote key until the next click on it. An input part selected with Tab takes the keyboard: arrows, PageUp/PageDown, Home, End on a potentiometer; arrows on an encoder, joystick or sensor; Space presses a shaft; 0-9, A-D, * and # on a keypad.
 - Changing the speed applies immediately; stepping while running pauses first.
 - After a run ends, warning badges and the log stay until the next run.
 
@@ -294,7 +328,7 @@ Everything that changes the project is undoable (Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z):
 
 | Situation | Feedback |
 | --- | --- |
-| Build error | Status "Ошибка сборки", Сборка tab selected, editor opens at the first error, squiggles in all affected files |
+| Build error | Status "Ошибка сборки", Сборка tab selected, editor opens at the first error, squiggles in all affected files. The next good build puts the panels back, unless the user moved on. A good build alone says so in a toast. |
 | Simulation warning | Log entry + ⚠ badge on the part + count on the Журнал tab; never a modal |
 | Firmware crash | Banner with exception, `file:line` (click opens the editor there), last 20 API calls, Перезапустить |
 | Firmware busy | Banner "Прошивка не отвечает" with Остановить |
@@ -306,22 +340,31 @@ Everything that changes the project is undoable (Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z):
 
 | Keys | Command |
 | --- | --- |
-| F5 / Shift+F5 / F6 / F10 | Run / Stop / Pause-Resume / Step loop() |
-| Ctrl+B | Build |
+| F5, Ctrl+U / Shift+F5 / F6 / F10 | Run / Stop / Pause-Resume / Step loop() |
+| F11 / Shift+F11 / Ctrl+F11 | Step 1 / 10 / 100 ms |
+| Ctrl+B, Ctrl+R, Ctrl+Shift+B | Build |
+| F1 | Keys and gestures: a sheet with a filter that does not block the window |
+| F7 | Schematic and the last code tab |
+| Ctrl+\ | Code beside the schematic |
+| Ctrl+Shift+E / Ctrl+Shift+M | Project explorer / Monitor with its input line |
+| Ctrl+F6, Ctrl+Shift+F6 | Next, previous pane |
+| Ctrl+Shift+\ | Hide all panels, and bring them back |
+| Alt | The project menu |
+| Ctrl+Shift+S | Save the project as |
 | Ctrl+N / Ctrl+O / Ctrl+S | New / Open / Save |
 | Ctrl+Z / Ctrl+Y | Undo / Redo |
-| Ctrl+F | Search the palette |
+| Ctrl+F | Find in the code when it has the focus or its tab shows; otherwise search the palette; on the start view, the examples |
 | Ctrl+1 / Ctrl+2 / Ctrl+3 | Toggle palette / properties / bottom panel |
-| Ctrl+Tab / Ctrl+W | Next tab / close code tab |
+| Ctrl+Tab, Ctrl+Shift+Tab / Ctrl+W | Next, previous tab / close code tab |
 | F8 / Shift+F8 | Next / previous diagnostic |
-| R, F, Delete, Ctrl+D, arrows | Rotate, flip, delete, duplicate, nudge |
+| A, R, F, Delete, Ctrl+D, arrows | Find a part, rotate, flip, delete, duplicate, nudge |
 | Ctrl+0 / Ctrl+9 | Fit / 100 % |
 
 ## 5. Accessibility and localization
 
 - Keyboard reachability for every control (Tab order: toolbar → palette → canvas → properties → bottom panel); the canvas supports Tab to cycle parts and Enter to open their properties.
 - Contrast per §3.1; focus always visible; color never the only carrier of meaning (wires and states also have text in tooltips and the status pill).
-- Windows text scaling and per-monitor DPI respected (PerMonitorV2, layout in device-independent pixels).
+- Windows text size scales the interface's text, read at startup and on change (the code editor keeps its own size); per-monitor DPI respected (PerMonitorV2, layout in device-independent pixels).
 - All strings in `Resources/Strings.resx` (Russian neutral). Simulation log messages get resource keys by their code in M3 (today they arrive in English from Core).
 
 ## 6. Decisions confirmed

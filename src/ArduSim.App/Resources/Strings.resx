@@ -25,7 +25,7 @@
   <data name="Toolbar_Pause" xml:space="preserve"><value>Пауза</value></data>
   <data name="Toolbar_Resume" xml:space="preserve"><value>Продолжить</value></data>
   <data name="Toolbar_Stop" xml:space="preserve"><value>Стоп</value></data>
-  <data name="Toolbar_StepLoopTip" xml:space="preserve"><value>Шаг: один loop() (F10)</value></data>
+  <data name="Toolbar_StepLoopTip" xml:space="preserve"><value>Выполнить один loop() и встать на паузу (F10)</value></data>
   <data name="Toolbar_StepTip" xml:space="preserve"><value>Шаг по виртуальному времени</value></data>
   <data name="Toolbar_Step1" xml:space="preserve"><value>1 мс</value></data>
   <data name="Toolbar_Step10" xml:space="preserve"><value>10 мс</value></data>
@@ -38,13 +38,13 @@
   <data name="Unit_Milliseconds" xml:space="preserve"><value>мс</value></data>
 
   <!-- Project menu -->
-  <data name="Menu_New" xml:space="preserve"><value>Новый проект…</value></data>
-  <data name="Menu_Open" xml:space="preserve"><value>Открыть…</value></data>
-  <data name="Menu_Recent" xml:space="preserve"><value>Недавние</value></data>
-  <data name="Menu_Examples" xml:space="preserve"><value>Примеры</value></data>
-  <data name="Menu_Save" xml:space="preserve"><value>Сохранить</value></data>
+  <data name="Menu_New" xml:space="preserve"><value>_Новый проект…</value></data>
+  <data name="Menu_Open" xml:space="preserve"><value>_Открыть…</value></data>
+  <data name="Menu_Recent" xml:space="preserve"><value>_Недавние</value></data>
+  <data name="Menu_Examples" xml:space="preserve"><value>_Примеры</value></data>
+  <data name="Menu_Save" xml:space="preserve"><value>_Сохранить</value></data>
   <data name="Menu_Reveal" xml:space="preserve"><value>Открыть папку в проводнике</value></data>
-  <data name="Menu_CloseProject" xml:space="preserve"><value>Закрыть проект</value></data>
+  <data name="Menu_CloseProject" xml:space="preserve"><value>_Закрыть проект</value></data>
 
   <!-- Canvas context menu and hints -->
   <data name="Menu_Rotate" xml:space="preserve"><value>Повернуть</value></data>
@@ -56,7 +56,7 @@
   <data name="Menu_Paste" xml:space="preserve"><value>Вставить</value></data>
   <data name="Menu_Fit" xml:space="preserve"><value>Вписать</value></data>
   <data name="Canvas_Fit" xml:space="preserve"><value>Вписать</value></data>
-  <data name="Canvas_LockedHint" xml:space="preserve"><value>Остановите симуляцию, чтобы изменить схему</value></data>
+  <data name="Canvas_LockedHint" xml:space="preserve"><value>Идёт симуляция, схема заблокирована. Остановить: Shift+F5</value></data>
   <data name="Key_Space" xml:space="preserve"><value>Пробел</value></data>
   <data name="Pin_DigitalPwm" xml:space="preserve"><value>цифровой, ШИМ</value></data>
   <data name="Pin_Digital" xml:space="preserve"><value>цифровой, ШИМ нет</value></data>
@@ -98,9 +98,9 @@
   <data name="Preset_Sh1106I2c" xml:space="preserve"><value>OLED 1.3" 128x64 I2C (SH1106)</value></data>
   <data name="Preset_Sh1106Spi" xml:space="preserve"><value>OLED 1.3" 128x64 SPI (SH1106)</value></data>
   <data name="Category_board" xml:space="preserve"><value>Платы</value></data>
-  <data name="Category_output" xml:space="preserve"><value>Вывод</value></data>
-  <data name="Category_input" xml:space="preserve"><value>Ввод</value></data>
-  <data name="Category_passive" xml:space="preserve"><value>Пассивные</value></data>
+  <data name="Category_output" xml:space="preserve"><value>Свет, звук, движение</value></data>
+  <data name="Category_input" xml:space="preserve"><value>Управление</value></data>
+  <data name="Category_passive" xml:space="preserve"><value>Резисторы</value></data>
   <data name="Category_display" xml:space="preserve"><value>Дисплеи</value></data>
   <data name="Panel_Palette" xml:space="preserve"><value>Детали</value></data>
   <data name="Panel_Properties" xml:space="preserve"><value>Свойства</value></data>
@@ -159,11 +159,11 @@
 
   <!-- Center tabs and the code editor -->
   <data name="Tab_Scene" xml:space="preserve"><value>Схема</value></data>
-  <data name="Tab_Close" xml:space="preserve"><value>Закрыть вкладку (Ctrl+W)</value></data>
-  <data name="Tab_OpenFile" xml:space="preserve"><value>Открыть файл скетча</value></data>
+  <data name="Tab_Close" xml:space="preserve"><value>Закрыть вкладку (Ctrl+W, средняя кнопка мыши)</value></data>
+  <data name="Tab_OpenFile" xml:space="preserve"><value>Новый файл или закрытый файл скетча</value></data>
   <data name="Tab_NoClosedFiles" xml:space="preserve"><value>Все файлы скетча открыты</value></data>
-  <data name="Editor_Conflict" xml:space="preserve"><value>Файл изменён вне ArduSim.</value></data>
-  <data name="Editor_Reload" xml:space="preserve"><value>Загрузить с диска</value></data>
+  <data name="Editor_Conflict" xml:space="preserve"><value>Файл {0} изменён вне ArduSim, и здесь есть несохранённые правки.</value></data>
+  <data name="Editor_Reload" xml:space="preserve"><value>Взять версию с диска</value></data>
   <data name="Editor_KeepMine" xml:space="preserve"><value>Оставить мою версию</value></data>
 
   <!-- Start view and dialogs -->
@@ -174,7 +174,7 @@
   <data name="Start_NoRecent" xml:space="preserve"><value>Здесь появятся проекты, которые вы открывали.</value></data>
   <data name="Start_Examples" xml:space="preserve"><value>Примеры</value></data>
   <data name="Dialog_NewProject" xml:space="preserve"><value>Папка нового проекта</value></data>
-  <data name="Dialog_OpenProject" xml:space="preserve"><value>Папка проекта</value></data>
+  <data name="Dialog_OpenProject" xml:space="preserve"><value>Папка проекта или скетча</value></data>
   <data name="Dialog_UnsavedTitle" xml:space="preserve"><value>Сохранить изменения в «{0}»?</value></data>
   <data name="Dialog_UnsavedBody" xml:space="preserve"><value>Если не сохранить, изменения пропадут.</value></data>
   <data name="Dialog_Save" xml:space="preserve"><value>Сохранить</value></data>
@@ -213,12 +213,13 @@
   <data name="Tab_Build" xml:space="preserve"><value>Сборка</value></data>
   <data name="Tab_Log" xml:space="preserve"><value>Журнал</value></data>
   <data name="Serial_Send" xml:space="preserve"><value>Отправить</value></data>
+  <data name="Serial_SendTip" xml:space="preserve"><value>Отправить (Enter)</value></data>
   <data name="Serial_Clear" xml:space="preserve"><value>Очистить</value></data>
   <data name="Serial_AutoScroll" xml:space="preserve"><value>Автопрокрутка</value></data>
   <data name="Serial_LineEnding" xml:space="preserve"><value>Конец строки:</value></data>
   <data name="Serial_NoEnding" xml:space="preserve"><value>нет</value></data>
-  <data name="Serial_Baud" xml:space="preserve"><value>{0} бод</value></data>
   <data name="Log_Show" xml:space="preserve"><value>Показать</value></data>
+  <data name="Log_CopyLine" xml:space="preserve"><value>Копировать строку</value></data>
 
   <!-- Banners -->
   <data name="Banner_Close" xml:space="preserve"><value>Закрыть</value></data>
@@ -263,8 +264,8 @@
   <data name="Log_analog-only-pin" xml:space="preserve"><value>{0}({1}): {2} на {3} только аналоговый, вызов пропущен.</value></data>
   <data name="Log_invalid-interrupt" xml:space="preserve"><value>attachInterrupt({0}): у {1} нет внешнего прерывания {2}.</value></data>
   <data name="Log_undefined-level" xml:space="preserve"><value>{0} под напряжением {1} В — между порогами LOW ({2} В) и HIGH ({3} В), поэтому читается случайное значение.</value></data>
-  <data name="Log_floating-input" xml:space="preserve"><value>{0} ни к чему не подключён: цепь {1} никто не задаёт и не подтягивает, поэтому читается случайное значение.</value></data>
-  <data name="Log_floating-input.analog" xml:space="preserve"><value>{0} ни к чему не подключён: цепь {1} никто не задаёт и не подтягивает, поэтому analogRead возвращает шум.</value></data>
+  <data name="Log_floating-input" xml:space="preserve"><value>{0} никто не задаёт: цепь {1} не притянута ни к HIGH, ни к LOW, поэтому читается случайное значение. Поставьте резистор 10 кОм от вывода к GND или включите pinMode(…, INPUT_PULLUP) и подключите кнопку к GND; тогда нажатие читается как LOW.</value></data>
+  <data name="Log_floating-input.analog" xml:space="preserve"><value>{0}: цепь {1} никто не задаёт и не подтягивает, поэтому analogRead возвращает шум. Подключите к выводу источник напряжения, например средний вывод потенциометра.</value></data>
   <data name="Log_floating-input.aref" xml:space="preserve"><value>Задан analogReference(EXTERNAL), но AREF не подключён: используется Vcc.</value></data>
   <data name="Log_invalid-serial" xml:space="preserve"><value>У {0} нет последовательного порта {1}.</value></data>
   <data name="Log_eeprom-address" xml:space="preserve"><value>Адрес EEPROM {0} вне диапазона 0..{1}: как и на ATmega328P, он сворачивается в {2}.</value></data>
@@ -293,7 +294,7 @@
   <data name="Log_scene.wrong-board" xml:space="preserve"><value>Плата {0} — не плата проекта ({1}), она исключена.</value></data>
   <data name="Log_scene.missing-part" xml:space="preserve"><value>Провод {0} ведёт к детали «{1}», которой нет на схеме: провод исключён.</value></data>
   <data name="Log_scene.missing-pin" xml:space="preserve"><value>Провод {0} ведёт к {1}.{2}, но у {3} нет вывода {4}: провод исключён.</value></data>
-  <data name="Menu_Settings" xml:space="preserve"><value>Параметры…</value></data>
+  <data name="Menu_Settings" xml:space="preserve"><value>Пара_метры…</value></data>
   <data name="Menu_Accuracy" xml:space="preserve"><value>О точности симуляции</value></data>
   <data name="Dialog_Close" xml:space="preserve"><value>Закрыть</value></data>
   <data name="Settings_Title" xml:space="preserve"><value>Параметры</value></data>
@@ -377,7 +378,7 @@
   <data name="Property_humidity" xml:space="preserve"><value>Влажность</value></data>
   <data name="Property_distance" xml:space="preserve"><value>Расстояние</value></data>
   <data name="Unit_cm" xml:space="preserve"><value>см</value></data>
-  <data name="Properties_LiveHint" xml:space="preserve"><value>Показание датчика: во время работы меняется сразу и не сохраняется в проект.</value></data>
+  <data name="Properties_LiveHint" xml:space="preserve"><value>Меняется сразу, во время запуска. Также: тяните деталь на схеме или вращайте колесо над ней</value></data>
   <data name="Log_timer-invalid" xml:space="preserve"><value>Прерывания таймера {0} нет (есть 0–{1}); вызов пропущен.</value></data>
   <data name="Log_timer-period" xml:space="preserve"><value>Прерывание таймера {0}: период {1} нс короче минимума симулятора (5 мкс); таймер срабатывает каждые 5 мкс.</value></data>
   <data name="Log_sensor-power" xml:space="preserve"><value>{0} ({1}) без питания: подключите VCC к 3,3–5 В, а GND к GND.</value></data>
@@ -486,6 +487,7 @@
   <data name="Timeline_AddBus" xml:space="preserve"><value>+ Шина</value></data>
   <data name="Timeline_Empty" xml:space="preserve"><value>Добавьте сигнал или шину кнопками выше; во время работы можно кликнуть по проводу на схеме.</value></data>
   <data name="Timeline_Gaps" xml:space="preserve"><value>Часть событий потеряна: слишком быстро</value></data>
+  <data name="Timeline_NotRecorded" xml:space="preserve"><value>не записано</value></data>
   <data name="Timeline_PerDivision" xml:space="preserve"><value>{0}/дел</value></data>
   <data name="Timeline_BusI2c" xml:space="preserve"><value>I2C ({0}, {1})</value></data>
   <data name="Timeline_BusSpi" xml:space="preserve"><value>SPI ({0}, {1})</value></data>
@@ -507,4 +509,545 @@
   <data name="Toast_PlatformIoMissing" xml:space="preserve"><value>Проект PlatformIO открыт, но нет библиотек: {0}.</value></data>
   <data name="Accuracy_15_Title" xml:space="preserve"><value>Диаграмма и звук</value></data>
   <data name="Accuracy_15_Body" xml:space="preserve"><value>Аппаратные I2C, SPI и UART передают байт одним вызовом, поэтому их форма сигнала на «Диаграмме» нарисована по байтам на настоящей частоте шины (SPI всегда как режим 0); значения байтов точные. Программные шины разбираются по настоящим фронтам. ШИМ и тон показаны полосой со значением, а не формой сигнала. Пищалка звучит только от tone(); очень короткий тон (меньше 16 мс) может потеряться.</value></data>
+  <data name="Toolbar_Restart" xml:space="preserve"><value>Перезапуск</value></data>
+  <data name="Toolbar_StepMenu" xml:space="preserve"><value>Шаг</value></data>
+  <data name="Toolbar_More" xml:space="preserve"><value>Ещё: звук и скорость</value></data>
+  <data name="Toolbar_Step1Tip" xml:space="preserve"><value>Пройти 1 мс виртуального времени и встать на паузу (F11)</value></data>
+  <data name="Toolbar_Step10Tip" xml:space="preserve"><value>Пройти 10 мс виртуального времени и встать на паузу (Shift+F11)</value></data>
+  <data name="Toolbar_Step100Tip" xml:space="preserve"><value>Пройти 100 мс виртуального времени и встать на паузу (Ctrl+F11)</value></data>
+  <data name="Tip_NoProject" xml:space="preserve"><value>Сначала откройте или создайте проект</value></data>
+  <data name="Tip_Building" xml:space="preserve"><value>Идёт сборка…</value></data>
+  <data name="Tip_Starting" xml:space="preserve"><value>Идёт запуск…</value></data>
+  <data name="Tip_Build" xml:space="preserve"><value>Сохранить и собрать, не запуская (Ctrl+B)</value></data>
+  <data name="Tip_BuildRunning" xml:space="preserve"><value>Во время симуляции собрать нельзя. Перезапуск (F5) соберёт новый код сам</value></data>
+  <data name="Tip_Run" xml:space="preserve"><value>Сохранить, собрать и запустить (F5)</value></data>
+  <data name="Tip_Restart" xml:space="preserve"><value>Перезапустить: сохранить, собрать и запустить заново. Монитор порта, Журнал, Плоттер и Диаграмма очистятся (F5)</value></data>
+  <data name="Tip_RestartStale" xml:space="preserve"><value>Код изменён после запуска: перезапуск применит его (F5)</value></data>
+  <data name="Tip_Pause" xml:space="preserve"><value>Приостановить, не сбрасывая (F6)</value></data>
+  <data name="Tip_Resume" xml:space="preserve"><value>Продолжить (F6)</value></data>
+  <data name="Tip_Stop" xml:space="preserve"><value>Остановить симуляцию (Shift+F5)</value></data>
+  <data name="Tip_NotRunning" xml:space="preserve"><value>Симуляция не запущена. Запуск: F5</value></data>
+  <data name="Tip_BusyNoPause" xml:space="preserve"><value>Скетч не возвращается в Arduino API: пауза и шаг недоступны, пока он не вернётся</value></data>
+  <data name="Tip_BoardRunning" xml:space="preserve"><value>Плату можно сменить после остановки (Shift+F5)</value></data>
+  <data name="Tip_StatusBuild" xml:space="preserve"><value>Открыть вкладку «Сборка»</value></data>
+  <data name="Tip_StatusLog" xml:space="preserve"><value>Открыть «Журнал»</value></data>
+  <data name="Tip_StatusSerial" xml:space="preserve"><value>Открыть «Монитор порта»</value></data>
+  <data name="Status_SpeedTip" xml:space="preserve"><value>Фактическая скорость симуляции</value></data>
+  <data name="Toast_SavedStale" xml:space="preserve"><value>Сохранено. Изменения заработают после перезапуска (F5)</value></data>
+  <data name="Toast_BusyRecovered" xml:space="preserve"><value>Скетч снова отвечает</value></data>
+  <data name="Toast_Built" xml:space="preserve"><value>Собрано за {0:F2} с</value></data>
+  <data name="Toast_BuiltWarnings" xml:space="preserve"><value>Собрано за {0:F2} с, предупреждений: {1}</value></data>
+  <data name="Build_SummaryOk" xml:space="preserve"><value>Собрано за {0:F2} с: единиц компиляции {1}, из кеша {2}.</value></data>
+  <data name="Build_SummaryFailed" xml:space="preserve"><value>Сборка не удалась за {0:F2} с: ошибок {1}, из кеша {2}.</value></data>
+  <data name="Build_SummaryFailedNoCount" xml:space="preserve"><value>Сборка не удалась за {0:F2} с, из кеша {1}.</value></data>
+  <data name="Build_Empty" xml:space="preserve"><value>Здесь появятся ошибки и предупреждения компилятора. Собрать: Ctrl+B.</value></data>
+  <data name="Build_FixTip" xml:space="preserve"><value>Внести это исправление в код</value></data>
+  <data name="Serial_NotRunning" xml:space="preserve"><value>Скетч не запущен, отправлять некому. Запуск: F5</value></data>
+  <data name="Serial_Empty" xml:space="preserve"><value>Здесь появится то, что скетч выводит через Serial.</value></data>
+  <data name="Serial_Timestamps" xml:space="preserve"><value>Время</value></data>
+  <data name="Serial_TimestampsTip" xml:space="preserve"><value>Начинать каждую строку с виртуального времени</value></data>
+  <data name="Log_FilterAll" xml:space="preserve"><value>Все</value></data>
+  <data name="Log_FilterWarnings" xml:space="preserve"><value>Предупреждения</value></data>
+  <data name="Log_FilterErrors" xml:space="preserve"><value>Ошибки</value></data>
+  <data name="Log_EmptyNone" xml:space="preserve"><value>Здесь появятся сообщения симуляции: предупреждения и ошибки во время запуска.</value></data>
+  <data name="Log_EmptyFiltered" xml:space="preserve"><value>Сообщений этого типа нет.</value></data>
+  <data name="Panel_Project" xml:space="preserve"><value>Проект</value></data>
+  <data name="Panel_PaletteTip" xml:space="preserve"><value>Детали для схемы (Ctrl+1)</value></data>
+  <data name="Panel_ProjectTip" xml:space="preserve"><value>Файлы скетча, детали и библиотеки проекта (Ctrl+Shift+E)</value></data>
+  <data name="Palette_SearchTip" xml:space="preserve"><value>Ctrl+F или A на схеме. Enter ставит деталь, ↑↓ выбирают, Esc очищает</value></data>
+  <data name="Palette_ClearTip" xml:space="preserve"><value>Очистить (Esc)</value></data>
+  <data name="Palette_NoMatches" xml:space="preserve"><value>Ничего не найдено. Попробуйте другое слово: «датчик», «экран», «мотор».</value></data>
+  <data name="Palette_Pins" xml:space="preserve"><value>Выводы: {0}</value></data>
+  <data name="Explorer_Sketch" xml:space="preserve"><value>Скетч</value></data>
+  <data name="Explorer_Scene" xml:space="preserve"><value>Схема: деталей {0}</value></data>
+  <data name="Explorer_Libraries" xml:space="preserve"><value>Библиотеки</value></data>
+  <data name="Explorer_LibrariesHint" xml:space="preserve"><value>Появятся после сборки</value></data>
+  <data name="Explorer_NewFile" xml:space="preserve"><value>Новый файл…</value></data>
+  <data name="Explorer_NewFileTip" xml:space="preserve"><value>Добавить файл в папку скетча</value></data>
+  <data name="Explorer_NewFilePrompt" xml:space="preserve"><value>Имя файла: .ino, .h, .cpp, .c</value></data>
+  <data name="Explorer_RenamePrompt" xml:space="preserve"><value>Новое имя файла</value></data>
+  <data name="Explorer_Open" xml:space="preserve"><value>Открыть</value></data>
+  <data name="Explorer_Rename" xml:space="preserve"><value>Переименовать…</value></data>
+  <data name="Explorer_Delete" xml:space="preserve"><value>Удалить в корзину</value></data>
+  <data name="Explorer_DeleteTip" xml:space="preserve"><value>Файл можно будет вернуть из корзины</value></data>
+  <data name="Explorer_Reveal" xml:space="preserve"><value>Показать в проводнике</value></data>
+  <data name="File_NameEmpty" xml:space="preserve"><value>Введите имя файла</value></data>
+  <data name="File_NameInvalid" xml:space="preserve"><value>В имени файла есть недопустимые символы</value></data>
+  <data name="File_NameExtension" xml:space="preserve"><value>Нужно расширение .ino, .h, .hpp, .c или .cpp</value></data>
+  <data name="File_NameTaken" xml:space="preserve"><value>Файл {0} уже есть</value></data>
+  <data name="File_MainFixed" xml:space="preserve"><value>Главный файл носит имя проекта, его нельзя переименовать или удалить здесь</value></data>
+  <data name="Toast_FileDeleted" xml:space="preserve"><value>Файл {0} перемещён в корзину</value></data>
+  <data name="Toast_FileGone" xml:space="preserve"><value>Файл {0} удалён вне ArduSim, вкладка закрыта</value></data>
+  <data name="Toast_FileGoneEdited" xml:space="preserve"><value>Файл {0} удалён вне ArduSim; при сохранении он будет создан снова</value></data>
+  <data name="Banner_DeleteFailed" xml:space="preserve"><value>Не удалось удалить файл</value></data>
+  <data name="Tab_Split" xml:space="preserve"><value>Рядом</value></data>
+  <data name="Tab_SplitTip" xml:space="preserve"><value>Код рядом со схемой (Ctrl+\)</value></data>
+  <data name="Start_NameTip" xml:space="preserve"><value>Имя проекта и его папки в «Документы\ArduSim\Projects». Щёлкните плату ниже, чтобы создать проект</value></data>
+  <data name="Start_DefaultName" xml:space="preserve"><value>Проект</value></data>
+  <data name="Start_OtherFolder" xml:space="preserve"><value>Другая папка…</value></data>
+  <data name="Start_OtherFolderTip" xml:space="preserve"><value>Создать проект в выбранной папке. Папка с проектом или скетчем просто откроется</value></data>
+  <data name="Start_OpenTip" xml:space="preserve"><value>Проект ArduSim, папка со скетчем .ino или проект PlatformIO (Ctrl+O). Папку можно и перетащить на окно</value></data>
+  <data name="Start_BoardTip" xml:space="preserve"><value>Создать проект для этой платы</value></data>
+  <data name="Start_NameInvalid" xml:space="preserve"><value>В имени проекта есть недопустимые символы</value></data>
+  <data name="Start_NameTaken" xml:space="preserve"><value>Проект «{0}» уже есть</value></data>
+  <data name="Start_FamilyAll" xml:space="preserve"><value>Все</value></data>
+  <data name="Start_FamilyCount" xml:space="preserve"><value>{0} {1}</value></data>
+  <data name="Start_SearchHint" xml:space="preserve"><value>Поиск примеров: светодиод, OLED, ESP32…</value></data>
+  <data name="Start_NoExamples" xml:space="preserve"><value>Примеров по запросу «{0}» нет</value></data>
+  <data name="Start_FirstTitle" xml:space="preserve"><value>С чего начать</value></data>
+  <data name="Start_FirstBody" xml:space="preserve"><value>1. Откройте пример «Мигание».&#10;2. Нажмите Запуск (F5): светодиод замигает.&#10;3. Измените delay() в коде и запустите снова.</value></data>
+  <data name="Start_FirstOpen" xml:space="preserve"><value>Открыть «Мигание»</value></data>
+  <data name="Start_ToolchainNote" xml:space="preserve"><value>Для сборки нужен компилятор: {0} МиБ, скачивается один раз при первой сборке.</value></data>
+  <data name="Family_avr" xml:space="preserve"><value>Arduino</value></data>
+  <data name="Family_esp32" xml:space="preserve"><value>ESP32</value></data>
+  <data name="Family_esp8266" xml:space="preserve"><value>ESP8266</value></data>
+  <data name="Board_Summary" xml:space="preserve"><value>{0} В · выводов: {1}</value></data>
+  <data name="Board_SummaryWifi" xml:space="preserve"><value>{0} В · Wi-Fi</value></data>
+  <data name="Banner_NoProjectTitle" xml:space="preserve"><value>Здесь нет проекта</value></data>
+  <data name="Banner_NoProjectBody" xml:space="preserve"><value>В папке {0} нет проекта ArduSim и скетча .ino.</value></data>
+  <data name="Banner_CreateHere" xml:space="preserve"><value>Создать проект здесь</value></data>
+  <data name="Toast_SketchOpened" xml:space="preserve"><value>Скетч открыт как проект: плата {0}, детали добавьте на схему</value></data>
+  <data name="Window_DropHint" xml:space="preserve"><value>Отпустите, чтобы открыть проект</value></data>
+  <data name="Example_TryTitle" xml:space="preserve"><value>Что попробовать</value></data>
+  <data name="Example_ShowCode" xml:space="preserve"><value>Показать код</value></data>
+  <data name="Example_StartOver" xml:space="preserve"><value>Начать заново</value></data>
+  <data name="Example_StartOverTip" xml:space="preserve"><value>Новая копия примера без ваших правок; эта копия останется</value></data>
+  <data name="Menu_Help" xml:space="preserve"><value>Клавиши и _жесты</value></data>
+  <data name="Menu_ResetRoute" xml:space="preserve"><value>Сбросить маршрут</value></data>
+  <data name="Menu_AddPart" xml:space="preserve"><value>Добавить деталь…</value></data>
+  <data name="Menu_Properties" xml:space="preserve"><value>Свойства</value></data>
+  <data name="Canvas_ZoomTip" xml:space="preserve"><value>Масштаб 100 % (Ctrl+9)</value></data>
+  <data name="Canvas_FitTip" xml:space="preserve"><value>Вписать всё (Ctrl+0)</value></data>
+  <data name="Hint_Empty" xml:space="preserve"><value>Перетащите деталь из панели «Детали» (A: поиск). Соединить: щёлкните вывод, затем другой. Код: F7, запуск: F5</value></data>
+  <data name="Hint_Wiring" xml:space="preserve"><value>Щелчок: угол · Tab: другой изгиб · Backspace: убрать угол · Esc или правая кнопка: отмена</value></data>
+  <data name="Hint_Wire" xml:space="preserve"><value>Тяните участок, угол или конец провода · двойной щелчок: добавить или убрать угол · Del: удалить</value></data>
+  <data name="Hint_Part" xml:space="preserve"><value>Перетаскивайте · R: повернуть · F: отразить · Del: удалить · Ctrl+D: копия · Alt: без сетки</value></data>
+  <data name="Hint_Running" xml:space="preserve"><value>Кнопки и ручки работают мышью. Щелчок по датчику открывает его показания в «Свойствах». Стоп: Shift+F5</value></data>
+  <data name="Settings_Hints" xml:space="preserve"><value>Подсказки на схеме</value></data>
+  <data name="Settings_HintsOn" xml:space="preserve"><value>Показывать</value></data>
+  <data name="Settings_HintsOff" xml:space="preserve"><value>Скрыть</value></data>
+  <data name="ExampleTopic_start" xml:space="preserve"><value>С чего начать</value></data>
+  <data name="ExampleTopic_output" xml:space="preserve"><value>Свет, звук, движение</value></data>
+  <data name="ExampleTopic_input" xml:space="preserve"><value>Управление</value></data>
+  <data name="ExampleTopic_sensors" xml:space="preserve"><value>Датчики</value></data>
+  <data name="ExampleTopic_displays" xml:space="preserve"><value>Дисплеи и индикаторы</value></data>
+  <data name="ExampleTopic_storage" xml:space="preserve"><value>Wi-Fi и память</value></data>
+  <data name="ExampleTopic_boards" xml:space="preserve"><value>Другие платы</value></data>
+  <data name="ExampleTopic_tools" xml:space="preserve"><value>Инструменты</value></data>
+  <data name="Hint_Semicolon" xml:space="preserve"><value>Пропущена точка с запятой в отмеченном месте</value></data>
+  <data name="Hint_UndeclaredSuggest" xml:space="preserve"><value>Имя {0} не объявлено. Возможно, имелось в виду {1}</value></data>
+  <data name="Hint_Undeclared" xml:space="preserve"><value>Имя {0} нигде не объявлено: проверьте написание и регистр или объявите его выше</value></data>
+  <data name="Hint_UnknownType" xml:space="preserve"><value>Тип {0} не объявлен: опечатка или забыт #include</value></data>
+  <data name="Hint_FileNotFound" xml:space="preserve"><value>Файла {0} нет среди встроенных библиотек. Положите папку библиотеки в «Документы\Arduino\libraries» или укажите её в «Папки библиотек» (свойства проекта)</value></data>
+  <data name="Hint_MissingBrace" xml:space="preserve"><value>Не хватает закрывающей скобки }</value></data>
+  <data name="Hint_MissingParen" xml:space="preserve"><value>Не хватает закрывающей скобки )</value></data>
+  <data name="Hint_ExpectedExpression" xml:space="preserve"><value>Здесь должно быть выражение: значение, переменная или вызов функции</value></data>
+  <data name="Hint_NoMatching" xml:space="preserve"><value>У функции {0} нет варианта с такими аргументами: проверьте их количество и типы</value></data>
+  <data name="Hint_TooFewArgs" xml:space="preserve"><value>Функции передано меньше аргументов, чем она ждёт</value></data>
+  <data name="Hint_TooManyArgs" xml:space="preserve"><value>Функции передано больше аргументов, чем она ждёт</value></data>
+  <data name="Hint_NoSetupLoop" xml:space="preserve"><value>В скетче нет функции {0}(): в Arduino нужны и setup(), и loop()</value></data>
+  <data name="Hint_Redefinition" xml:space="preserve"><value>{0} объявлено дважды: оставьте одно объявление</value></data>
+  <data name="Fix_InsertSemicolon" xml:space="preserve"><value>Вставить ;</value></data>
+  <data name="Fix_ReplaceWith" xml:space="preserve"><value>Заменить на {0}</value></data>
+  <data name="Shortcuts_Title" xml:space="preserve"><value>Клавиши и жесты</value></data>
+  <data name="Shortcuts_Filter" xml:space="preserve"><value>Поиск: «провод», «масштаб», F5…</value></data>
+  <data name="Editor_FindMatchCase" xml:space="preserve"><value>С учётом регистра</value></data>
+  <data name="Editor_FindWholeWord" xml:space="preserve"><value>Слово целиком</value></data>
+  <data name="Editor_FindRegex" xml:space="preserve"><value>Регулярное выражение</value></data>
+  <data name="Editor_FindPrevious" xml:space="preserve"><value>Предыдущее (Shift+F3)</value></data>
+  <data name="Editor_FindNext" xml:space="preserve"><value>Следующее (F3)</value></data>
+  <data name="Editor_FindClose" xml:space="preserve"><value>Закрыть (Esc)</value></data>
+  <data name="Editor_ReplaceWith" xml:space="preserve"><value>Заменить на</value></data>
+  <data name="Editor_Replace" xml:space="preserve"><value>Заменить</value></data>
+  <data name="Editor_ReplaceAll" xml:space="preserve"><value>Заменить всё</value></data>
+  <data name="Editor_Replaced" xml:space="preserve"><value>Заменено: {0}</value></data>
+  <data name="Editor_GoToLine" xml:space="preserve"><value>Строка (1–{0})</value></data>
+  <data name="Editor_Caret" xml:space="preserve"><value>Стр {0}, стб {1}</value></data>
+  <data name="Editor_FormatFailed" xml:space="preserve"><value>Не удалось отформатировать: {0}</value></data>
+  <data name="Editor_FormatNoTool" xml:space="preserve"><value>Форматирование станет доступно после установки компилятора</value></data>
+  <data name="Editor_DefinitionNotFound" xml:space="preserve"><value>Определение не найдено</value></data>
+  <data name="Menu_Cut" xml:space="preserve"><value>Вырезать</value></data>
+  <data name="Menu_SelectAll" xml:space="preserve"><value>Выделить всё</value></data>
+  <data name="Menu_Find" xml:space="preserve"><value>Найти</value></data>
+  <data name="Menu_ReplaceText" xml:space="preserve"><value>Заменить</value></data>
+  <data name="Menu_GoToLine" xml:space="preserve"><value>Перейти к строке</value></data>
+  <data name="Menu_ToggleComment" xml:space="preserve"><value>Закомментировать</value></data>
+  <data name="Menu_Format" xml:space="preserve"><value>Форматировать</value></data>
+  <data name="Menu_GoToDefinition" xml:space="preserve"><value>Перейти к определению</value></data>
+  <data name="Menu_NextError" xml:space="preserve"><value>Следующая ошибка</value></data>
+  <data name="Menu_PreviousError" xml:space="preserve"><value>Предыдущая ошибка</value></data>
+  <data name="Menu_Rename" xml:space="preserve"><value>Переименовать</value></data>
+  <data name="Example_Blink" xml:space="preserve"><value>Мигание</value></data>
+  <data name="Example_Blink_Desc" xml:space="preserve"><value>Светодиод на D13 мигает раз в секунду. Первый скетч.</value></data>
+  <data name="Example_Blink_Try" xml:space="preserve"><value>Нажмите Запуск (F5): светодиод L на плате мигает. Измените delay() в коде и запустите снова.</value></data>
+  <data name="Example_Blink_Keys" xml:space="preserve"><value>светодиод led delay digitalWrite мигалка</value></data>
+  <data name="Example_Button" xml:space="preserve"><value>Кнопка и светодиод</value></data>
+  <data name="Example_Button_Desc" xml:space="preserve"><value>Каждое нажатие кнопки на D2 переключает светодиод на D8.</value></data>
+  <data name="Example_Button_Try" xml:space="preserve"><value>Запустите и щёлкайте по кнопке на схеме: светодиод переключается, сообщения идут в Монитор порта.</value></data>
+  <data name="Example_Button_Keys" xml:space="preserve"><value>кнопка input_pullup светодиод</value></data>
+  <data name="Example_Potentiometer" xml:space="preserve"><value>Потенциометр</value></data>
+  <data name="Example_Potentiometer_Desc" xml:space="preserve"><value>analogRead с ручки меняет яркость светодиода, значения идут на Плоттер.</value></data>
+  <data name="Example_Potentiometer_Try" xml:space="preserve"><value>Запустите и тяните ручку вверх-вниз или вращайте над ней колесо. Смотрите Плоттер и яркость светодиода.</value></data>
+  <data name="Example_Potentiometer_Keys" xml:space="preserve"><value>ручка analogread analogwrite шим график плоттер</value></data>
+  <data name="Example_BuzzerMelody" xml:space="preserve"><value>Мелодия на пищалке</value></data>
+  <data name="Example_BuzzerMelody_Desc" xml:space="preserve"><value>tone() играет гамму вверх и вниз на D8.</value></data>
+  <data name="Example_BuzzerMelody_Try" xml:space="preserve"><value>Запустите и слушайте. Звук включается кнопкой-динамиком на панели; частота видна на детали.</value></data>
+  <data name="Example_BuzzerMelody_Keys" xml:space="preserve"><value>звук tone пищалка мелодия</value></data>
+  <data name="Example_Relay" xml:space="preserve"><value>Реле</value></data>
+  <data name="Example_Relay_Desc" xml:space="preserve"><value>Модуль реле на D7 раз в секунду включает светодиод.</value></data>
+  <data name="Example_Relay_Try" xml:space="preserve"><value>Запустите: контакт реле щёлкает, светодиод горит и гаснет, сообщения идут в Монитор порта.</value></data>
+  <data name="Example_Relay_Keys" xml:space="preserve"><value>реле нагрузка</value></data>
+  <data name="Example_ServoKnob" xml:space="preserve"><value>Сервопривод и ручка</value></data>
+  <data name="Example_ServoKnob_Desc" xml:space="preserve"><value>SG90 на D9 следует за потенциометром на A0.</value></data>
+  <data name="Example_ServoKnob_Try" xml:space="preserve"><value>Запустите и тяните ручку: качалка сервопривода поворачивается, угол идёт в Монитор порта.</value></data>
+  <data name="Example_ServoKnob_Keys" xml:space="preserve"><value>сервопривод servo мотор потенциометр</value></data>
+  <data name="Example_NeoPixelRing" xml:space="preserve"><value>Кольцо NeoPixel</value></data>
+  <data name="Example_NeoPixelRing_Desc" xml:space="preserve"><value>Радуга бежит по кольцу из 16 светодиодов WS2812 на D6.</value></data>
+  <data name="Example_NeoPixelRing_Try" xml:space="preserve"><value>Запустите и смотрите на кольцо. Попробуйте изменить яркость в коде.</value></data>
+  <data name="Example_NeoPixelRing_Keys" xml:space="preserve"><value>ws2812 адресные светодиоды лента adafruit neopixel радуга</value></data>
+  <data name="Example_FastLedMatrix" xml:space="preserve"><value>Матрица FastLED</value></data>
+  <data name="Example_FastLedMatrix_Desc" xml:space="preserve"><value>FastLED рисует бегущую радугу на панели WS2812 8×8.</value></data>
+  <data name="Example_FastLedMatrix_Try" xml:space="preserve"><value>Запустите и смотрите на панель: строки идут змейкой, как на большинстве панелей.</value></data>
+  <data name="Example_FastLedMatrix_Keys" xml:space="preserve"><value>fastled ws2812 матрица панель 8x8 адресные</value></data>
+  <data name="Example_RotaryEncoder" xml:space="preserve"><value>Энкодер</value></data>
+  <data name="Example_RotaryEncoder_Desc" xml:space="preserve"><value>KY-040 на D2-D4 считает щелчки ручки и нажатия вала.</value></data>
+  <data name="Example_RotaryEncoder_Try" xml:space="preserve"><value>Вращайте ручку колесом мыши или тяните вокруг неё, щёлчок нажимает вал. Позиция идёт в Монитор порта.</value></data>
+  <data name="Example_RotaryEncoder_Keys" xml:space="preserve"><value>энкодер ky040 ручка</value></data>
+  <data name="Example_Keypad4x4" xml:space="preserve"><value>Клавиатура 4×4</value></data>
+  <data name="Example_Keypad4x4_Desc" xml:space="preserve"><value>Библиотека Keypad собирает код с мембранной клавиатуры.</value></data>
+  <data name="Example_Keypad4x4_Try" xml:space="preserve"><value>Щёлкайте клавиши на схеме: цифры и буквы набирают код, # вводит его, * стирает.</value></data>
+  <data name="Example_Keypad4x4_Keys" xml:space="preserve"><value>клавиатура keypad кнопки матрица пароль</value></data>
+  <data name="Example_Joystick" xml:space="preserve"><value>Джойстик</value></data>
+  <data name="Example_Joystick_Desc" xml:space="preserve"><value>Аналоговый стик на A0 и A1 с кнопкой на D2; значения идут на Плоттер.</value></data>
+  <data name="Example_Joystick_Try" xml:space="preserve"><value>Тяните колпачок: он возвращается в центр, когда отпустите. Щелчок без движения нажимает кнопку.</value></data>
+  <data name="Example_Joystick_Keys" xml:space="preserve"><value>джойстик стик аналоговый плоттер</value></data>
+  <data name="Example_IrRemote" xml:space="preserve"><value>ИК-пульт</value></data>
+  <data name="Example_IrRemote_Desc" xml:space="preserve"><value>IRremote принимает кадры NEC с пульта; приёмник на D11.</value></data>
+  <data name="Example_IrRemote_Try" xml:space="preserve"><value>Щёлкайте кнопки пульта: коды идут в Монитор порта. Кнопка воспроизведения переключает светодиод на D13.</value></data>
+  <data name="Example_IrRemote_Keys" xml:space="preserve"><value>пульт инфракрасный ик irremote nec приёмник</value></data>
+  <data name="Example_Dht22" xml:space="preserve"><value>DHT22: температура и влажность</value></data>
+  <data name="Example_Dht22_Desc" xml:space="preserve"><value>Библиотека DHT читает датчик на D7 каждые две секунды.</value></data>
+  <data name="Example_Dht22_Try" xml:space="preserve"><value>Запустите и тяните датчик вверх-вниз: меняется температура, с Shift влажность. Показания идут в Монитор порта.</value></data>
+  <data name="Example_Dht22_Keys" xml:space="preserve"><value>датчик температуры влажности dht термометр</value></data>
+  <data name="Example_Ds18b20" xml:space="preserve"><value>DS18B20: два термометра</value></data>
+  <data name="Example_Ds18b20_Desc" xml:space="preserve"><value>Два датчика на одной шине 1-Wire, библиотеки OneWire и DallasTemperature.</value></data>
+  <data name="Example_Ds18b20_Try" xml:space="preserve"><value>Запустите, щёлкните датчик и меняйте его температуру в «Свойствах» или тяните его на схеме.</value></data>
+  <data name="Example_Ds18b20_Keys" xml:space="preserve"><value>датчик температуры термометр 1-wire onewire dallas</value></data>
+  <data name="Example_Ultrasonic" xml:space="preserve"><value>Ультразвуковой дальномер</value></data>
+  <data name="Example_Ultrasonic_Desc" xml:space="preserve"><value>HC-SR04 на D9 и D10; светодиод загорается ближе 20 см.</value></data>
+  <data name="Example_Ultrasonic_Try" xml:space="preserve"><value>Запустите и тяните датчик или меняйте расстояние в «Свойствах»: ближе 20 см загорается светодиод на D13.</value></data>
+  <data name="Example_Ultrasonic_Keys" xml:space="preserve"><value>датчик расстояния дальномер hc-sr04 ультразвук</value></data>
+  <data name="Example_Ds3231Clock" xml:space="preserve"><value>Часы DS3231</value></data>
+  <data name="Example_Ds3231Clock_Desc" xml:space="preserve"><value>RTClib читает дату, время и температуру микросхемы по I2C.</value></data>
+  <data name="Example_Ds3231Clock_Try" xml:space="preserve"><value>Запустите: дата и время идут в Монитор порта; будильник раз в минуту тянет SQW к земле.</value></data>
+  <data name="Example_Ds3231Clock_Keys" xml:space="preserve"><value>часы rtc время i2c будильник rtclib</value></data>
+  <data name="Example_LcdI2c" xml:space="preserve"><value>LCD 1602 по I2C</value></data>
+  <data name="Example_LcdI2c_Desc" xml:space="preserve"><value>«hello, world!» и секунды на дисплее с платой PCF8574.</value></data>
+  <data name="Example_LcdI2c_Try" xml:space="preserve"><value>Запустите и подождите секунду: библиотека инициализирует дисплей. Смените подсветку в «Свойствах».</value></data>
+  <data name="Example_LcdI2c_Keys" xml:space="preserve"><value>lcd дисплей экран hd44780 i2c pcf8574 1602</value></data>
+  <data name="Example_LcdHello" xml:space="preserve"><value>LCD 2004, 4 бита</value></data>
+  <data name="Example_LcdHello_Desc" xml:space="preserve"><value>LiquidCrystal на дисплее 20×4, подключённом параллельно.</value></data>
+  <data name="Example_LcdHello_Try" xml:space="preserve"><value>Запустите: текст и символ из createChar появляются на дисплее. Посмотрите разводку в коде.</value></data>
+  <data name="Example_LcdHello_Keys" xml:space="preserve"><value>lcd дисплей экран liquidcrystal 2004 параллельный</value></data>
+  <data name="Example_LcdCustomChars" xml:space="preserve"><value>LCD: свои символы</value></data>
+  <data name="Example_LcdCustomChars_Desc" xml:space="preserve"><value>Три символа из createChar и прокрутка дисплея влево.</value></data>
+  <data name="Example_LcdCustomChars_Try" xml:space="preserve"><value>Запустите: обе строки едут вместе, и текст за 16-й колонкой выходит на экран.</value></data>
+  <data name="Example_LcdCustomChars_Keys" xml:space="preserve"><value>lcd дисплей createchar символы прокрутка</value></data>
+  <data name="Example_LcdA02" xml:space="preserve"><value>LCD с европейским ПЗУ</value></data>
+  <data name="Example_LcdA02_Desc" xml:space="preserve"><value>HD44780 с ПЗУ A02: латиница и заглавная кириллица.</value></data>
+  <data name="Example_LcdA02_Try" xml:space="preserve"><value>Запустите и сравните: смените ПЗУ в «Свойствах» на A00, и кириллица превратится в другие символы.</value></data>
+  <data name="Example_LcdA02_Keys" xml:space="preserve"><value>lcd дисплей кириллица русский a02 пзу</value></data>
+  <data name="Example_OledAdafruit" xml:space="preserve"><value>OLED: Adafruit SSD1306</value></data>
+  <data name="Example_OledAdafruit_Desc" xml:space="preserve"><value>Классическая демонстрация библиотеки Adafruit на 128×64 по I2C.</value></data>
+  <data name="Example_OledAdafruit_Try" xml:space="preserve"><value>Запустите и смотрите: фигуры, текст и анимация сменяют друг друга.</value></data>
+  <data name="Example_OledAdafruit_Keys" xml:space="preserve"><value>oled экран дисплей ssd1306 adafruit gfx i2c</value></data>
+  <data name="Example_OledU8g2" xml:space="preserve"><value>OLED: U8g2</value></data>
+  <data name="Example_OledU8g2_Desc" xml:space="preserve"><value>Текст, рамка, прыгающий мяч и счётчик на SSD1306.</value></data>
+  <data name="Example_OledU8g2_Try" xml:space="preserve"><value>Запустите: мяч прыгает, секунды идут. Смените цвет экрана в «Свойствах».</value></data>
+  <data name="Example_OledU8g2_Keys" xml:space="preserve"><value>oled экран дисплей u8g2 ssd1306 i2c</value></data>
+  <data name="Example_OledGyver" xml:space="preserve"><value>OLED: GyverOLED</value></data>
+  <data name="Example_OledGyver_Desc" xml:space="preserve"><value>Крупный текст, рамка и счётчик библиотекой GyverOLED.</value></data>
+  <data name="Example_OledGyver_Try" xml:space="preserve"><value>Запустите и смотрите счётчик. Попробуйте другой размер текста в коде.</value></data>
+  <data name="Example_OledGyver_Keys" xml:space="preserve"><value>oled экран дисплей gyver ssd1306 i2c</value></data>
+  <data name="Example_Sh1106" xml:space="preserve"><value>OLED 1.3" SH1106 по SPI</value></data>
+  <data name="Example_Sh1106_Desc" xml:space="preserve"><value>Модуль 128×64 с контроллером SH1106, библиотека Adafruit_SH110X.</value></data>
+  <data name="Example_Sh1106_Try" xml:space="preserve"><value>Запустите и сравните с SSD1306: у SH1106 132 колонки памяти, библиотека показывает со 2-й.</value></data>
+  <data name="Example_Sh1106_Keys" xml:space="preserve"><value>oled экран дисплей sh1106 spi</value></data>
+  <data name="Example_OledSsd1309" xml:space="preserve"><value>OLED 2.42" SSD1309 по SPI</value></data>
+  <data name="Example_OledSsd1309_Desc" xml:space="preserve"><value>U8g2 на большом экране: рамка, заголовок и бегущая полоса.</value></data>
+  <data name="Example_OledSsd1309_Try" xml:space="preserve"><value>Запустите и смотрите полосу. Для сравнения откройте вкладку «Диаграмма» и добавьте шину SPI.</value></data>
+  <data name="Example_OledSsd1309_Keys" xml:space="preserve"><value>oled экран дисплей ssd1309 spi u8g2</value></data>
+  <data name="Example_OledSsd1327Esp32" xml:space="preserve"><value>OLED 1.5" в оттенках серого</value></data>
+  <data name="Example_OledSsd1327Esp32_Desc" xml:space="preserve"><value>SSD1327 128×128 на ESP32: шестнадцать уровней серого.</value></data>
+  <data name="Example_OledSsd1327Esp32_Try" xml:space="preserve"><value>Запустите и смотрите на полосы. Буфер 8 КБ не поместился бы в память Nano, поэтому здесь ESP32.</value></data>
+  <data name="Example_OledSsd1327Esp32_Keys" xml:space="preserve"><value>oled экран дисплей ssd1327 серый esp32 i2c</value></data>
+  <data name="Example_Esp32Oled" xml:space="preserve"><value>OLED на ESP32</value></data>
+  <data name="Example_Esp32Oled_Desc" xml:space="preserve"><value>SSD1306 на SDA 21 и SCL 22: время работы и свободная память.</value></data>
+  <data name="Example_Esp32Oled_Try" xml:space="preserve"><value>Запустите и смотрите: секунды идут, куча показывается в байтах.</value></data>
+  <data name="Example_Esp32Oled_Keys" xml:space="preserve"><value>oled экран дисплей esp32 u8g2 ssd1306</value></data>
+  <data name="Example_Esp8266Oled" xml:space="preserve"><value>OLED на ESP8266</value></data>
+  <data name="Example_Esp8266Oled_Desc" xml:space="preserve"><value>SSD1306 на Wemos D1 mini: D2 и D1, библиотека U8g2.</value></data>
+  <data name="Example_Esp8266Oled_Try" xml:space="preserve"><value>Запустите на Wemos D1 mini и сравните разводку: I2C здесь на D1 и D2.</value></data>
+  <data name="Example_Esp8266Oled_Keys" xml:space="preserve"><value>oled экран дисплей esp8266 wemos u8g2</value></data>
+  <data name="Example_TftIli9341" xml:space="preserve"><value>TFT 2.8" ILI9341</value></data>
+  <data name="Example_TftIli9341_Desc" xml:space="preserve"><value>Цветной экран 240×320 по SPI: тестовая таблица и счётчик.</value></data>
+  <data name="Example_TftIli9341_Try" xml:space="preserve"><value>Запустите: на медленном SPI видно, как экран заливается. Состояние контроллера идёт в Монитор порта.</value></data>
+  <data name="Example_TftIli9341_Keys" xml:space="preserve"><value>tft цветной экран дисплей ili9341 spi</value></data>
+  <data name="Example_TftSt7735" xml:space="preserve"><value>TFT 1.8" ST7735</value></data>
+  <data name="Example_TftSt7735_Desc" xml:space="preserve"><value>Цветной экран показывает потенциометр числом и полосой.</value></data>
+  <data name="Example_TftSt7735_Try" xml:space="preserve"><value>Запустите и тяните ручку: число и полоса на экране меняются.</value></data>
+  <data name="Example_TftSt7735_Keys" xml:space="preserve"><value>tft цветной экран дисплей st7735 потенциометр spi</value></data>
+  <data name="Example_TftSt7789Esp32" xml:space="preserve"><value>TFT 1.3" ST7789 на ESP32</value></data>
+  <data name="Example_TftSt7789Esp32_Desc" xml:space="preserve"><value>Цветные кольца и бегущая точка на модуле без вывода CS.</value></data>
+  <data name="Example_TftSt7789Esp32_Try" xml:space="preserve"><value>Запустите: модули без CS работают в режиме SPI 3, это видно в коде.</value></data>
+  <data name="Example_TftSt7789Esp32_Keys" xml:space="preserve"><value>tft цветной экран дисплей st7789 esp32 spi</value></data>
+  <data name="Example_Nokia5110" xml:space="preserve"><value>Nokia 5110</value></data>
+  <data name="Example_Nokia5110_Desc" xml:space="preserve"><value>Синусоида и счётчик на PCD8544, подсветка через ШИМ.</value></data>
+  <data name="Example_Nokia5110_Try" xml:space="preserve"><value>Запустите и поменяйте setContrast() в коде: на этих стёклах контраст важен.</value></data>
+  <data name="Example_Nokia5110_Keys" xml:space="preserve"><value>nokia pcd8544 экран дисплей графический</value></data>
+  <data name="Example_SevenSegment" xml:space="preserve"><value>Четыре цифры, SevSeg</value></data>
+  <data name="Example_SevenSegment_Desc" xml:space="preserve"><value>Библиотека SevSeg считает десятые доли секунды с мультиплексированием.</value></data>
+  <data name="Example_SevenSegment_Try" xml:space="preserve"><value>Запустите и смотрите счёт. Смените цвет индикатора в «Свойствах».</value></data>
+  <data name="Example_SevenSegment_Keys" xml:space="preserve"><value>семисегментный индикатор цифры sevseg</value></data>
+  <data name="Example_Tm1637" xml:space="preserve"><value>Таймер на TM1637</value></data>
+  <data name="Example_Tm1637_Desc" xml:space="preserve"><value>Минуты и секунды с мигающим двоеточием на D2 и D3.</value></data>
+  <data name="Example_Tm1637_Try" xml:space="preserve"><value>Запустите и смотрите таймер. Попробуйте другую яркость в коде.</value></data>
+  <data name="Example_Tm1637_Keys" xml:space="preserve"><value>tm1637 индикатор цифры таймер часы</value></data>
+  <data name="Example_MatrixParola" xml:space="preserve"><value>Бегущая строка MD_Parola</value></data>
+  <data name="Example_MatrixParola_Desc" xml:space="preserve"><value>Текст едет по четырём модулям MAX7219 на аппаратном SPI.</value></data>
+  <data name="Example_MatrixParola_Try" xml:space="preserve"><value>Запустите и измените текст в коде.</value></data>
+  <data name="Example_MatrixParola_Keys" xml:space="preserve"><value>max7219 матрица бегущая строка parola spi</value></data>
+  <data name="Example_MatrixLedControl" xml:space="preserve"><value>Сердце на MAX7219</value></data>
+  <data name="Example_MatrixLedControl_Desc" xml:space="preserve"><value>Библиотека LedControl рисует бьющееся сердце на модуле 8×8.</value></data>
+  <data name="Example_MatrixLedControl_Try" xml:space="preserve"><value>Запустите и попробуйте нарисовать свою картинку в массиве байтов.</value></data>
+  <data name="Example_MatrixLedControl_Keys" xml:space="preserve"><value>max7219 матрица ledcontrol 8x8</value></data>
+  <data name="Example_Esp32WiFi" xml:space="preserve"><value>Wi-Fi на ESP32</value></data>
+  <data name="Example_Esp32WiFi_Desc" xml:space="preserve"><value>Поиск сетей, подключение и загрузка страницы.</value></data>
+  <data name="Example_Esp32WiFi_Try" xml:space="preserve"><value>Запустите: Wi-Fi симулируется, а HTTP идёт через настоящую сеть компьютера. Ответ в Мониторе порта.</value></data>
+  <data name="Example_Esp32WiFi_Keys" xml:space="preserve"><value>wifi esp32 сеть http интернет</value></data>
+  <data name="Example_Esp8266WiFi" xml:space="preserve"><value>Wi-Fi на ESP8266</value></data>
+  <data name="Example_Esp8266WiFi_Desc" xml:space="preserve"><value>Поиск сетей, подключение и загрузка страницы с ESP8266HTTPClient.</value></data>
+  <data name="Example_Esp8266WiFi_Try" xml:space="preserve"><value>Запустите: без сети запрос завершится ошибкой, и это штатное поведение.</value></data>
+  <data name="Example_Esp8266WiFi_Keys" xml:space="preserve"><value>wifi esp8266 nodemcu сеть http интернет</value></data>
+  <data name="Example_Esp32Preferences" xml:space="preserve"><value>Память NVS на ESP32</value></data>
+  <data name="Example_Esp32Preferences_Desc" xml:space="preserve"><value>Счётчик загрузок в Preferences переживает перезапуски.</value></data>
+  <data name="Example_Esp32Preferences_Try" xml:space="preserve"><value>Запустите, остановите и запустите снова: счёт продолжится. Данные лежат в preferences.json проекта.</value></data>
+  <data name="Example_Esp32Preferences_Keys" xml:space="preserve"><value>preferences nvs flash esp32 память счётчик</value></data>
+  <data name="Example_Esp8266Eeprom" xml:space="preserve"><value>EEPROM на ESP8266</value></data>
+  <data name="Example_Esp8266Eeprom_Desc" xml:space="preserve"><value>Счётчик загрузок в эмулированной EEPROM на Wemos D1 mini.</value></data>
+  <data name="Example_Esp8266Eeprom_Try" xml:space="preserve"><value>Запустите: скетч сам перезапускается, а счётчик растёт. Здесь нужны begin() и commit().</value></data>
+  <data name="Example_Esp8266Eeprom_Keys" xml:space="preserve"><value>eeprom esp8266 wemos память</value></data>
+  <data name="Example_SdCardLog" xml:space="preserve"><value>Журнал на SD-карте</value></data>
+  <data name="Example_SdCardLog_Desc" xml:space="preserve"><value>Читает config.txt и пишет показания ручки в log.csv.</value></data>
+  <data name="Example_SdCardLog_Try" xml:space="preserve"><value>Запустите, покрутите ручку и остановите. Файлы карты лежат в папке sd проекта: выберите модуль и откройте её.</value></data>
+  <data name="Example_SdCardLog_Keys" xml:space="preserve"><value>sd карта microsd файл журнал spi sdfat</value></data>
+  <data name="Example_UnoBlink" xml:space="preserve"><value>Arduino Uno</value></data>
+  <data name="Example_UnoBlink_Desc" xml:space="preserve"><value>Светодиоды на D13 и D7 мигают с частотой от ручки на A0.</value></data>
+  <data name="Example_UnoBlink_Try" xml:space="preserve"><value>Запустите и тяните ручку: мигание ускоряется и замедляется.</value></data>
+  <data name="Example_UnoBlink_Keys" xml:space="preserve"><value>uno плата светодиод потенциометр</value></data>
+  <data name="Example_Mega2560Ports" xml:space="preserve"><value>Mega 2560 и порты</value></data>
+  <data name="Example_Mega2560Ports_Desc" xml:space="preserve"><value>Огонёк бежит по порту A через запись в PORTA; Serial и Serial1.</value></data>
+  <data name="Example_Mega2560Ports_Try" xml:space="preserve"><value>Запустите и переключите порт в Мониторе порта: в Serial идут показания A15, в Serial1 шаги.</value></data>
+  <data name="Example_Mega2560Ports_Keys" xml:space="preserve"><value>mega порт porta serial1 регистры плата</value></data>
+  <data name="Example_ProMini3v3" xml:space="preserve"><value>Pro Mini 3,3 В</value></data>
+  <data name="Example_ProMini3v3_Desc" xml:space="preserve"><value>Плата на 8 МГц: каждый вызов идёт вдвое дольше.</value></data>
+  <data name="Example_ProMini3v3_Try" xml:space="preserve"><value>Запустите и тяните ручку на A0: в Мониторе порта напряжение считается от 3,3 В.</value></data>
+  <data name="Example_ProMini3v3_Keys" xml:space="preserve"><value>pro mini 3.3 8 мгц плата потенциометр</value></data>
+  <data name="Example_Esp32Blink" xml:space="preserve"><value>Мигание на ESP32</value></data>
+  <data name="Example_Esp32Blink_Desc" xml:space="preserve"><value>Синий светодиод GPIO 2 и внешний на GPIO 4 мигают по очереди.</value></data>
+  <data name="Example_Esp32Blink_Try" xml:space="preserve"><value>Запустите. На ESP32 номера выводов Arduino равны номерам GPIO.</value></data>
+  <data name="Example_Esp32Blink_Keys" xml:space="preserve"><value>esp32 светодиод мигание gpio</value></data>
+  <data name="Example_Esp32Fade" xml:space="preserve"><value>Плавная яркость на ESP32</value></data>
+  <data name="Example_Esp32Fade_Desc" xml:space="preserve"><value>LEDC, 5 кГц, 10 бит: светодиод на GPIO 4 плавно дышит.</value></data>
+  <data name="Example_Esp32Fade_Try" xml:space="preserve"><value>Запустите и смотрите яркость. API LEDC здесь из ядра 3.x.</value></data>
+  <data name="Example_Esp32Fade_Keys" xml:space="preserve"><value>esp32 шим pwm ledc яркость</value></data>
+  <data name="Example_Esp32Tasks" xml:space="preserve"><value>Задачи FreeRTOS</value></data>
+  <data name="Example_Esp32Tasks_Desc" xml:space="preserve"><value>Две задачи рядом с loop(): мигание и счёт через очередь.</value></data>
+  <data name="Example_Esp32Tasks_Try" xml:space="preserve"><value>Запустите: счёт идёт в Монитор порта. Задачи здесь кооперативные, CPU отдают в vTaskDelay.</value></data>
+  <data name="Example_Esp32Tasks_Keys" xml:space="preserve"><value>esp32 freertos задачи очередь многозадачность</value></data>
+  <data name="Example_Esp8266Blink" xml:space="preserve"><value>Мигание на ESP8266</value></data>
+  <data name="Example_Esp8266Blink_Desc" xml:space="preserve"><value>NodeMCU: синий светодиод модуля и внешний на D6 мигают по очереди.</value></data>
+  <data name="Example_Esp8266Blink_Try" xml:space="preserve"><value>Запустите. Светодиод модуля горит при LOW, а не при HIGH.</value></data>
+  <data name="Example_Esp8266Blink_Keys" xml:space="preserve"><value>esp8266 nodemcu светодиод мигание</value></data>
+  <data name="Example_Esp8266Fade" xml:space="preserve"><value>Плавная яркость на ESP8266</value></data>
+  <data name="Example_Esp8266Fade_Desc" xml:space="preserve"><value>Программный ШИМ на D2 с analogWriteRange(1023) на Wemos D1 mini.</value></data>
+  <data name="Example_Esp8266Fade_Try" xml:space="preserve"><value>Запустите и смотрите яркость; момент окончания вдоха идёт в Монитор порта.</value></data>
+  <data name="Example_Esp8266Fade_Keys" xml:space="preserve"><value>esp8266 wemos шим pwm яркость</value></data>
+  <data name="Example_LogicAnalyzerDemo" xml:space="preserve"><value>Логический анализатор</value></data>
+  <data name="Example_LogicAnalyzerDemo_Desc" xml:space="preserve"><value>I2C, SPI, UART и ШИМ одновременно на вкладке «Диаграмма».</value></data>
+  <data name="Example_LogicAnalyzerDemo_Try" xml:space="preserve"><value>Шины уже добавлены на «Диаграмму». Нажмите Запуск: колесо масштабирует, щелчок ставит метку для измерения.</value></data>
+  <data name="Example_LogicAnalyzerDemo_Keys" xml:space="preserve"><value>диаграмма анализатор i2c spi uart шина осциллограф</value></data>
+  <data name="Example_FloatingInput" xml:space="preserve"><value>Плавающий вход</value></data>
+  <data name="Example_FloatingInput_Desc" xml:space="preserve"><value>Вход без подтяжки читает случайные значения, и симулятор предупреждает об этом.</value></data>
+  <data name="Example_FloatingInput_Try" xml:space="preserve"><value>Запустите: предупреждение появится в Журнале и значком на детали. Исправьте: INPUT_PULLUP и кнопка на GND.</value></data>
+  <data name="Example_FloatingInput_Keys" xml:space="preserve"><value>ошибка плавающий подтяжка pullup предупреждение</value></data>
+  <data name="Keywords_led" xml:space="preserve"><value>лампочка индикатор свет диод</value></data>
+  <data name="Keywords_rgb-led" xml:space="preserve"><value>лампочка индикатор свет цветной rgb</value></data>
+  <data name="Keywords_buzzer" xml:space="preserve"><value>звук зуммер динамик tone пьезо</value></data>
+  <data name="Keywords_servo" xml:space="preserve"><value>мотор сервомотор привод sg90 движение</value></data>
+  <data name="Keywords_relay" xml:space="preserve"><value>реле нагрузка выключатель</value></data>
+  <data name="Keywords_ws2812" xml:space="preserve"><value>лента адресная neopixel fastled кольцо матрица светодиоды</value></data>
+  <data name="Keywords_resistor" xml:space="preserve"><value>сопротивление подтяжка ограничитель</value></data>
+  <data name="Keywords_pushbutton" xml:space="preserve"><value>кнопки тактовая нажатие</value></data>
+  <data name="Keywords_slide-switch" xml:space="preserve"><value>тумблер выключатель переключатели</value></data>
+  <data name="Keywords_potentiometer" xml:space="preserve"><value>ручка регулятор переменный резистор</value></data>
+  <data name="Keywords_rotary-encoder" xml:space="preserve"><value>ручка энкодер ky-040 крутилка</value></data>
+  <data name="Keywords_joystick" xml:space="preserve"><value>стик джойстик</value></data>
+  <data name="Keywords_keypad" xml:space="preserve"><value>клавиатура клавиши матрица кнопки пароль</value></data>
+  <data name="Keywords_ir-remote" xml:space="preserve"><value>пульт инфракрасный ик</value></data>
+  <data name="Keywords_ir-receiver" xml:space="preserve"><value>приёмник инфракрасный ик пульт vs1838</value></data>
+  <data name="Keywords_dht" xml:space="preserve"><value>датчик температура влажность термометр dht11 dht22</value></data>
+  <data name="Keywords_ds18b20" xml:space="preserve"><value>датчик температура термометр 1-wire</value></data>
+  <data name="Keywords_hc-sr04" xml:space="preserve"><value>датчик расстояние дальномер ультразвук сонар</value></data>
+  <data name="Keywords_ds3231" xml:space="preserve"><value>часы время rtc температура будильник</value></data>
+  <data name="Keywords_lcd" xml:space="preserve"><value>экран дисплей символьный 1602 2004 hd44780</value></data>
+  <data name="Keywords_oled" xml:space="preserve"><value>экран дисплей ssd1306 sh1106 ssd1309 ssd1327</value></data>
+  <data name="Keywords_st7735" xml:space="preserve"><value>экран дисплей цветной tft</value></data>
+  <data name="Keywords_st7789" xml:space="preserve"><value>экран дисплей цветной tft ips</value></data>
+  <data name="Keywords_ili9341" xml:space="preserve"><value>экран дисплей цветной tft</value></data>
+  <data name="Keywords_pcd8544" xml:space="preserve"><value>экран дисплей nokia 5110 графический</value></data>
+  <data name="Keywords_seven-segment" xml:space="preserve"><value>индикатор цифры семисегментный</value></data>
+  <data name="Keywords_tm1637" xml:space="preserve"><value>индикатор цифры часы таймер</value></data>
+  <data name="Keywords_max7219" xml:space="preserve"><value>матрица индикатор бегущая строка цифры</value></data>
+  <data name="Keywords_sd-card" xml:space="preserve"><value>карта память microsd файл</value></data>
+  <data name="PartInfo_led" xml:space="preserve"><value>Светится, когда ток идёт от плюса к минусу. Включайте через резистор.</value></data>
+  <data name="PartInfo_rgb-led" xml:space="preserve"><value>Три светодиода в одном корпусе с общим выводом.</value></data>
+  <data name="PartInfo_buzzer" xml:space="preserve"><value>Звучит на частоте tone().</value></data>
+  <data name="PartInfo_servo" xml:space="preserve"><value>Поворачивает качалку на заданный угол: библиотека Servo.</value></data>
+  <data name="PartInfo_relay" xml:space="preserve"><value>Модуль реле: вход от платы замыкает контакт COM и NO.</value></data>
+  <data name="PartInfo_ws2812" xml:space="preserve"><value>Адресные светодиоды: Adafruit_NeoPixel или FastLED.</value></data>
+  <data name="PartInfo_resistor" xml:space="preserve"><value>Ограничивает ток или подтягивает вход к питанию или земле.</value></data>
+  <data name="PartInfo_pushbutton" xml:space="preserve"><value>Замыкает выводы, пока нажата. Во время запуска: мышь или своя клавиша.</value></data>
+  <data name="PartInfo_slide-switch" xml:space="preserve"><value>Соединяет средний вывод с одним из крайних.</value></data>
+  <data name="PartInfo_potentiometer" xml:space="preserve"><value>Средний вывод даёт напряжение между крайними: для analogRead.</value></data>
+  <data name="PartInfo_rotary-encoder" xml:space="preserve"><value>Считает щелчки ручки, есть кнопка на валу.</value></data>
+  <data name="PartInfo_joystick" xml:space="preserve"><value>Два потенциометра и кнопка.</value></data>
+  <data name="PartInfo_keypad" xml:space="preserve"><value>Матрица 4×4: библиотека Keypad.</value></data>
+  <data name="PartInfo_ir-remote" xml:space="preserve"><value>Отправляет кадры NEC на ИК-приёмник.</value></data>
+  <data name="PartInfo_ir-receiver" xml:space="preserve"><value>Принимает кадры ИК-пульта: библиотека IRremote.</value></data>
+  <data name="PartInfo_dht" xml:space="preserve"><value>Температура и влажность по одному проводу: библиотека DHT.</value></data>
+  <data name="PartInfo_ds18b20" xml:space="preserve"><value>Термометр на шине 1-Wire: OneWire и DallasTemperature.</value></data>
+  <data name="PartInfo_hc-sr04" xml:space="preserve"><value>Измеряет расстояние по времени возврата импульса.</value></data>
+  <data name="PartInfo_ds3231" xml:space="preserve"><value>Часы реального времени по I2C: библиотека RTClib.</value></data>
+  <data name="PartInfo_lcd" xml:space="preserve"><value>Символьный дисплей HD44780, параллельно или через I2C.</value></data>
+  <data name="PartInfo_oled" xml:space="preserve"><value>Графический OLED: Adafruit, U8g2 или GyverOLED.</value></data>
+  <data name="PartInfo_st7735" xml:space="preserve"><value>Цветной TFT по SPI: Adafruit_ST7735.</value></data>
+  <data name="PartInfo_st7789" xml:space="preserve"><value>Цветной TFT по SPI: Adafruit_ST7789.</value></data>
+  <data name="PartInfo_ili9341" xml:space="preserve"><value>Цветной TFT 2.8" по SPI: Adafruit_ILI9341.</value></data>
+  <data name="PartInfo_pcd8544" xml:space="preserve"><value>Монохромный экран Nokia по SPI: Adafruit_PCD8544.</value></data>
+  <data name="PartInfo_seven-segment" xml:space="preserve"><value>Цифры с общим катодом или анодом: библиотека SevSeg.</value></data>
+  <data name="PartInfo_tm1637" xml:space="preserve"><value>Четыре цифры и двоеточие по двум проводам.</value></data>
+  <data name="PartInfo_max7219" xml:space="preserve"><value>Матрицы 8×8 или цифры: LedControl, MD_MAX72XX, MD_Parola.</value></data>
+  <data name="PartInfo_sd-card" xml:space="preserve"><value>Папка проекта как карта памяти: библиотеки SD и SdFat.</value></data>
+  <data name="Shortcuts_Run" xml:space="preserve"><value>Сборка и запуск</value></data>
+  <data name="Shortcuts_Run_1" xml:space="preserve"><value>F5, Ctrl+U|Запуск или перезапуск</value></data>
+  <data name="Shortcuts_Run_2" xml:space="preserve"><value>Shift+F5|Стоп</value></data>
+  <data name="Shortcuts_Run_3" xml:space="preserve"><value>F6|Пауза и продолжение</value></data>
+  <data name="Shortcuts_Run_4" xml:space="preserve"><value>Ctrl+B, Ctrl+R|Собрать</value></data>
+  <data name="Shortcuts_Run_5" xml:space="preserve"><value>F10|Шаг: один loop()</value></data>
+  <data name="Shortcuts_Run_6" xml:space="preserve"><value>F11, Shift+F11, Ctrl+F11|Шаг: 1, 10, 100 мс</value></data>
+  <data name="Shortcuts_Run_7" xml:space="preserve"><value>F8, Shift+F8|Следующая и предыдущая ошибка</value></data>
+  <data name="Shortcuts_Canvas" xml:space="preserve"><value>Схема</value></data>
+  <data name="Shortcuts_Canvas_1" xml:space="preserve"><value>A|Поиск деталей; Enter ставит найденную</value></data>
+  <data name="Shortcuts_Canvas_2" xml:space="preserve"><value>Колесо|Масштаб вокруг указателя</value></data>
+  <data name="Shortcuts_Canvas_3" xml:space="preserve"><value>Средняя кнопка, Пробел + мышь|Сдвиг вида</value></data>
+  <data name="Shortcuts_Canvas_4" xml:space="preserve"><value>Shift + колесо|Сдвиг по горизонтали</value></data>
+  <data name="Shortcuts_Canvas_5" xml:space="preserve"><value>Ctrl+0, Ctrl+9|Вписать всё, масштаб 100 %</value></data>
+  <data name="Shortcuts_Canvas_6" xml:space="preserve"><value>Ctrl+=, Ctrl+−|Крупнее, мельче</value></data>
+  <data name="Shortcuts_Canvas_7" xml:space="preserve"><value>Щелчок, Shift+щелчок|Выделить, добавить к выделению</value></data>
+  <data name="Shortcuts_Canvas_8" xml:space="preserve"><value>Тянуть по пустому месту|Выделить рамкой</value></data>
+  <data name="Shortcuts_Canvas_9" xml:space="preserve"><value>Tab, Shift+Tab|Следующая и предыдущая деталь</value></data>
+  <data name="Shortcuts_Canvas_10" xml:space="preserve"><value>Enter|Свойства выделенной детали</value></data>
+  <data name="Shortcuts_Canvas_11" xml:space="preserve"><value>R, Shift+R|Повернуть по часовой и против</value></data>
+  <data name="Shortcuts_Canvas_12" xml:space="preserve"><value>F|Отразить</value></data>
+  <data name="Shortcuts_Canvas_13" xml:space="preserve"><value>Стрелки, Shift+стрелки|Сдвинуть на шаг, на 10 шагов</value></data>
+  <data name="Shortcuts_Canvas_14" xml:space="preserve"><value>Alt при перетаскивании|Без привязки к сетке</value></data>
+  <data name="Shortcuts_Canvas_15" xml:space="preserve"><value>Ctrl+D|Копия рядом</value></data>
+  <data name="Shortcuts_Canvas_16" xml:space="preserve"><value>Ctrl+C, Ctrl+X, Ctrl+V|Копировать, вырезать, вставить</value></data>
+  <data name="Shortcuts_Canvas_17" xml:space="preserve"><value>Del|Удалить выделенное</value></data>
+  <data name="Shortcuts_Canvas_18" xml:space="preserve"><value>Ctrl+Z, Ctrl+Y|Отменить, вернуть</value></data>
+  <data name="Shortcuts_Canvas_19" xml:space="preserve"><value>Esc|Снять выделение, отменить перетаскивание</value></data>
+  <data name="Shortcuts_Wires" xml:space="preserve"><value>Провода</value></data>
+  <data name="Shortcuts_Wires_1" xml:space="preserve"><value>Щелчок по выводу|Начать провод</value></data>
+  <data name="Shortcuts_Wires_2" xml:space="preserve"><value>Щелчок по другому выводу|Закончить провод</value></data>
+  <data name="Shortcuts_Wires_3" xml:space="preserve"><value>Тянуть от вывода к выводу|Провод одним движением</value></data>
+  <data name="Shortcuts_Wires_4" xml:space="preserve"><value>Щелчок по пустому месту|Добавить угол</value></data>
+  <data name="Shortcuts_Wires_5" xml:space="preserve"><value>Tab|Другой изгиб</value></data>
+  <data name="Shortcuts_Wires_6" xml:space="preserve"><value>Backspace|Убрать последний угол</value></data>
+  <data name="Shortcuts_Wires_7" xml:space="preserve"><value>Esc, правая кнопка|Отменить провод</value></data>
+  <data name="Shortcuts_Wires_8" xml:space="preserve"><value>Тянуть участок или угол|Изменить маршрут</value></data>
+  <data name="Shortcuts_Wires_9" xml:space="preserve"><value>Тянуть конец провода|Переключить на другой вывод</value></data>
+  <data name="Shortcuts_Wires_10" xml:space="preserve"><value>Двойной щелчок|Добавить угол или убрать его</value></data>
+  <data name="Shortcuts_Editor" xml:space="preserve"><value>Редактор кода</value></data>
+  <data name="Shortcuts_Editor_1" xml:space="preserve"><value>Ctrl+F, F3, Shift+F3|Найти, следующее, предыдущее</value></data>
+  <data name="Shortcuts_Editor_2" xml:space="preserve"><value>Ctrl+H|Заменить</value></data>
+  <data name="Shortcuts_Editor_3" xml:space="preserve"><value>Ctrl+G, Ctrl+L|Перейти к строке</value></data>
+  <data name="Shortcuts_Editor_4" xml:space="preserve"><value>Ctrl+Пробел|Подсказать продолжение</value></data>
+  <data name="Shortcuts_Editor_5" xml:space="preserve"><value>F12, Ctrl+щелчок|Перейти к определению</value></data>
+  <data name="Shortcuts_Editor_6" xml:space="preserve"><value>Ctrl+/|Закомментировать строки</value></data>
+  <data name="Shortcuts_Editor_7" xml:space="preserve"><value>Ctrl+T, Shift+Alt+F|Форматировать файл</value></data>
+  <data name="Shortcuts_Editor_8" xml:space="preserve"><value>Alt+↑, Alt+↓|Переместить строки</value></data>
+  <data name="Shortcuts_Editor_9" xml:space="preserve"><value>Ctrl+Shift+D|Копия строки</value></data>
+  <data name="Shortcuts_Editor_10" xml:space="preserve"><value>Ctrl+S|Сохранить</value></data>
+  <data name="Shortcuts_Panels" xml:space="preserve"><value>Панели и вкладки</value></data>
+  <data name="Shortcuts_Panels_1" xml:space="preserve"><value>F7|Схема и код</value></data>
+  <data name="Shortcuts_Panels_2" xml:space="preserve"><value>Ctrl+\|Код рядом со схемой</value></data>
+  <data name="Shortcuts_Panels_3" xml:space="preserve"><value>Ctrl+1, Ctrl+2, Ctrl+3|Детали, свойства, нижняя панель</value></data>
+  <data name="Shortcuts_Panels_4" xml:space="preserve"><value>Ctrl+Shift+E|Обозреватель проекта</value></data>
+  <data name="Shortcuts_Panels_5" xml:space="preserve"><value>Ctrl+Shift+M|Монитор порта</value></data>
+  <data name="Shortcuts_Panels_6" xml:space="preserve"><value>Ctrl+Tab, Ctrl+Shift+Tab|Следующая и предыдущая вкладка</value></data>
+  <data name="Shortcuts_Panels_7" xml:space="preserve"><value>Ctrl+W, средняя кнопка|Закрыть вкладку файла</value></data>
+  <data name="Shortcuts_Panels_8" xml:space="preserve"><value>Ctrl+N, Ctrl+O|Новый проект, открыть папку</value></data>
+  <data name="Shortcuts_Running" xml:space="preserve"><value>Во время запуска</value></data>
+  <data name="Shortcuts_Running_1" xml:space="preserve"><value>Щелчок по кнопке, клавиша детали|Нажать кнопку</value></data>
+  <data name="Shortcuts_Running_2" xml:space="preserve"><value>Тянуть ручку, колесо|Потенциометр</value></data>
+  <data name="Shortcuts_Running_3" xml:space="preserve"><value>Колесо, тянуть вокруг ручки|Энкодер; щелчок нажимает вал</value></data>
+  <data name="Shortcuts_Running_4" xml:space="preserve"><value>Тянуть колпачок|Джойстик; щелчок нажимает кнопку</value></data>
+  <data name="Shortcuts_Running_5" xml:space="preserve"><value>Тянуть датчик, Shift|Показания датчика, вторая величина</value></data>
+  <data name="Shortcuts_Running_6" xml:space="preserve"><value>Щелчок по детали|Показать её в «Свойствах»</value></data>
+  <data name="Shortcuts_Running_7" xml:space="preserve"><value>Щелчок по значку предупреждения|Открыть сообщение в «Журнале»</value></data>
+  <data name="Editor_ReloadTip" xml:space="preserve"><value>Заменить текст версией с диска. Ваши правки можно вернуть: Ctrl+Z</value></data>
+  <data name="Editor_GoToInvalid" xml:space="preserve"><value>Нет такой строки</value></data>
+  <data name="Explorer_Outline" xml:space="preserve"><value>Структура: {0}</value></data>
+  <data name="Banner_InstallingTitle" xml:space="preserve"><value>Устанавливается компилятор</value></data>
+  <data name="Banner_InstallingBody" xml:space="preserve"><value>Скачивается {0} МиБ, это нужно один раз.</value></data>
+  <data name="Banner_ToolchainFailedBody" xml:space="preserve"><value>Проверьте соединение с интернетом и нажмите «Скачать». Если антивирус блокирует распаковку, добавьте папку ArduSim в исключения.</value></data>
+  <data name="Banner_ToolchainCancelled" xml:space="preserve"><value>Установка отменена</value></data>
+  <data name="Board_arduino-uno-r3" xml:space="preserve"><value>Arduino Uno</value></data>
+  <data name="Board_arduino-mega-2560" xml:space="preserve"><value>Arduino Mega 2560</value></data>
+  <data name="Board_arduino-pro-mini-5v" xml:space="preserve"><value>Arduino Pro Mini 5V</value></data>
+  <data name="Board_arduino-pro-mini-3v3" xml:space="preserve"><value>Arduino Pro Mini 3.3V</value></data>
+  <data name="Banner_InternalError" xml:space="preserve"><value>Внутренняя ошибка</value></data>
+  <data name="Banner_InternalErrorBody" xml:space="preserve"><value>Что-то пошло не так, но проект остался открытым. Сохраните работу; подробности есть в журнале приложения.</value></data>
+  <data name="Banner_ConflictTitle" xml:space="preserve"><value>Сначала выберите версию файла</value></data>
+  <data name="Banner_ConflictBody" xml:space="preserve"><value>Файл {0} изменён и здесь, и вне ArduSim. Выберите версию на полосе под кодом: ничего не сохранено, чтобы не затереть другую.</value></data>
+  <data name="Banner_SaveAsTaken" xml:space="preserve"><value>В папке {0} уже есть проект.</value></data>
+  <data name="Editor_FindNoMatches" xml:space="preserve"><value>Ничего не найдено</value></data>
+  <data name="Editor_FindError" xml:space="preserve"><value>Ошибка в поисковом выражении: </value></data>
+  <data name="Toast_LegacyEncoding" xml:space="preserve"><value>Файл {0} был в кодировке Windows-1251: при сохранении он будет записан в UTF-8</value></data>
+  <data name="Dialog_SaveAs" xml:space="preserve"><value>Куда сохранить копию проекта</value></data>
+  <data name="Menu_SaveAs" xml:space="preserve"><value>Сохранить _как…</value></data>
+  <data name="Shortcuts_Panels_9" xml:space="preserve"><value>Ctrl+Shift+\|Скрыть и вернуть все панели</value></data>
+  <data name="Shortcuts_Panels_10" xml:space="preserve"><value>Ctrl+Shift+S|Сохранить проект как…</value></data>
+  <data name="Properties_ClearEeprom" xml:space="preserve"><value>Очистить EEPROM</value></data>
+  <data name="Properties_ClearEepromSure" xml:space="preserve"><value>Точно очистить? Вернуть нельзя</value></data>
+  <data name="Properties_ClearEepromTip" xml:space="preserve"><value>Удаляет сохранённые EEPROM и Preferences проекта: следующий запуск начнёт с пустой памяти</value></data>
+  <data name="Toast_EepromCleared" xml:space="preserve"><value>Память проекта очищена</value></data>
+  <data name="Toast_EepromEmpty" xml:space="preserve"><value>Память проекта и так пуста</value></data>
+  <data name="Toast_BuildCancelled" xml:space="preserve"><value>Сборка отменена</value></data>
+  <data name="Tip_StopBuild" xml:space="preserve"><value>Отменить сборку (Shift+F5)</value></data>
+  <data name="Status_BuildProgress" xml:space="preserve"><value>Сборка {0} из {1}, {2:F0} с</value></data>
+  <data name="Timeline_FitAll" xml:space="preserve"><value>Вписать всё</value></data>
+  <data name="Timeline_FitAllTip" xml:space="preserve"><value>Вся запись в окне (Home, когда диаграмма в фокусе)</value></data>
+  <data name="Timeline_GoLive" xml:space="preserve"><value>К последним</value></data>
+  <data name="Timeline_GoLiveTip" xml:space="preserve"><value>Снова следить за последними данными (End, когда диаграмма в фокусе)</value></data>
+  <data name="Settings_Wheel" xml:space="preserve"><value>Прокрутка</value></data>
+  <data name="Settings_WheelPans" xml:space="preserve"><value>Двигает схему (тачпад)</value></data>
+  <data name="Settings_WheelPansTip" xml:space="preserve"><value>Прокрутка двигает схему, Ctrl+прокрутка меняет масштаб. Выключено: прокрутка меняет масштаб, как на мыши</value></data>
+  <data name="Shortcuts_Panels_11" xml:space="preserve"><value>Ctrl+F6, Ctrl+Shift+F6|Следующая и предыдущая панель</value></data>
+  <data name="Shortcuts_Panels_12" xml:space="preserve"><value>Alt|Меню проекта</value></data>
+  <data name="Shortcuts_Canvas_20" xml:space="preserve"><value>Правая кнопка + мышь, стрелки|Сдвиг вида (стрелки: ничего не выделено)</value></data>
+  <data name="Shortcuts_Running_8" xml:space="preserve"><value>Ctrl+щелчок по кнопке или клавише|Зафиксировать, ещё щелчок отпускает</value></data>
+  <data name="Shortcuts_Running_9" xml:space="preserve"><value>Tab, затем стрелки, Page, Home, End|Ручка, энкодер, джойстик, датчик с клавиатуры</value></data>
+  <data name="Shortcuts_Running_10" xml:space="preserve"><value>Tab, затем 0-9, A-D, *, #|Клавиатура 4×4 с клавиатуры</value></data>
 </root>

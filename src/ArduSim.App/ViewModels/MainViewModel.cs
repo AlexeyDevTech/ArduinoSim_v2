@@ -45,11 +45,46 @@ public enum UnsavedChoice
 }
 
 /// <summary>A bundled example; the window renders its scene into <see cref="Thumbnail"/> for the start view.</summary>
-public sealed partial class ExampleItem(string name, string path) : ObservableObject
+public sealed partial class ExampleItem : ObservableObject
 {
-    public string Name { get; } = name;
+    public ExampleItem(string name, string path, BoardProfile? board)
+    {
+        Name = name;
+        Path = path;
+        (Topic, Order, Panel) = ExampleCatalog.Find(name);
+        Core = board?.Core ?? "avr";
+        BoardName = board?.DisplayName ?? "";
+        Title = Strings.TryGet("Example_" + name) ?? name;
+        Description = Strings.TryGet("Example_" + name + "_Desc") ?? "";
+        Try = Strings.TryGet("Example_" + name + "_Try") ?? "";
+        SearchText = PartSearch.Normalize($"{Title} {Description} {name} {BoardName} {Strings.TryGet("Family_" + Core)} {Strings.TryGet("Example_" + name + "_Keys")}");
+    }
 
-    public string Path { get; } = path;
+    /// <summary>The folder's name.</summary>
+    public string Name { get; }
+
+    public string Path { get; }
+
+    public string Title { get; }
+
+    public string Description { get; }
+
+    /// <summary>What to do once it is open.</summary>
+    public string Try { get; }
+
+    public string BoardName { get; }
+
+    /// <summary>The board family: avr, esp32 or esp8266.</summary>
+    public string Core { get; }
+
+    public string Topic { get; }
+
+    public int Order { get; }
+
+    /// <summary>The bottom tab the example reports to.</summary>
+    public int Panel { get; }
+
+    public string SearchText { get; }
 
     [ObservableProperty]
     public partial ImageSource? Thumbnail { get; set; }
@@ -73,6 +108,11 @@ public sealed record DiagnosticItem(BuildDiagnostic Diagnostic)
     public string Message => Diagnostic.Message;
 
     public int Severity => Diagnostic.Severity == DiagnosticSeverity.Warning ? 1 : 2;
+
+    /// <summary>The message in plain Russian, when a rule knows it; the original stays below it.</summary>
+    public string? Hint { get; } = DiagnosticHints.Explain(Diagnostic);
+
+    public DiagnosticFix? Fix { get; } = DiagnosticHints.FixFor(Diagnostic);
 }
 
 /// <summary>
@@ -96,7 +136,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly ILogger<MainViewModel> _logger;
     private readonly Dispatcher _dispatcher;
     private readonly ComponentRegistry _registry = ComponentRegistry.CreateDefault(BoardCatalog.All);
-    private readonly Dictionary<int, StringBuilder> _serial = [];
+    private readonly Dictionary<int, SerialPortLog> _serial = [];
     private readonly ITonePlayer _tones;
     private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private ISimulationSession? _session;
@@ -115,6 +155,13 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private (double Wall, ulong TimeNs)? _speedSample;
     private int _diagnosticIndex = -1;
     private SourceLocation? _crashLocation;
+    private double _lastBuildSeconds;
+    private ulong _busySince;
+    private bool _busyRecovered;
+    private (int Tab, bool Open, bool WasScene, bool AutoFolded)? _beforeFailure;
+    private CodeDocumentViewModel? _errorDocument;
+    private IReadOnlyList<string> _buildLibraries = [];
+    private CancellationTokenSource? _buildCancel;
 
     public MainViewModel(AppEnvironment environment, FirmwareBuildService builds, UserState state, ILogger<MainViewModel> logger, ITonePlayer? tones = null)
     {
@@ -131,8 +178,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                 UpdateRecording();
             }
         };
+        Timeline.Cleared += () => _session?.Send(new SetRecording(TimelineActive));
         _dispatcher = Dispatcher.CurrentDispatcher;
-        Examples = [.. AppEnvironment.Examples().Select(e => new ExampleItem(e.Name, e.Path))];
+        Examples = [.. AppEnvironment.Examples().Select(e => new ExampleItem(e.Name, e.Path, AppEnvironment.ExampleBoard(e.Path)))];
         Recent = [.. state.Recent];
         Palette = new PaletteViewModel(_registry);
         Speeds = [new("0.1×", 0.1), new("0.5×", 0.5), new("1×", 1), new("2×", 2), new("10×", 10), new(Strings.Get("Speed_Max"), double.PositiveInfinity)];
@@ -147,6 +195,13 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         PropertiesOpen = layout.PropertiesOpen;
         BottomOpen = layout.BottomOpen;
         SelectedBottomTab = Math.Clamp(layout.BottomTab, SerialTab, DiagramTab);
+        SelectedLogFilter = LogFilters[0];
+        LeftTab = Math.Clamp(layout.LeftTab, 0, 1);
+        SplitView = layout.SplitView;
+        CanvasHints = layout.CanvasHints;
+        Palette.SetCollapsed(layout.CollapsedCategories);
+        WheelPans = layout.WheelPans;
+        InitializeStartView();
         Status = SimStatus.Idle;
         _toastTimer.Tick += (_, _) =>
         {
@@ -250,8 +305,11 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText), nameof(IsRunning), nameof(IsPaused), nameof(CanEdit))]
-    [NotifyCanExecuteChangedFor(nameof(BuildCommand), nameof(RunCommand), nameof(PauseCommand), nameof(StopCommand), nameof(StepLoopCommand), nameof(StepTimeCommand))]
+    [NotifyPropertyChangedFor(nameof(BuildTip), nameof(RunTip), nameof(PauseTip), nameof(StopTip), nameof(StepTip), nameof(Step1Tip), nameof(Step10Tip), nameof(Step100Tip))]
+    [NotifyPropertyChangedFor(nameof(BoardTip), nameof(StatusTip), nameof(SendTip), nameof(ShowSerialPlaceholder))]
+    [NotifyCanExecuteChangedFor(nameof(BuildCommand), nameof(RunCommand), nameof(PauseCommand), nameof(StopCommand), nameof(StepLoopCommand), nameof(StepTimeCommand), nameof(SendSerialCommand))]
     [NotifyCanExecuteChangedFor(nameof(UndoCommand), nameof(RedoCommand), nameof(NewProjectCommand), nameof(OpenProjectCommand), nameof(OpenRecentCommand), nameof(OpenExampleCommand), nameof(CloseProjectCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveProjectAsCommand), nameof(ClearEepromCommand), nameof(StartExampleOverCommand), nameof(CreateProjectCommand), nameof(CreateInFolderCommand))]
     public partial SimStatus Status { get; set; }
 
     [ObservableProperty]
@@ -269,17 +327,15 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty]
     public partial string LastBuild { get; set; } = "";
 
+    /// <summary>The Monitor has no text: its empty state shows.</summary>
     [ObservableProperty]
-    public partial string SerialText { get; set; } = "";
+    public partial bool SerialIsEmpty { get; private set; } = true;
 
     [ObservableProperty]
     public partial string SerialInput { get; set; } = "";
 
     [ObservableProperty]
     public partial bool AutoScroll { get; set; } = true;
-
-    [ObservableProperty]
-    public partial string BaudText { get; set; } = "";
 
     [ObservableProperty]
     public partial string BuildOutput { get; set; } = "";
@@ -340,6 +396,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         _tones.Dispose();
         await StopSessionAsync();
+        await StopClangdAsync(forget: true);
         _watcher?.Dispose();
         _toolchainCancel?.Dispose();
     }
@@ -387,16 +444,23 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         };
     }
 
-    public void SaveLayout(double paletteWidth, double propertiesWidth, double bottomHeight) =>
-        _state.Layout = new PanelLayout
+    public void SaveLayout(double paletteWidth, double propertiesWidth, double bottomHeight, double splitRatio, WindowBounds? window) =>
+        _state.Layout = _state.Layout with
         {
             PaletteWidth = paletteWidth,
             PropertiesWidth = propertiesWidth,
             BottomHeight = bottomHeight,
             PaletteOpen = PaletteOpen,
             PropertiesOpen = PropertiesOpen,
-            BottomOpen = BottomOpen,
+            BottomOpen = BottomOpen || BottomAutoFolded,
             BottomTab = SelectedBottomTab,
+            LeftTab = LeftTab,
+            SplitView = SplitView,
+            SplitRatio = splitRatio,
+            CollapsedCategories = Palette.CollapsedCategories,
+            CanvasHints = CanvasHints,
+            WheelPans = WheelPans,
+            Window = window,
         };
 
     public PanelLayout Layout => _state.Layout;
@@ -406,29 +470,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     // ---- projects ------------------------------------------------------------------------------
 
-    [RelayCommand(CanExecute = nameof(CanEdit))]
-    private async Task NewProjectAsync()
-    {
-        if (!ConfirmDiscard() || PickFolder?.Invoke(Strings.Get("Dialog_NewProject")) is not { } directory)
-        {
-            return;
-        }
-
-        if (!File.Exists(Path.Combine(directory, ProjectFile.FileName)))
-        {
-            try
-            {
-                ProjectTemplate.Create(directory, SelectedBoard.Id);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                ShowBanner(BannerKind.Info, Strings.Get("Banner_CreateFailed"), e.Message, "");
-                return;
-            }
-        }
-
-        await OpenProjectAsync(directory);
-    }
 
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private async Task OpenProjectAsync()
@@ -461,10 +502,23 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private async Task OpenExampleAsync(ExampleItem? example)
     {
-        if (example is not null && ConfirmDiscard())
+        if (example is null || !ConfirmDiscard())
         {
-            await OpenProjectAsync(AppEnvironment.OpenExample(example.Path));
+            return;
         }
+
+        string copy;
+        try
+        {
+            copy = AppEnvironment.OpenExample(example.Path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            ShowBanner(BannerKind.Info, Strings.Get("Banner_CreateFailed"), e.Message, "");
+            return;
+        }
+
+        await OpenProjectAsync(copy);
     }
 
     [RelayCommand(CanExecute = nameof(CanEdit))]
@@ -483,7 +537,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         if (HasProject && SaveAll())
         {
-            ShowToast(Strings.Get("Toast_Saved"));
+            ShowToast(Strings.Get(IsRunning && IsRunStale ? "Toast_SavedStale" : "Toast_Saved"));
         }
     }
 
@@ -563,6 +617,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private async Task<bool> OpenProjectAsync(string directory)
     {
         await StopSessionAsync();
+        directory = ProjectFolderFor(directory);
         IReadOnlyList<string> missing = [];
         if (!File.Exists(Path.Combine(directory, ProjectFile.FileName)) && PlatformIoProject.ExistsIn(directory))
         {
@@ -577,6 +632,14 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             }
 
             ShowToast(missing.Count == 0 ? Strings.Get("Toast_PlatformIoImported") : Strings.Format("Toast_PlatformIoMissing", string.Join(", ", missing)));
+        }
+        else if (!File.Exists(Path.Combine(directory, ProjectFile.FileName)))
+        {
+            // A plain Arduino sketch folder opens in place: only the project file is added.
+            if (!OpenSketchFolder(directory))
+            {
+                return false;
+            }
         }
 
         ProjectFile project;
@@ -601,7 +664,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         SelectedBoard = board;
         OnBoardSet(board);
         ProjectName = Path.GetFileName(_projectDirectory);
-        BaudText = Strings.Format("Serial_Baud", _settings.Serial.Baud);
         SelectedSpeed = Speeds.MinBy(s => Math.Abs(Math.Log(s.Value) - Math.Log(Math.Max(_settings.Speed, 0.01)))) ?? Speeds[2];
         SelectedLineEnding = LineEndings.FirstOrDefault(l => l.Setting == _settings.Serial.LineEnding) ?? LineEndings[1];
 
@@ -610,6 +672,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         Scene = new SceneViewModel(editor, board, (id, name, value) => _session?.Send(new ComponentInput(id, name, value)));
         Scene.WirePinsClicked += OnWirePinsClicked;
         Properties = new PropertiesViewModel(Scene, () => _settings, UpdateSettings, OpenProjectFolder);
+        editor.Changed += RefreshExplorer;
+        Scene.SelectionChanged += OnSceneSelectionChanged;
+        Scene.WarningClicked += OnWarningClicked;
 
         Tabs.Add(SceneTab.Instance);
         string sketch = project.SketchDirectory(_projectDirectory);
@@ -638,19 +703,49 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         Diagnostics.Clear();
         BuildOutput = "";
         LastBuild = "";
+        BuildErrors = 0;
+        BuildWarnings = 0;
+        _buildLibraries = [];
         Status = SimStatus.Idle;
+        NotifyProjectChanged();
+        OnProjectOpened();
+        return true;
+    }
+
+    /// <summary>What depends on whether a project is open; <c>_project</c> itself raises nothing.</summary>
+    private void NotifyProjectChanged()
+    {
         OnPropertyChanged(nameof(HasProject));
         OnPropertyChanged(nameof(ProjectDirectory));
-        return true;
+        OnPropertyChanged(nameof(BuildTip));
+        OnPropertyChanged(nameof(RunTip));
+        OnPropertyChanged(nameof(PauseTip));
+        OnPropertyChanged(nameof(StopTip));
+        OnPropertyChanged(nameof(StepTip));
+        OnPropertyChanged(nameof(Step1Tip));
+        OnPropertyChanged(nameof(Step10Tip));
+        OnPropertyChanged(nameof(Step100Tip));
+        OnPropertyChanged(nameof(BoardTip));
+        OnPropertyChanged(nameof(StatusTip));
+        OnPropertyChanged(nameof(SendTip));
+        BuildCommand.NotifyCanExecuteChanged();
+        RunCommand.NotifyCanExecuteChanged();
+        RefreshExplorer();
     }
 
     private void CloseProject()
     {
+        _ = StopClangdAsync(forget: true);
+        _outline = [];
+        _outlineOf = null;
         _watcher?.Dispose();
         _watcher = null;
         if (Scene is not null)
         {
             Scene.Editor.Changed -= OnSceneChanged;
+            Scene.Editor.Changed -= RefreshExplorer;
+            Scene.SelectionChanged -= OnSceneSelectionChanged;
+            Scene.WarningClicked -= OnWarningClicked;
         }
 
         foreach (CodeDocumentViewModel document in Documents)
@@ -671,16 +766,26 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         ProjectName = "";
         _revision = _savedRevision = 0;
         _settingsDirty = false;
+        _lastDocument = null;
+        _beforeFailure = null;
+        _errorDocument = null;
+        IsRunStale = false;
+        ExampleInfo = null;
         UpdateDirty();
         HideBanner();
-        OnPropertyChanged(nameof(HasProject));
-        OnPropertyChanged(nameof(ProjectDirectory));
+        NotifyProjectChanged();
     }
 
     /// <summary>Saves open files and, when changed, the scene and settings. False (with a banner) on failure.</summary>
     private bool SaveAll()
     {
         if (_project is null || _projectDirectory is null || Scene is null)
+        {
+            return false;
+        }
+
+        Properties?.CommitPending();
+        if (StoppedByConflict())
         {
             return false;
         }
@@ -706,6 +811,19 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    /// <summary>A file changed on both sides stops Save, Build and Run at its tab; nothing is written over the other version.</summary>
+    private bool StoppedByConflict()
+    {
+        if (Documents.FirstOrDefault(d => d.HasConflict) is not { } document)
+        {
+            return false;
+        }
+
+        SelectedTab = document;
+        ShowBanner(BannerKind.Info, Strings.Get("Banner_ConflictTitle"), Strings.Format("Banner_ConflictBody", document.Title), "");
+        return true;
+    }
+
     private void SaveDocuments()
     {
         foreach (CodeDocumentViewModel document in Documents)
@@ -718,7 +836,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         _settings = settings;
         _settingsDirty = true;
-        BaudText = Strings.Format("Serial_Baud", settings.Serial.Baud);
         UpdateDirty();
     }
 
@@ -731,6 +848,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             _board = sceneBoard;
             Scene.UseBoard(sceneBoard);
             OnBoardSet(sceneBoard);
+            _ = StartClangdAsync();
             bool loading = _loading;
             _loading = true;
             SelectedBoard = sceneBoard;
@@ -748,6 +866,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         if (e.PropertyName == nameof(CodeDocumentViewModel.IsDirty))
         {
             UpdateDirty();
+            if (sender is CodeDocumentViewModel { IsDirty: true })
+            {
+                IsRunStale = true;
+            }
         }
     }
 
@@ -783,6 +905,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             _board = value;
             Scene.UseBoard(value);
             OnBoardSet(value);
+            _ = StartClangdAsync();
             ShowToast(Strings.Format("Toast_BoardChanged", value.DisplayName));
         }
     }
@@ -836,7 +959,15 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         UpdateRecording();
     }
 
-    partial void OnBottomOpenChanged(bool value) => UpdateRecording();
+    partial void OnBottomOpenChanged(bool value)
+    {
+        if (value && SelectedBottomTab == LogTab)
+        {
+            UnseenWarnings = 0;
+        }
+
+        UpdateRecording();
+    }
 
     partial void OnSoundOnChanged(bool value)
     {
@@ -846,14 +977,18 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     partial void OnSelectedSerialPortChanged(SerialPortItem? value)
     {
-        SerialText = value is not null && _serial.TryGetValue(value.Index, out StringBuilder? text) ? text.ToString() : "";
+        ReplaceSerialText(value is not null && _serial.TryGetValue(value.Index, out SerialPortLog? log) ? log.Text : "");
         Plotter.Clear();
     }
 
     /// <summary>The logic analyzer records while its tab is open and its button on.</summary>
     private bool TimelineActive => BottomOpen && SelectedBottomTab == DiagramTab && Timeline.Recording;
 
-    private void UpdateRecording() => _session?.Send(new SetRecording(TimelineActive));
+    private void UpdateRecording()
+    {
+        Timeline.Store.NoteRecording(TimelineActive);
+        _session?.Send(new SetRecording(TimelineActive));
+    }
 
     private void UpdateTones()
     {
@@ -965,7 +1100,14 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             SelectedTab = Tabs[Math.Clamp(index - 1, 0, Tabs.Count - 1)];
         }
 
+        if (_lastDocument == document)
+        {
+            _lastDocument = Documents.FirstOrDefault();
+            OnPropertyChanged(nameof(VisibleDocument));
+        }
+
         UpdateDirty();
+        RefreshExplorer();
     }
 
     [RelayCommand]
@@ -979,11 +1121,20 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private CodeDocumentViewModel AddDocument(string path)
     {
-        var document = new CodeDocumentViewModel(path);
+        var document = new CodeDocumentViewModel(path) { IsReadOnly = !IsInProject(path) };
         document.PropertyChanged += OnDocumentChanged;
+        document.Diagnostics = [.. Diagnostics.Select(d => d.Diagnostic).Where(d => d.File is not null && SamePath(d.File, path))];
         Tabs.Add(document);
+        if (document.LegacyEncoding)
+        {
+            ShowToast(Strings.Format("Toast_LegacyEncoding", document.Title));
+        }
+
         return document;
     }
+
+    private bool IsInProject(string path) =>
+        _projectDirectory is { } project && Path.GetFullPath(path).StartsWith(Path.GetFullPath(project).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
     private void Watch(string directory)
     {
@@ -997,12 +1148,29 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         {
             if (_watcher == watcher && Documents.FirstOrDefault(d => string.Equals(d.Path, path, StringComparison.OrdinalIgnoreCase)) is { } document && document.OnDiskChanged())
             {
+                IsRunStale = true;
                 ShowToast(Strings.Format("Toast_Reloaded", document.Title));
             }
         });
+        void OnListChange() => _dispatcher.InvokeAsync(() =>
+        {
+            if (_watcher == watcher)
+            {
+                RefreshExplorer();
+            }
+        });
         watcher.Changed += (_, e) => OnChange(e.FullPath);
-        watcher.Created += (_, e) => OnChange(e.FullPath);
-        watcher.Renamed += (_, e) => OnChange(e.FullPath);
+        watcher.Created += (_, e) =>
+        {
+            OnChange(e.FullPath);
+            OnListChange();
+        };
+        watcher.Renamed += (_, e) =>
+        {
+            OnChange(e.FullPath);
+            OnListChange();
+        };
+        watcher.Deleted += (_, e) => OnFileDeleted(e.FullPath, OnListChange);
         watcher.EnableRaisingEvents = true;
     }
 
@@ -1014,7 +1182,21 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         if (item?.Diagnostic is { File: { } file } diagnostic && OpenFile(file) is { } document)
         {
             _diagnosticIndex = Diagnostics.IndexOf(item);
-            document.Navigate(Math.Max(1, diagnostic.Line), Math.Max(1, diagnostic.Column));
+            document.Navigate(Math.Max(1, diagnostic.Line), Math.Max(1, document.CharColumn(diagnostic)));
+        }
+    }
+
+    /// <summary>The button beside a compiler message: one edit, one undo step, in the message's file.</summary>
+    [RelayCommand]
+    private void ApplyFix(DiagnosticItem? item)
+    {
+        if (item is { Fix: { } fix, Diagnostic: { File: { } file } diagnostic } && OpenFile(file) is { } document)
+        {
+            document.Apply(diagnostic, fix);
+            Diagnostics.Remove(item);
+            BuildErrors = Diagnostics.Count(d => d.Severity == 2);
+            BuildWarnings = Diagnostics.Count - BuildErrors;
+            _diagnosticIndex = -1;
         }
     }
 
@@ -1048,9 +1230,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     // ---- scene -----------------------------------------------------------------------------------
 
-    private bool CanUndo() => Scene is { IsLocked: false } scene && scene.Editor.CanUndo && CanEdit;
+    private bool CanUndo() => Scene is { IsLocked: false } scene && scene.Editor.CanUndo && CanEdit && IsCanvasVisible;
 
-    private bool CanRedo() => Scene is { IsLocked: false } scene && scene.Editor.CanRedo && CanEdit;
+    private bool CanRedo() => Scene is { IsLocked: false } scene && scene.Editor.CanRedo && CanEdit && IsCanvasVisible;
 
     [RelayCommand(CanExecute = nameof(CanUndo))]
     private void Undo() => Scene?.Editor.Undo();
@@ -1065,7 +1247,11 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private void ToggleProperties() => PropertiesOpen = !PropertiesOpen;
 
     [RelayCommand]
-    private void ToggleBottom() => BottomOpen = !BottomOpen;
+    private void ToggleBottom()
+    {
+        BottomAutoFolded = false;
+        BottomOpen = !BottomOpen;
+    }
 
     [RelayCommand]
     private void ToggleClock() => ClockInMilliseconds = !ClockInMilliseconds;
@@ -1074,15 +1260,51 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private void ShowStatusPanel()
     {
         BottomOpen = true;
-        SelectedBottomTab = Status == SimStatus.BuildFailed ? BuildTab : Log.Any(l => l.Severity > 0) ? LogTab : SerialTab;
+        SelectedBottomTab = StatusPanelTab;
     }
+
+    private int StatusPanelTab => Status == SimStatus.BuildFailed ? BuildTab : _log.Any(l => l.Severity > 0) ? LogTab : SerialTab;
 
     // ---- build and run ---------------------------------------------------------------------------
 
     private bool CanBuild() => _project is not null && CanEdit;
 
     [RelayCommand(CanExecute = nameof(CanBuild))]
-    private async Task BuildAsync() => await BuildFirmwareAsync();
+    private async Task BuildAsync()
+    {
+        if (await BuildFirmwareAsync())
+        {
+            RestoreAfterFailure();
+            ShowToast(BuildWarnings > 0 ? Strings.Format("Toast_BuiltWarnings", _lastBuildSeconds, BuildWarnings) : Strings.Format("Toast_Built", _lastBuildSeconds));
+        }
+    }
+
+    /// <summary>After a good build, the panels a failed one took over go back, unless the user moved on.</summary>
+    private void RestoreAfterFailure()
+    {
+        if (_beforeFailure is not { } before)
+        {
+            return;
+        }
+
+        if (SelectedBottomTab == BuildTab)
+        {
+            SelectedBottomTab = before.Tab == BuildTab ? SerialTab : before.Tab;
+            if (BottomOpen)
+            {
+                BottomOpen = before.Open;
+                BottomAutoFolded = before.AutoFolded;
+            }
+        }
+
+        if (before.WasScene && SelectedTab == _errorDocument)
+        {
+            SelectedTab = SceneTab.Instance;
+        }
+
+        _beforeFailure = null;
+        _errorDocument = null;
+    }
 
     private async Task<bool> BuildFirmwareAsync()
     {
@@ -1102,6 +1324,11 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             return false;
         }
 
+        if (StoppedByConflict())
+        {
+            return false;
+        }
+
         try
         {
             SaveDocuments();
@@ -1113,10 +1340,30 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
 
         UpdateDirty();
+        IsRunStale = false;
         Status = SimStatus.Building;
         Diagnostics.Clear();
         _diagnosticIndex = -1;
-        BuildResult result = await FirmwareBuildService.BuildAsync(toolchain, _projectDirectory, _project, _board, CancellationToken.None);
+        _buildCancel?.Dispose();
+        _buildCancel = new CancellationTokenSource();
+        var watch = Stopwatch.StartNew();
+        var progress = new Progress<BuildProgress>(p => ToolchainProgress = Strings.Format("Status_BuildProgress", p.Finished, p.Total, watch.Elapsed.TotalSeconds));
+        BuildResult result;
+        try
+        {
+            result = await FirmwareBuildService.BuildAsync(toolchain, _projectDirectory, _project with { Settings = _settings }, _board, progress, _buildCancel.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            ToolchainProgress = "";
+            Status = SimStatus.Stopped;
+            ShowToast(Strings.Get("Toast_BuildCancelled"));
+            return false;
+        }
+
+        ToolchainProgress = "";
+        _buildLibraries = result.Libraries;
+        RefreshExplorer();
         foreach (BuildDiagnostic d in result.Diagnostics.Where(d => d.Severity != DiagnosticSeverity.Note))
         {
             Diagnostics.Add(new DiagnosticItem(d));
@@ -1127,17 +1374,39 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             document.Diagnostics = [.. result.Diagnostics.Where(d => d.Severity != DiagnosticSeverity.Note && d.File is not null && SamePath(d.File, document.Path))];
         }
 
-        BuildOutput = Strings.Format("Build_Summary", result.Statistics.Elapsed.TotalSeconds, result.Statistics.Units, result.Statistics.CacheHits)
+        int errors = Diagnostics.Count(d => d.Severity == 2);
+        int warnings = Diagnostics.Count - errors;
+        BuildOutput = (result.Succeeded
+                ? Strings.Format("Build_SummaryOk", result.Statistics.Elapsed.TotalSeconds, result.Statistics.Units, result.Statistics.CacheHits)
+                : errors > 0
+                    ? Strings.Format("Build_SummaryFailed", result.Statistics.Elapsed.TotalSeconds, errors, result.Statistics.CacheHits)
+                    : Strings.Format("Build_SummaryFailedNoCount", result.Statistics.Elapsed.TotalSeconds, result.Statistics.CacheHits))
             + Environment.NewLine + result.Output;
         LastBuild = Strings.Format("Status_LastBuild", result.Statistics.Elapsed.TotalSeconds);
+        _lastBuildSeconds = result.Statistics.Elapsed.TotalSeconds;
+        BuildErrors = errors;
+        BuildWarnings = warnings;
         if (!result.Succeeded)
         {
+            // Remember the panels: they go back once the next build succeeds (docs/UI.md §4.7).
+            bool wasScene = SelectedTab is SceneTab;
+            if (_beforeFailure is null)
+            {
+                _beforeFailure = (SelectedBottomTab, BottomOpen, wasScene, BottomAutoFolded);
+            }
+            else if (SelectedBottomTab != BuildTab)
+            {
+                _beforeFailure = _beforeFailure.Value with { Tab = SelectedBottomTab };
+            }
+
             Status = SimStatus.BuildFailed;
+            BottomAutoFolded = false;
             BottomOpen = true;
             SelectedBottomTab = BuildTab;
             if (Diagnostics.FirstOrDefault(d => d.Severity == 2 && d.Diagnostic.File is not null) is { } first)
             {
                 OpenDiagnostic(first);
+                _errorDocument = SelectedTab as CodeDocumentViewModel;
             }
 
             return false;
@@ -1163,30 +1432,54 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [RelayCommand]
     private async Task DownloadToolchainAsync()
     {
-        HideBanner();
         Status = SimStatus.Building;
         _toolchainCancel = new CancellationTokenSource();
+        ToolchainIndeterminate = true;
+        ShowBanner(BannerKind.Installing, Strings.Get("Banner_InstallingTitle"), Strings.Format("Banner_InstallingBody", _builds.Manifest.SizeBytes / (1024 * 1024)), "");
         var progress = new Progress<ToolchainProgress>(p =>
         {
             string stage = Strings.Get("Toolchain_" + p.Stage);
             int percent = p.Total > 0 ? (int)(p.Completed * 100 / p.Total) : 0;
             ToolchainProgress = Strings.Format("Status_ToolchainProgress", stage, percent);
+            ToolchainIndeterminate = p.Total <= 1;
+            ToolchainPercent = percent;
+            BannerBody = ToolchainProgress;
         });
         try
         {
-            await _builds.InstallToolchainAsync(progress, _toolchainCancel.Token);
+            // Off the UI thread: unpacking takes a while, and the window must keep answering.
+            CancellationToken cancel = _toolchainCancel.Token;
+            await Task.Run(() => _builds.InstallToolchainAsync(progress, cancel), cancel);
+            HideBanner();
             OnPropertyChanged(nameof(ToolchainText));
+            OnPropertyChanged(nameof(ToolchainNote));
             ToolchainProgress = "";
             Status = SimStatus.Idle;
+            _ = StartClangdAsync();
             await RunAsync();
         }
         catch (ToolchainException e)
         {
             ToolchainProgress = "";
             Status = SimStatus.Idle;
-            ShowBanner(BannerKind.Toolchain, Strings.Get("Banner_ToolchainFailed"), e.Message, "");
+            ShowBanner(BannerKind.Toolchain, Strings.Get("Banner_ToolchainFailed"), Strings.Get("Banner_ToolchainFailedBody"), e.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            ToolchainProgress = "";
+            Status = SimStatus.Idle;
+            ShowBanner(BannerKind.Toolchain, Strings.Get("Banner_ToolchainCancelled"), Strings.Format("Banner_ToolchainBody", _builds.Manifest.SizeBytes / (1024 * 1024), FirmwareBuildService.ToolchainDirectory), "");
         }
     }
+
+    [RelayCommand]
+    private void CancelToolchain() => _toolchainCancel?.Cancel();
+
+    [ObservableProperty]
+    public partial double ToolchainPercent { get; set; }
+
+    [ObservableProperty]
+    public partial bool ToolchainIndeterminate { get; set; }
 
     private bool CanRun() => _project is not null && Status is not (SimStatus.Building or SimStatus.Starting);
 
@@ -1202,9 +1495,16 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        RestoreAfterFailure();
+        if (!SplitView && SelectedTab is CodeDocumentViewModel)
+        {
+            SelectedTab = SceneTab.Instance;
+        }
+
         HideBanner();
         ClearRunOutput();
         Scene?.ResetRuntime(clearWarnings: true);
+        _busyRecovered = false;
         Status = SimStatus.Starting;
         ISimulationSession session = _environment.CreateSession();
         session.MessageReceived += m => Observe(_dispatcher.InvokeAsync(() => OnMessage(session, m)));
@@ -1218,24 +1518,34 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    [RelayCommand(CanExecute = nameof(IsRunning))]
+    private bool CanPause => Status is SimStatus.Running or SimStatus.Paused;
+
+    [RelayCommand(CanExecute = nameof(CanPause))]
     private void Pause() => _session?.Send(IsPaused ? new ResumeRun() : new PauseRun());
 
-    [RelayCommand(CanExecute = nameof(IsRunning))]
+    [RelayCommand(CanExecute = nameof(CanStop))]
     private async Task StopAsync()
     {
+        if (Status == SimStatus.Building)
+        {
+            // The build or the compiler download unwinds and sets the status itself.
+            _buildCancel?.Cancel();
+            _toolchainCancel?.Cancel();
+            return;
+        }
+
         await StopSessionAsync();
         Status = SimStatus.Stopped;
     }
 
-    [RelayCommand(CanExecute = nameof(IsRunning))]
+    [RelayCommand(CanExecute = nameof(CanPause))]
     private void StepLoop() => _session?.Send(new StepRun(StepKind.Loop, 0));
 
-    [RelayCommand(CanExecute = nameof(IsRunning))]
+    [RelayCommand(CanExecute = nameof(CanPause))]
     private void StepTime(string milliseconds) =>
         _session?.Send(new StepRun(StepKind.Time, ulong.Parse(milliseconds, CultureInfo.InvariantCulture) * Core.Timing.VirtualTime.Millisecond));
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsRunning))]
     private void SendSerial()
     {
         if (_session is null)
@@ -1250,12 +1560,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [RelayCommand]
     private void ClearSerial()
     {
-        if (SelectedSerialPort is { } port && _serial.TryGetValue(port.Index, out StringBuilder? text))
+        if (SelectedSerialPort is { } port && _serial.TryGetValue(port.Index, out SerialPortLog? log))
         {
-            text.Clear();
+            log.Clear();
         }
 
-        SerialText = "";
+        ReplaceSerialText("");
     }
 
     [RelayCommand]
@@ -1271,6 +1581,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         SelectedTab = SceneTab.Instance;
         Scene.Select(id, additive: false);
+        ShowPartRequested?.Invoke(part);
         part.Highlighted = true;
         await Task.Delay(TimeSpan.FromSeconds(2));
         part.Highlighted = false;
@@ -1282,12 +1593,17 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void ClearRunOutput()
     {
+        _log.Clear();
         Log.Clear();
+        OnPropertyChanged(nameof(LogIsEmpty));
+        OnPropertyChanged(nameof(LogEmptyText));
         UnseenWarnings = 0;
         _serial.Clear();
-        SerialText = "";
+        ReplaceSerialText("");
         Plotter.Clear();
+        Plotter.Paused = false;
         Timeline.Reset();
+        Timeline.Store.NoteRecording(TimelineActive);
         _timeNs = 0;
         _speedSample = null;
         UpdateClock();
@@ -1318,9 +1634,17 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             case Snapshot snapshot:
                 Apply(snapshot);
                 break;
-            case FirmwareBusy:
+            case FirmwareBusy busy:
                 Status = SimStatus.Busy;
-                ShowBanner(BannerKind.Busy, Strings.Get("Banner_BusyTitle"), Strings.Get("Banner_BusyBody"), "");
+                _busySince = busy.TimeNs;
+
+                // A sketch with a recurring long calculation would flash the banner every time:
+                // after it has recovered once, only the pill says so.
+                if (!_busyRecovered)
+                {
+                    ShowBanner(BannerKind.Busy, Strings.Get("Banner_BusyTitle"), Strings.Get("Banner_BusyBody"), "");
+                }
+
                 break;
         }
     }
@@ -1345,6 +1669,18 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         {
             Status = snapshot.State == RunState.Paused ? SimStatus.Paused : SimStatus.Running;
         }
+        else if (snapshot.TimeNs > _busySince)
+        {
+            // The sketch came back to the Arduino API.
+            Status = SimStatus.Running;
+            if (Banner == BannerKind.Busy)
+            {
+                HideBanner();
+                ShowToast(Strings.Get("Toast_BusyRecovered"));
+            }
+
+            _busyRecovered = true;
+        }
 
         Scene?.ApplyPins(snapshot.Pins.Select(p => (p.Pin, (int)p.Kind, p.Value)));
         foreach (ComponentUpdate update in snapshot.Components)
@@ -1366,46 +1702,69 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         foreach (LogEntry entry in snapshot.Logs)
         {
-            Log.Add(new LogItem((entry.TimeNs / 1e9).ToString("0.000000", CultureInfo.CurrentCulture), entry.Severity, LogText.Localize(entry), entry.ComponentId));
+            string message = LogText.Localize(entry);
+            AddLog(new LogItem((entry.TimeNs / 1e9).ToString("0.000", CultureInfo.CurrentCulture) + " " + Strings.Get("Unit_Seconds"), entry.Severity, message, entry.ComponentId));
             if (entry.Severity > 0)
             {
                 if (entry.ComponentId is not null && Scene?.Find(entry.ComponentId) is { } part)
                 {
-                    part.HasWarning = true;
+                    part.AddWarning(message);
                 }
 
                 if (!BottomOpen || SelectedBottomTab != LogTab)
                 {
                     UnseenWarnings++;
                 }
+
+                OpenBottomIfFolded();
             }
         }
     }
 
-    private void AppendSerial(int port, byte[] data)
+    /// <summary>Bytes a port sent, cut anywhere: the log keeps what the next chunk completes.</summary>
+    public void AppendSerial(int port, byte[] data)
     {
+        ArgumentNullException.ThrowIfNull(data);
         if (data.Length == 0)
         {
             return;
         }
 
-        string text = Encoding.UTF8.GetString(data).Replace("\r\n", "\n", StringComparison.Ordinal);
-        if (!_serial.TryGetValue(port, out StringBuilder? log))
+        if (!_serial.TryGetValue(port, out SerialPortLog? log))
         {
-            _serial[port] = log = new StringBuilder();
+            _serial[port] = log = new SerialPortLog(SerialLimit);
         }
 
-        log.Append(text);
-        if (log.Length > SerialLimit)
+        string plain = log.Decode(data);
+        if (plain.Length == 0)
         {
-            log.Remove(0, log.Length - SerialLimit);
+            return;
         }
 
+        // Время puts the virtual time at the start of every new line.
+        string? stamp = TimestampSerial ? "[" + (_timeNs / 1e9).ToString("0.000", CultureInfo.CurrentCulture) + "] " : null;
+        (string added, bool trimmed) = log.Append(plain, stamp);
         if (port == (SelectedSerialPort?.Index ?? 0))
         {
-            Plotter.Append(text);
-            SerialText = log.ToString();
+            Plotter.Append(plain);
+            if (trimmed)
+            {
+                ReplaceSerialText(log.Text);
+            }
+            else
+            {
+                SerialIsEmpty = false;
+                SerialAppended?.Invoke(added);
+            }
+
+            OpenBottomIfFolded();
         }
+    }
+
+    private void ReplaceSerialText(string text)
+    {
+        SerialIsEmpty = text.Length == 0;
+        SerialReplaced?.Invoke(text);
     }
 
     private void UpdateClock() =>
@@ -1469,10 +1828,29 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             }
         }
 
-        string calls = Strings.Get("Banner_LastCalls") + Environment.NewLine + string.Join(Environment.NewLine, crash.LastCalls);
-        ShowBanner(BannerKind.Crash, Strings.Get("Banner_CrashTitle"), Strings.Format("Banner_CrashBody", what, where), calls);
+        string calls = crash.LastCalls.Count == 0 ? "" : Strings.Get("Banner_LastCalls") + Environment.NewLine + string.Join(Environment.NewLine, crash.LastCalls);
+        string body = Strings.Format("Banner_CrashBody", what, where);
+        ShowBanner(BannerKind.Crash, Strings.Get("Banner_CrashTitle"), body, calls);
         _crashLocation = location;
         HasCrashLocation = location is not null;
+
+        // The details stay in the log after the banner is closed, and the line is marked in the editor.
+        AddLog(new LogItem((_timeNs / 1e9).ToString("0.000", CultureInfo.CurrentCulture) + " " + Strings.Get("Unit_Seconds"), 2, body, null));
+        foreach (HostCallRecord call in crash.LastCalls)
+        {
+            AddLog(new LogItem("", 0, call.ToString(), null));
+        }
+
+        if (!BottomOpen || SelectedBottomTab != LogTab)
+        {
+            UnseenWarnings++;
+        }
+
+        if (location is { File: { } file, Line: > 0 } && Documents.FirstOrDefault(d => SamePath(d.Path, file)) is { } document)
+        {
+            var mark = new BuildDiagnostic(DiagnosticSeverity.Error, body, file, location.Line, 1);
+            document.Diagnostics = [.. document.Diagnostics, mark];
+        }
     }
 
     private static string Place(SourceLocation location) =>
@@ -1505,4 +1883,10 @@ public enum BannerKind
     Crash,
     Busy,
     Exited,
+
+    /// <summary>A folder with neither a project nor a sketch: offers to create one there.</summary>
+    NoProject,
+
+    /// <summary>The compiler is being downloaded: a progress bar and Отмена.</summary>
+    Installing,
 }

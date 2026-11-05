@@ -25,6 +25,21 @@ public sealed class NotEqualsToVisibilityConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
 }
 
+/// <summary>The icon of a project explorer row.</summary>
+public sealed class ExplorerGlyphConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
+    {
+        ExplorerKind.File => "\uE943",
+        ExplorerKind.Part => "\uE950",
+        ExplorerKind.Library => "\uE8F1",
+        _ => "\uE946",
+    };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
+
 public sealed class BoolToVisibilityConverter : IValueConverter
 {
     public bool Invert { get; set; }
@@ -49,7 +64,12 @@ public sealed class NullToVisibilityConverter : IValueConverter
 /// <summary>Severity (1 warning, 2 error) to its icon-font glyph.</summary>
 public sealed class SeverityToGlyphConverter : IValueConverter
 {
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value is 2 ? "" : "";
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
+    {
+        2 => "",
+        1 => "",
+        _ => "",
+    };
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
 }

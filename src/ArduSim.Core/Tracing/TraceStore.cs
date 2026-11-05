@@ -12,11 +12,20 @@ public enum ColumnLevel : byte
     Tone = 16,
 }
 
+/// <summary>A span of virtual time nothing was recorded in.</summary>
+public readonly record struct TraceHole(ulong From, ulong To);
+
+/// <summary>A stretch of a painted row that carries one PWM duty or one tone.</summary>
+/// <param name="First">Its first column.</param>
+/// <param name="Count">Its columns.</param>
+/// <param name="Sample">What it carries; null when the signal ended inside its only column.</param>
+public readonly record struct SignalBand(int First, int Count, PinSample? Sample);
+
 /// <summary>
 /// The recorded signals on the viewing side of the logic analyzer (ADR-014): net samples per pin and
 /// hardware bus events, in time order, bounded by dropping the oldest. A pin's picture merges both:
 /// inside a bus event the wire levels come from the event; between the bytes of an I2C transaction SCL
-/// stays low; a UART line nothing else drives idles high.
+/// stays low; a UART line nothing else drives idles high. Time nothing was recorded in stays empty.
 /// </summary>
 public sealed class TraceStore
 {
@@ -28,8 +37,11 @@ public sealed class TraceStore
     private readonly Dictionary<int, List<PinSample>> _samples = [];
     private readonly Dictionary<int, List<BusEvent>> _events = [];
     private readonly List<BusDecoder> _decoders = [];
+    private readonly List<TraceHole> _holes = [];
     private int _sampleCount;
     private int _eventCount;
+    private bool _stopped;
+    private ulong? _holeFrom;
 
     public TraceStore(int sampleLimit = DefaultSampleLimit, int eventLimit = DefaultEventLimit)
     {
@@ -48,17 +60,41 @@ public sealed class TraceStore
 
     public bool IsEmpty => _sampleCount == 0 && _eventCount == 0;
 
+    /// <summary>The spans nothing was recorded in, oldest first.</summary>
+    public IReadOnlyList<TraceHole> Holes => _holes;
+
     public void Clear()
     {
         _samples.Clear();
         _events.Clear();
+        _holes.Clear();
+        _holeFrom = null;
         _sampleCount = 0;
         _eventCount = 0;
-        Start = End;
+        Start = 0;
+        End = 0;
         HasGaps = false;
         foreach (BusDecoder decoder in _decoders)
         {
-            decoder.DropBefore(ulong.MaxValue);
+            decoder.Reset();
+        }
+    }
+
+    /// <summary>
+    /// The Runner was told to record or not. While it does not, nothing arrives and time passes unseen;
+    /// the pins it says again on restart mark where that span ends.
+    /// </summary>
+    public void NoteRecording(bool on)
+    {
+        if (on == !_stopped)
+        {
+            return;
+        }
+
+        _stopped = !on;
+        if (on)
+        {
+            _holeFrom ??= End;
         }
     }
 
@@ -93,6 +129,17 @@ public sealed class TraceStore
 
     public void Append(ReadOnlySpan<PinSample> samples, ReadOnlySpan<BusEvent> events, bool overflowed, ulong now)
     {
+        if (IsEmpty && (samples.Length > 0 || events.Length > 0))
+        {
+            // The first data after a clear: the recording starts here, not at time zero.
+            Start = Math.Min(samples.Length > 0 ? samples[0].Time : ulong.MaxValue, events.Length > 0 ? events[0].Time : ulong.MaxValue);
+        }
+
+        if (_holeFrom is { } holeFrom && samples.Length > 0)
+        {
+            CloseHole(holeFrom, samples[0].Time);
+        }
+
         foreach (ref readonly PinSample sample in samples)
         {
             if (!_samples.TryGetValue(sample.Pin, out List<PinSample>? list))
@@ -149,6 +196,51 @@ public sealed class TraceStore
         columns.Clear();
         PaintSamples(pin, start, nsPerColumn, columns);
         PaintEvents(pin, start, nsPerColumn, columns);
+        foreach (TraceHole hole in _holes)
+        {
+            Blank(hole.From, hole.To, start, nsPerColumn, columns);
+        }
+
+        // What has not happened yet is not a level either.
+        Blank(End, ulong.MaxValue, start, nsPerColumn, columns);
+    }
+
+    /// <summary>The PWM and tone stretches of a row <see cref="Render"/> painted, split where the duty or the frequency changes.</summary>
+    public IReadOnlyList<SignalBand> Bands(int pin, ulong start, double nsPerColumn, ReadOnlySpan<ColumnLevel> columns)
+    {
+        var bands = new List<SignalBand>();
+        int column = 0;
+        while (column < columns.Length)
+        {
+            if (!IsBand(columns[column]))
+            {
+                column++;
+                continue;
+            }
+
+            int first = column;
+            PinSample? carried = CarriedIn(pin, start, nsPerColumn, column);
+            column++;
+            while (column < columns.Length && IsBand(columns[column]))
+            {
+                // A signal that ended inside the column says nothing about a change.
+                if (CarriedIn(pin, start, nsPerColumn, column) is { } here)
+                {
+                    if (carried is { } current && (here.Level != current.Level || here.Value != current.Value))
+                    {
+                        break;
+                    }
+
+                    carried = here;
+                }
+
+                column++;
+            }
+
+            bands.Add(new SignalBand(first, column - first, carried));
+        }
+
+        return bands;
     }
 
     /// <summary>What a pin carries at a time (PWM duty, tone frequency): for the hover readout.</summary>
@@ -201,6 +293,19 @@ public sealed class TraceStore
         _ => ColumnLevel.Floating,
     };
 
+    private static bool IsBand(ColumnLevel level) => (level & (ColumnLevel.Pwm | ColumnLevel.Tone)) != 0;
+
+    // Only columns wholly inside the span: one that also holds recorded time keeps its picture.
+    private static void Blank(ulong from, ulong to, ulong start, double nsPerColumn, Span<ColumnLevel> columns)
+    {
+        int first = (int)Math.Clamp(Math.Ceiling(((double)from - start) / nsPerColumn), 0, columns.Length);
+        int end = (int)Math.Clamp(Math.Floor(((double)to - start) / nsPerColumn), 0, columns.Length);
+        if (end > first)
+        {
+            columns[first..end].Clear();
+        }
+    }
+
     private static int LastAtOrBefore(List<PinSample> list, ulong time)
     {
         int low = 0;
@@ -242,6 +347,24 @@ public sealed class TraceStore
 
         return low;
     }
+
+    private void CloseHole(ulong from, ulong to)
+    {
+        _holeFrom = null;
+        if (to > from)
+        {
+            _holes.Add(new TraceHole(from, to));
+
+            // A byte the hole cut must not be finished by whatever bits come next.
+            foreach (BusDecoder decoder in _decoders)
+            {
+                decoder.Resync();
+            }
+        }
+    }
+
+    private PinSample? CarriedIn(int pin, ulong start, double nsPerColumn, int column) =>
+        SampleAt(pin, start + (ulong)((column + 1) * nsPerColumn) - 1) is { Level: SignalLevel.Pwm or SignalLevel.Tone } sample ? sample : null;
 
     private void PaintSamples(int pin, ulong start, double nsPerColumn, Span<ColumnLevel> columns)
     {
@@ -405,6 +528,7 @@ public sealed class TraceStore
             decoder.DropBefore(cut);
         }
 
+        _holes.RemoveAll(hole => hole.To <= cut);
         Start = cut;
     }
 }

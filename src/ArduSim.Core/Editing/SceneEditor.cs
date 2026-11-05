@@ -84,6 +84,16 @@ public sealed partial class SceneEditor
 
     public void Redo() => Swap(_redo, _undo);
 
+    /// <summary>Takes back the step just begun, as if it never was: nothing to redo (a drag cancelled by Esc).</summary>
+    public void CancelStep()
+    {
+        if (_undo.Count > 0)
+        {
+            Scene = SceneModel.FromDocument(_undo.Pop());
+            Changed?.Invoke();
+        }
+    }
+
     public void NotifyChanged() => Changed?.Invoke();
 
     /// <param name="properties">Initial property values (a palette preset); null for the defaults.</param>
@@ -231,6 +241,215 @@ public sealed partial class SceneEditor
         Changed?.Invoke();
     }
 
+    /// <summary>Moves one end of a wire to another pin, in one undo step; the route is drawn anew. False for the wire's other end or a pin that is not there.</summary>
+    public bool ReconnectWire(string wireId, bool fromEnd, PinReference pin)
+    {
+        if (Scene.FindWire(wireId) is not { } wire || PinPosition(pin) is null || pin == wire.To || pin == wire.From)
+        {
+            return false;
+        }
+
+        Checkpoint();
+        if (fromEnd)
+        {
+            wire.From = pin;
+        }
+        else
+        {
+            wire.To = pin;
+        }
+
+        wire.Waypoints.Clear();
+        wire.Waypoints.AddRange(BestCorner(wire.From, wire.To));
+        Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// The corner a new wire between two pins needs: none when the horizontal-first L is as good as the
+    /// vertical-first one. Each is scored by what it passes over: other parts' pins (it would read as a
+    /// connection), then part bodies, then wires already there.
+    /// </summary>
+    public IReadOnlyList<(double X, double Y)> BestCorner(PinReference from, PinReference to)
+    {
+        ArgumentNullException.ThrowIfNull(from);
+        ArgumentNullException.ThrowIfNull(to);
+        if (PinPosition(from) is not { } a || PinPosition(to) is not { } b || a.X == b.X || a.Y == b.Y)
+        {
+            return [];
+        }
+
+        double horizontal = RouteCost(Route(a, [], b), from, to);
+        double vertical = RouteCost(Route(a, [], b, verticalFirst: true), from, to);
+        return vertical < horizontal ? [(a.X, b.Y)] : [];
+    }
+
+    private double RouteCost(IReadOnlyList<(double X, double Y)> route, PinReference from, PinReference to)
+    {
+        const double Near = 2;
+        double cost = 0;
+        foreach (PartModel part in Scene.Parts)
+        {
+            if (Definition(part) is not { } definition)
+            {
+                continue;
+            }
+
+            foreach (PinDefinition pin in definition.Pins)
+            {
+                var reference = new PinReference(part.Id, pin.Name);
+                if (reference != from && reference != to && PinPosition(reference) is { } at && OnRoute(route, at, Near))
+                {
+                    cost += 100;
+                }
+            }
+
+            (double left, double top, double right, double bottom) = Bounds(part);
+            if (part.Id != from.Component && part.Id != to.Component && CrossesBox(route, left, top, right, bottom))
+            {
+                cost += 10;
+            }
+        }
+
+        foreach (WireModel wire in Scene.Wires)
+        {
+            if ((wire.From == from && wire.To == to) || (wire.From == to && wire.To == from))
+            {
+                continue;
+            }
+
+            IReadOnlyList<(double X, double Y)> other = Route(wire);
+            for (int i = 0; i + 1 < other.Count; i++)
+            {
+                if (OnRoute(route, other[i], Near) && OnRoute(route, other[i + 1], Near))
+                {
+                    cost++;
+                }
+            }
+        }
+
+        return cost;
+    }
+
+    private static bool OnRoute(IReadOnlyList<(double X, double Y)> route, (double X, double Y) point, double near)
+    {
+        for (int i = 0; i + 1 < route.Count; i++)
+        {
+            (double ax, double ay) = route[i];
+            (double bx, double by) = route[i + 1];
+            if (point.X >= Math.Min(ax, bx) - near && point.X <= Math.Max(ax, bx) + near && point.Y >= Math.Min(ay, by) - near && point.Y <= Math.Max(ay, by) + near)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool CrossesBox(IReadOnlyList<(double X, double Y)> route, double left, double top, double right, double bottom)
+    {
+        for (int i = 0; i + 1 < route.Count; i++)
+        {
+            (double ax, double ay) = route[i];
+            (double bx, double by) = route[i + 1];
+            if (Math.Max(ax, bx) > left && Math.Min(ax, bx) < right && Math.Max(ay, by) > top && Math.Min(ay, by) < bottom)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Where a part of this size goes near a point without covering another part: on the grid, spiralling
+    /// out, inside <paramref name="view"/> when it can be. The answer is the spot's center.
+    /// </summary>
+    public (double X, double Y) FreeSpot(double width, double height, double centerX, double centerY, (double Left, double Top, double Right, double Bottom)? view = null)
+    {
+        const int Rings = 200;
+        double margin = 2 * Grid;
+        double startX = Snap(centerX - (width / 2));
+        double startY = Snap(centerY - (height / 2));
+        foreach (bool insideView in view is null ? (bool[])[false] : [true, false])
+        {
+            for (int ring = 0; ring <= Rings; ring++)
+            {
+                for (int dx = -ring; dx <= ring; dx++)
+                {
+                    for (int dy = -ring; dy <= ring; dy++)
+                    {
+                        if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != ring)
+                        {
+                            continue;
+                        }
+
+                        double x = startX + (dx * 2 * Grid);
+                        double y = startY + (dy * 2 * Grid);
+                        bool fits = !insideView || (x >= view!.Value.Left && y >= view.Value.Top && x + width <= view.Value.Right && y + height <= view.Value.Bottom);
+                        if (fits && !Scene.Parts.Any(p => Overlaps(Bounds(p), x, y, width, height, margin)))
+                        {
+                            return (x + (width / 2), y + (height / 2));
+                        }
+                    }
+                }
+            }
+        }
+
+        return (centerX, centerY);
+    }
+
+    private static bool Overlaps((double Left, double Top, double Right, double Bottom) box, double x, double y, double width, double height, double margin) =>
+        x < box.Right + margin && x + width > box.Left - margin && y < box.Bottom + margin && y + height > box.Top - margin;
+
+    /// <summary>
+    /// A part's pin that lands exactly on another part's pin is connected: a zero-length wire joins them,
+    /// in the undo step of the move or placement that made them meet. Answers how many were added.
+    /// </summary>
+    public int JoinCoincidingPins(IReadOnlyCollection<string> partIds)
+    {
+        ArgumentNullException.ThrowIfNull(partIds);
+        const double Same = 0.01;
+        int added = 0;
+        foreach (string id in partIds)
+        {
+            if (Scene.FindPart(id) is not { } part || Definition(part) is not { } definition)
+            {
+                continue;
+            }
+
+            foreach (PinDefinition pin in definition.Pins)
+            {
+                var from = new PinReference(id, pin.Name);
+                if (PinPosition(from) is not { } at)
+                {
+                    continue;
+                }
+
+                foreach (PartModel other in Scene.Parts.Where(p => p.Id != id))
+                {
+                    foreach (PinDefinition otherPin in Definition(other)?.Pins ?? [])
+                    {
+                        var to = new PinReference(other.Id, otherPin.Name);
+                        bool meets = PinPosition(to) is { } there && Math.Abs(there.X - at.X) < Same && Math.Abs(there.Y - at.Y) < Same;
+                        if (meets && !Scene.Wires.Any(w => (w.From == from && w.To == to) || (w.From == to && w.To == from)))
+                        {
+                            Scene.Wires.Add(new WireModel(NewWireId(), from, to));
+                            added++;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (added > 0)
+        {
+            Changed?.Invoke();
+        }
+
+        return added;
+    }
+
     public void SetWireColor(string wireId, string color)
     {
         if (Scene.FindWire(wireId) is not { } wire || wire.Color == color)
@@ -243,7 +462,7 @@ public sealed partial class SceneEditor
         Changed?.Invoke();
     }
 
-    public void SetProperty(string partId, string name, JsonElement value)
+    public void SetProperty(string partId, string name, JsonElement value, bool checkpoint = true)
     {
         if (Scene.FindPart(partId) is not { } part ||
             (part.Properties.TryGetValue(name, out JsonElement old) && old.GetRawText() == value.GetRawText()))
@@ -251,7 +470,11 @@ public sealed partial class SceneEditor
             return;
         }
 
-        Checkpoint();
+        if (checkpoint)
+        {
+            Checkpoint();
+        }
+
         part.Properties[name] = value.Clone();
 
         // A property can change the pins (the LCD's interface): wires to pins that are gone go too.

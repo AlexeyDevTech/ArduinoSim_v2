@@ -320,6 +320,210 @@ public sealed class TraceTests : IDisposable
     }
 
     [Fact]
+    public void Clearing_restarts_the_clock_and_a_half_read_byte_is_forgotten()
+    {
+        var store = new TraceStore();
+        var decoder = new SpiDecoder(mosi: 2, miso: -1, sck: 4);
+        store.AddDecoder(decoder);
+        ulong t = 0;
+        void Bits(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                store.Append([Sample(t++, 2, true), Sample(t++, 4, true), Sample(t++, 4, false)], [], false, t);
+            }
+        }
+
+        Bits(4);
+        Assert.Empty(decoder.Frames);
+        store.Clear();
+        Assert.Equal(0UL, store.End);
+        Assert.Equal(0UL, store.Start);
+
+        // The pins are said again: SCK low is no edge, and the next 8 bits make one whole byte.
+        store.Append([Sample(t, 4, false)], [], false, t);
+        Bits(8);
+        Assert.Equal(["0xFF"], decoder.Frames.Select(f => f.Text));
+        Assert.Equal(t, store.End);
+    }
+
+    [Fact]
+    public void Saying_the_pins_again_after_a_clear_is_no_edge_on_any_bus()
+    {
+        var store = new TraceStore();
+        var i2c = new I2cDecoder(sda: 2, scl: 3);
+        var spi = new SpiDecoder(mosi: 2, miso: -1, sck: 3);
+        var uart = new UartDecoder(line: 2, baud: 9600);
+        store.AddDecoder(i2c);
+        store.AddDecoder(spi);
+        store.AddDecoder(uart);
+
+        store.Clear();
+        store.Append([Sample(1000, 2, false), Sample(1000, 3, true)], [], false, 1000); // SDA and the line low, SCL and SCK high
+        store.Append([], [], false, 100_000_000);
+
+        Assert.Empty(i2c.Frames);
+        Assert.Empty(spi.Frames);
+        Assert.Empty(uart.Frames);
+
+        // Had the low SDA been read as a START, this would be taken for a byte and a STOP.
+        store.Append([Sample(100_000_001, 2, true)], [], false, 100_000_002);
+        Assert.Empty(i2c.Frames);
+    }
+
+    [Fact]
+    public void Time_not_recorded_stays_empty_instead_of_holding_the_last_level()
+    {
+        var store = new TraceStore();
+        store.Append([Sample(0, 13, true), Sample(1000, 13, false)], [], false, 2000);
+
+        store.NoteRecording(false);
+        store.NoteRecording(true);
+        store.Append([], [], false, 5000); // the clock moves on before the Runner has restarted
+        store.Append([Sample(6000, 13, true)], [], false, 7000);
+
+        Assert.Equal([new TraceHole(2000, 6000)], store.Holes);
+        var columns = new ColumnLevel[7];
+        store.Render(13, 0, 1000, columns);
+        Assert.Equal(ColumnLevel.High, columns[0]);
+        Assert.Equal(ColumnLevel.Low, columns[1]);
+        Assert.All(columns[2..6], c => Assert.Equal(ColumnLevel.None, c));
+        Assert.Equal(ColumnLevel.High, columns[6]);
+    }
+
+    [Fact]
+    public void A_column_with_recorded_time_in_it_keeps_its_picture()
+    {
+        var store = new TraceStore();
+        store.Append([Sample(0, 13, true)], [], false, 1500);
+        store.NoteRecording(false);
+        store.NoteRecording(true);
+        store.Append([Sample(4500, 13, false)], [], false, 5000);
+
+        var columns = new ColumnLevel[5];
+        store.Render(13, 0, 1000, columns);
+
+        Assert.Equal(ColumnLevel.High, columns[1]);
+        Assert.Equal(ColumnLevel.None, columns[2]);
+        Assert.Equal(ColumnLevel.None, columns[3]);
+        Assert.Equal(ColumnLevel.High | ColumnLevel.Low, columns[4]);
+    }
+
+    [Fact]
+    public void A_hole_ends_a_half_read_byte_and_frames_stay()
+    {
+        var store = new TraceStore();
+        var decoder = new SpiDecoder(mosi: 2, miso: -1, sck: 4);
+        store.AddDecoder(decoder);
+        ulong t = 0;
+        void Bits(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                store.Append([Sample(t++, 2, false), Sample(t++, 4, true), Sample(t++, 4, false)], [], false, t);
+            }
+        }
+
+        Bits(8);
+        Bits(3);
+        Assert.Single(decoder.Frames);
+
+        store.NoteRecording(false);
+        store.NoteRecording(true);
+        t += 1000;
+        store.Append([Sample(t, 4, false)], [], false, t);
+        Bits(5);
+        Assert.Single(decoder.Frames); // 3 + 5 bits around the hole are not a byte
+        Bits(3);
+        Assert.Equal(2, decoder.Frames.Count);
+    }
+
+    [Fact]
+    public void Nothing_is_a_hole_while_recording_stays_on_or_when_it_starts_with_the_run()
+    {
+        var store = new TraceStore();
+        store.NoteRecording(true);
+        store.Append([Sample(0, 13, true)], [], false, 1000);
+        Assert.Empty(store.Holes);
+
+        // A run that started with the tab closed: everything before the tab opened is the hole.
+        store.Clear();
+        store.NoteRecording(false);
+        store.NoteRecording(true);
+        store.Append([Sample(9000, 13, true)], [], false, 9500);
+        Assert.Equal([new TraceHole(0, 9000)], store.Holes);
+
+        store.Clear();
+        Assert.Empty(store.Holes);
+    }
+
+    [Fact]
+    public void Old_holes_go_with_the_oldest_samples()
+    {
+        var store = new TraceStore(sampleLimit: 100);
+        store.NoteRecording(false);
+        store.NoteRecording(true);
+        store.Append([Sample(500, 1, true)], [], false, 500);
+        Assert.Single(store.Holes);
+
+        for (int i = 0; i < 400; i++)
+        {
+            store.Append([Sample(1000 + ((ulong)i * 10), 1, i % 2 == 0)], [], false, 1000 + ((ulong)i * 10));
+        }
+
+        Assert.Empty(store.Holes);
+    }
+
+    [Fact]
+    public void What_has_not_happened_yet_is_not_a_level()
+    {
+        var store = new TraceStore();
+        store.Append([Sample(0, 13, true)], [], false, 2000);
+
+        var columns = new ColumnLevel[4];
+        store.Render(13, 0, 1000, columns);
+
+        Assert.Equal(ColumnLevel.High, columns[1]);
+        Assert.Equal(ColumnLevel.None, columns[2]);
+        Assert.Equal(ColumnLevel.None, columns[3]);
+    }
+
+    [Fact]
+    public void A_fade_is_one_band_per_duty_and_a_steady_duty_one_band()
+    {
+        static PinSample Pwm(ulong time, int duty) => new(time, 5, SignalLevel.Pwm, duty);
+        var store = new TraceStore();
+        store.Append([Pwm(0, 100), Pwm(100_000, 200), Pwm(200_000, 300), Sample(300_000, 5, false)], [], false, 400_000);
+
+        var columns = new ColumnLevel[400];
+        store.Render(5, 0, 1000, columns);
+        IReadOnlyList<SignalBand> bands = store.Bands(5, 0, 1000, columns);
+
+        Assert.Equal([(0, 100, 100), (100, 100, 200), (200, 100, 300)], bands.Select(b => (b.First, b.Count, b.Sample!.Value.Value)));
+
+        var steady = new TraceStore();
+        steady.Append([Pwm(0, 100), Pwm(100_000, 100)], [], false, 200_000);
+        columns = new ColumnLevel[200];
+        steady.Render(5, 0, 1000, columns);
+        Assert.Equal((0, 200), steady.Bands(5, 0, 1000, columns).Select(b => (b.First, b.Count)).Single());
+    }
+
+    [Fact]
+    public void A_tone_band_ends_where_its_frequency_changes_and_where_a_hole_starts()
+    {
+        var store = new TraceStore();
+        store.Append([new PinSample(0, 8, SignalLevel.Tone, 440), new PinSample(10_000, 8, SignalLevel.Tone, 880)], [], false, 20_000);
+        store.NoteRecording(false);
+        store.NoteRecording(true);
+        store.Append([new PinSample(30_000, 8, SignalLevel.Tone, 880)], [], false, 40_000);
+
+        var columns = new ColumnLevel[40];
+        store.Render(8, 0, 1000, columns);
+
+        Assert.Equal([(0, 10, 440), (10, 10, 880), (30, 10, 880)], store.Bands(8, 0, 1000, columns).Select(b => (b.First, b.Count, b.Sample!.Value.Value)));
+    }
+
+    [Fact]
     public void Frames_in_a_window_are_found_by_time()
     {
         var decoder = new UartDecoder(1, 9600);

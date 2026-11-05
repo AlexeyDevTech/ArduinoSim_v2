@@ -18,6 +18,10 @@ public sealed class PlotterView : FrameworkElement
 
     private static readonly double[] NiceSteps = [1, 2, 2.5, 5, 10, 20];
 
+    // A line per series, by its position. On the light canvas every color has at least 4.5:1.
+    private static readonly Brush[] DarkPalette = Palette(0x2BC4A9, 0xF0B44C, 0x3E8BFF, 0xF0605A, 0xA66CFF, 0x3BB273, 0xFF6FAE, 0xB8BEC8);
+    private static readonly Brush[] LightPalette = Palette(0x0B7A69, 0x946200, 0x1F66D1, 0xC8332D, 0x7A3FD4, 0x2A7D4F, 0xC22C7A, 0x5F6672);
+
     private const double AxisWidth = 56;
     private const double Inset = 8;
 
@@ -69,8 +73,15 @@ public sealed class PlotterView : FrameworkElement
         drawingContext.PushClip(new RectangleGeometry(plotArea));
         double step = plotArea.Width / Math.Max(1, PlotterViewModel.Capacity - 1);
         double offset = PlotterViewModel.Capacity - plotter.Count; // new samples enter at the right edge
-        foreach (PlotSeries series in plotter.Series)
+        Brush[] palette = Theme.IsLight ? LightPalette : DarkPalette;
+        for (int index = 0; index < plotter.Series.Count; index++)
         {
+            PlotSeries series = plotter.Series[index];
+            if (!series.Visible)
+            {
+                continue;
+            }
+
             var geometry = new StreamGeometry();
             using (StreamGeometryContext context = geometry.Open())
             {
@@ -98,7 +109,7 @@ public sealed class PlotterView : FrameworkElement
             }
 
             geometry.Freeze();
-            var pen = new Pen(series.Brush, 1.5) { LineJoin = PenLineJoin.Round };
+            var pen = new Pen(palette[index % palette.Length], 1.5) { LineJoin = PenLineJoin.Round };
             pen.Freeze();
             drawingContext.DrawGeometry(null, pen, geometry);
         }
@@ -107,23 +118,59 @@ public sealed class PlotterView : FrameworkElement
 
         // Legend: name and last value of every series, top-left inside the plot.
         double x = plotArea.Left + 8;
-        foreach (PlotSeries series in plotter.Series)
+        _legend.Clear();
+        for (int index = 0; index < plotter.Series.Count; index++)
         {
+            PlotSeries series = plotter.Series[index];
             double last = series.Values.LastOrDefault(v => !double.IsNaN(v), double.NaN);
             string caption = series.Name + " " + (double.IsNaN(last) ? "—" : Format(last));
-            drawingContext.DrawRectangle(series.Brush, null, new Rect(x, plotArea.Top + 6, 10, 3));
-            var label = new FormattedText(caption, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface(), 11, Resource("Brush.Text.Primary", Brushes.White), dpi);
+            var label = new FormattedText(caption, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface(), 11, Resource(series.Visible ? "Brush.Text.Primary" : "Brush.Text.Disabled", Brushes.White), dpi);
+            if (series.Visible)
+            {
+                drawingContext.DrawRectangle(palette[index % palette.Length], null, new Rect(x, plotArea.Top + 6, 10, 3));
+            }
+
             drawingContext.DrawText(label, new Point(x + 14, plotArea.Top));
+            _legend.Add((new Rect(x, plotArea.Top, 14 + label.Width, label.Height), series));
             x += 14 + label.Width + 16;
         }
     }
+
+    protected override void OnMouseLeftButtonUp(System.Windows.Input.MouseButtonEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        base.OnMouseLeftButtonUp(e);
+        Point at = e.GetPosition(this);
+        foreach ((Rect area, PlotSeries series) in _legend)
+        {
+            if (area.Contains(at))
+            {
+                series.Visible = !series.Visible;
+                InvalidateVisual();
+                e.Handled = true;
+                return;
+            }
+        }
+    }
+
+    private readonly List<(Rect Area, PlotSeries Series)> _legend = [];
+
+    private static Brush[] Palette(params int[] colors) =>
+    [
+        .. colors.Select(rgb =>
+        {
+            var brush = new SolidColorBrush(Color.FromRgb((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb));
+            brush.Freeze();
+            return (Brush)brush;
+        }),
+    ];
 
     /// <summary>The value range rounded out to whole ticks (1, 2, 2.5 or 5 times a power of ten), at most six of them.</summary>
     private static (double Min, double Max, double Tick) Range(PlotterViewModel plotter)
     {
         double min = double.PositiveInfinity;
         double max = double.NegativeInfinity;
-        foreach (double v in plotter.Series.SelectMany(s => s.Values).Where(v => !double.IsNaN(v)))
+        foreach (double v in plotter.Series.Where(s => s.Visible).SelectMany(s => s.Values).Where(v => !double.IsNaN(v)))
         {
             min = Math.Min(min, v);
             max = Math.Max(max, v);

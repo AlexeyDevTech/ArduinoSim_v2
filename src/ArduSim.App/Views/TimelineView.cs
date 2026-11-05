@@ -26,6 +26,9 @@ public sealed class TimelineView : FrameworkElement
     private const double RulerHeight = 22;
     private const double RowHeight = 28;
     private const double ClickSlop = 3;
+    private const int WheelNotch = 120;
+    private int _firstRow;
+    private int _rowWheel;
 
     private Point? _dragFrom;
     private double _dragged;
@@ -82,13 +85,15 @@ public sealed class TimelineView : FrameworkElement
         wave.Freeze();
         var columns = new ColumnLevel[(int)plotWidth];
         double y = RulerHeight;
-        foreach (TimelineRow row in timeline.Rows)
+        int visibleRows = VisibleRows;
+        _firstRow = Math.Clamp(_firstRow, 0, Math.Max(0, timeline.Rows.Count - visibleRows));
+        foreach (TimelineRow row in timeline.Rows.Skip(_firstRow).Take(visibleRows))
         {
             drawingContext.DrawLine(grid, new Point(0, y + RowHeight - 0.5), new Point(ActualWidth, y + RowHeight - 0.5));
             drawingContext.PushClip(new RectangleGeometry(new Rect(0, y, NameWidth - 18, RowHeight)));
             drawingContext.DrawText(Label(row.Title, Resource("Brush.Text.Primary", Brushes.White), 12, dip), new Point(8, y + 6));
             drawingContext.Pop();
-            drawingContext.DrawText(Label("✕", text, 10, dip), new Point(NameWidth - 16, y + 8));
+            drawingContext.DrawText(Label("✕", text, 11, dip), new Point(NameWidth - 16, y + 7));
             drawingContext.PushClip(new RectangleGeometry(new Rect(NameWidth, y, plotWidth, RowHeight)));
             if (row.Decoder is { } decoder)
             {
@@ -104,19 +109,86 @@ public sealed class TimelineView : FrameworkElement
             y += RowHeight;
         }
 
+        DrawHoles(drawingContext, timeline, y, text, dip);
         var markerPen = new Pen(Resource("Brush.Warning", Brushes.Orange), 1);
         markerPen.Freeze();
         var cursorPen = new Pen(text, 1) { DashStyle = DashStyles.Dot };
         cursorPen.Freeze();
         DrawVertical(drawingContext, timeline, timeline.Marker, markerPen, y);
         DrawVertical(drawingContext, timeline, timeline.Cursor, cursorPen, y);
+        if (timeline.Rows.Count > visibleRows)
+        {
+            // Rows past the panel's edge: a thumb beside the names, which the wheel over them moves.
+            double track = ActualHeight - RulerHeight;
+            double thumb = track * visibleRows / timeline.Rows.Count;
+            drawingContext.DrawRoundedRectangle(Resource("Brush.ScrollThumb", Brushes.Gray), null, new Rect(NameWidth - 4, RulerHeight + (track * _firstRow / timeline.Rows.Count), 3, thumb), 1.5, 1.5);
+        }
+    }
+
+    private int VisibleRows => Math.Max(1, (int)((ActualHeight - RulerHeight) / RowHeight));
+
+    /// <summary>From the keyboard: arrows pan, + and - zoom, Home and End go to the start and the latest time.</summary>
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        base.OnKeyDown(e);
+        if (Timeline is not { } timeline)
+        {
+            return;
+        }
+
+        double width = Math.Max(1, ActualWidth - NameWidth);
+        switch (e.Key)
+        {
+            case Key.Left:
+                timeline.PanBy(-width / 10);
+                break;
+            case Key.Right:
+                timeline.PanBy(width / 10);
+                break;
+            case Key.OemPlus or Key.Add:
+                timeline.ZoomAt(width / 2, 0.8);
+                break;
+            case Key.OemMinus or Key.Subtract:
+                timeline.ZoomAt(width / 2, 1.25);
+                break;
+            case Key.Home:
+                timeline.FitAllCommand.Execute(null);
+                break;
+            case Key.End:
+                timeline.GoLiveCommand.Execute(null);
+                break;
+            default:
+                return;
+        }
+
+        e.Handled = true;
+    }
+
+    protected override void OnMouseDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseDown(e);
+        Focus();
     }
 
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         ArgumentNullException.ThrowIfNull(e);
         base.OnMouseWheel(e);
-        Timeline?.ZoomAt(Math.Max(0, e.GetPosition(this).X - NameWidth), e.Delta > 0 ? 1 / 1.25 : 1.25);
+        if (e.GetPosition(this).X < NameWidth)
+        {
+            // A touchpad sends small deltas: a row moves per whole notch.
+            _rowWheel += e.Delta;
+            int rows = _rowWheel / WheelNotch;
+            _rowWheel -= rows * WheelNotch;
+            _firstRow -= rows;
+            InvalidateVisual();
+        }
+        else
+        {
+            Timeline?.ZoomAt(e.GetPosition(this).X - NameWidth, Math.Pow(1.25, -e.Delta / (double)WheelNotch));
+        }
+
         e.Handled = true;
     }
 
@@ -132,7 +204,7 @@ public sealed class TimelineView : FrameworkElement
 
         if (at.X < NameWidth)
         {
-            int index = (int)((at.Y - RulerHeight) / RowHeight);
+            int index = _firstRow + (int)((at.Y - RulerHeight) / RowHeight);
             if (at.X >= NameWidth - 20 && index >= 0 && index < timeline.Rows.Count)
             {
                 timeline.RemoveRow(timeline.Rows[index]);
@@ -203,14 +275,14 @@ public sealed class TimelineView : FrameworkElement
 
             double x = NameWidth + Math.Round((tick - timeline.ViewStart) / timeline.NsPerPixel) + 0.5;
             context.DrawLine(grid, new Point(x, RulerHeight - 6), new Point(x, ActualHeight));
-            context.DrawText(Label(TimelineViewModel.FormatTime(tick), text, 10, dip), new Point(x + 3, 3));
+            context.DrawText(Label(TimelineViewModel.FormatTick(tick, step), text, 11, dip), new Point(x + 3, 3));
         }
 
         context.DrawLine(grid, new Point(0, RulerHeight - 0.5), new Point(ActualWidth, RulerHeight - 0.5));
         context.DrawLine(grid, new Point(NameWidth - 0.5, 0), new Point(NameWidth - 0.5, ActualHeight));
     }
 
-    private static void DrawWave(DrawingContext context, TimelineViewModel timeline, int pin, ColumnLevel[] columns, double y, Pen wave, Brush accent, Brush text, double dip)
+    private void DrawWave(DrawingContext context, TimelineViewModel timeline, int pin, ColumnLevel[] columns, double y, Pen wave, Brush accent, Brush text, double dip)
     {
         double high = y + 5;
         double low = y + RowHeight - 6;
@@ -264,35 +336,55 @@ public sealed class TimelineView : FrameworkElement
         DrawBands(context, timeline, pin, columns, y, accent, text, dip);
     }
 
-    // PWM and tones are not waveforms in the simulator: a band with the duty or the frequency.
-    private static void DrawBands(DrawingContext context, TimelineViewModel timeline, int pin, ColumnLevel[] columns, double y, Brush accent, Brush text, double dip)
+    // PWM and tones are not waveforms in the simulator: a band per duty or frequency, a pixel apart when there is room.
+    private void DrawBands(DrawingContext context, TimelineViewModel timeline, int pin, ColumnLevel[] columns, double y, Brush accent, Brush text, double dip)
     {
-        int column = 0;
-        while (column < columns.Length)
+        IReadOnlyList<SignalBand> bands = timeline.Store.Bands(pin, timeline.ViewStart, timeline.NsPerPixel, columns);
+        for (int i = 0; i < bands.Count; i++)
         {
-            if ((columns[column] & (ColumnLevel.Pwm | ColumnLevel.Tone)) == 0)
+            SignalBand band = bands[i];
+            bool abuts = i + 1 < bands.Count && bands[i + 1].First == band.First + band.Count;
+            var area = new Rect(NameWidth + band.First, y + 5, abuts && band.Count > 3 ? band.Count - 1 : band.Count, RowHeight - 11);
+            context.PushOpacity(0.3);
+            context.DrawRectangle(accent, null, area);
+            context.Pop();
+            if (band.Sample is { } sample)
             {
-                column++;
+                FormattedText label = Label(
+                    sample.Level == SignalLevel.Tone
+                        ? Localization.Strings.Format("Timeline_Tone", sample.Value)
+                        : Localization.Strings.Format("Timeline_Pwm", (sample.Value / 10.0).ToString("0.#", CultureInfo.CurrentCulture)),
+                    text,
+                    11,
+                    dip);
+                if (label.Width + 8 < area.Width)
+                {
+                    context.DrawText(label, new Point(area.Left + 4, y + 6));
+                }
+            }
+        }
+    }
+
+    // Time nothing was recorded in: the rows are empty there, and the shade says why.
+    private void DrawHoles(DrawingContext context, TimelineViewModel timeline, double bottom, Brush text, double dip)
+    {
+        Brush shade = Resource("Brush.Border", Brushes.DimGray);
+        foreach (TraceHole hole in timeline.Store.Holes)
+        {
+            double left = Math.Max(NameWidth, NameWidth + (((double)hole.From - timeline.ViewStart) / timeline.NsPerPixel));
+            double right = Math.Min(ActualWidth, NameWidth + (((double)hole.To - timeline.ViewStart) / timeline.NsPerPixel));
+            if (right - left < 1)
+            {
                 continue;
             }
 
-            int first = column;
-            while (column < columns.Length && (columns[column] & (ColumnLevel.Pwm | ColumnLevel.Tone)) != 0)
-            {
-                column++;
-            }
-
-            var band = new Rect(NameWidth + first, y + 5, column - first, RowHeight - 11);
-            context.PushOpacity(0.3);
-            context.DrawRectangle(accent, null, band);
+            context.PushOpacity(0.5);
+            context.DrawRectangle(shade, null, new Rect(left, RulerHeight, right - left, bottom - RulerHeight));
             context.Pop();
-            ulong at = timeline.ViewStart + (ulong)((first + 1) * timeline.NsPerPixel);
-            if (timeline.Store.SampleAt(pin, at) is { } sample && band.Width > 40)
+            FormattedText caption = Label(Localization.Strings.Get("Timeline_NotRecorded"), text, 11, dip);
+            if (caption.Width + 8 < right - left)
             {
-                string label = sample.Level == SignalLevel.Tone
-                    ? Localization.Strings.Format("Timeline_Tone", sample.Value)
-                    : Localization.Strings.Format("Timeline_Pwm", (sample.Value / 10.0).ToString("0.#", CultureInfo.CurrentCulture));
-                context.DrawText(Label(label, text, 10, dip), new Point(band.Left + 4, y + 7));
+                context.DrawText(caption, new Point(left + 4, RulerHeight + 6));
             }
         }
     }
@@ -341,8 +433,8 @@ public sealed class TimelineView : FrameworkElement
         }
     }
 
-    private static FormattedText Label(string text, Brush brush, double size, double dip) =>
-        new(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), size, brush, dip);
+    private FormattedText Label(string text, Brush brush, double size, double dip) =>
+        new(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface((FontFamily)(TryFindResource("Font.Ui") ?? new FontFamily("Segoe UI")), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), size, brush, dip);
 
     private Brush Resource(string key, Brush fallback) => TryFindResource(key) as Brush ?? fallback;
 }

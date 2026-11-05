@@ -40,7 +40,7 @@
           <DataTemplate DataType="{x:Type vm:PinViewModel}">
             <Canvas>
               <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock x:Name="Label" Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+              <TextBlock x:Name="Label" Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
             </Canvas>
             <DataTemplate.Triggers>
               <!-- Backpack pins sit at the left edge: labels go to their right. -->
@@ -87,7 +87,7 @@
           <DataTemplate DataType="{x:Type vm:PinViewModel}">
             <Canvas>
               <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
             </Canvas>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
@@ -206,7 +206,7 @@
           <DataTemplate DataType="{x:Type vm:PinViewModel}">
             <Canvas>
               <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
             </Canvas>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
@@ -250,7 +250,7 @@
           <DataTemplate DataType="{x:Type vm:PinViewModel}">
             <Canvas>
               <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
             </Canvas>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
@@ -296,7 +296,7 @@
           <DataTemplate DataType="{x:Type vm:PinViewModel}">
             <Canvas>
               <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
             </Canvas>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
@@ -338,7 +338,7 @@
           <DataTemplate DataType="{x:Type vm:PinViewModel}">
             <Canvas>
               <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
             </Canvas>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
@@ -393,7 +393,7 @@
           <DataTemplate DataType="{x:Type vm:PinViewModel}">
             <Canvas>
               <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
             </Canvas>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
@@ -448,7 +448,7 @@
           <DataTemplate DataType="{x:Type vm:PinViewModel}">
             <Canvas>
               <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
             </Canvas>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
@@ -499,7 +499,7 @@
           <DataTemplate DataType="{x:Type vm:PinViewModel}">
             <Canvas>
               <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="3.8" Foreground="#FFE3EAF6" Text="{Binding Label}" />
+              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
             </Canvas>
           </DataTemplate>
         </ItemsControl.ItemTemplate>

@@ -14,8 +14,8 @@
       { "id": "w2", "from": { "component": "relay1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[350, 400], [250, 400]], "color": "auto" },
       { "id": "w3", "from": { "component": "relay1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[340, 410], [230, 410]], "color": "auto" },
       { "id": "w4", "from": { "component": "relay1", "pin": "COM" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[410, 420], [230, 420]], "color": "auto" },
-      { "id": "w5", "from": { "component": "relay1", "pin": "NO" }, "to": { "component": "r1", "pin": "1" }, "waypoints": [[400, ], [270, ]], "color": "auto" },
-      { "id": "w6", "from": { "component": "r1", "pin": "2" }, "to": { "component": "led1", "pin": "A" }, "waypoints": [[540, ], [270, ]], "color": "auto" },
+      { "id": "w5", "from": { "component": "relay1", "pin": "NO" }, "to": { "component": "r1", "pin": "1" }, "waypoints": [[400, 270]], "color": "auto" },
+      { "id": "w6", "from": { "component": "r1", "pin": "2" }, "to": { "component": "led1", "pin": "A" }, "waypoints": [[540, 270]], "color": "auto" },
       { "id": "w7", "from": { "component": "led1", "pin": "C" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[560, 430], [250, 430]], "color": "auto" }
     ]
   },

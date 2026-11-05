@@ -35,13 +35,13 @@ src/ArduSim.Boards     board profiles and timing tables (Nano, Uno, Mega 2560, P
 src/ArduSim.Build      Toolchains, Sketches (preprocessor), Libraries (resolver), Compilation (builder, object cache, diagnostics, FirmwareSymbols), Import (PlatformIoProject)
 src/ArduSim.Ipc        Messages (MessagePack), IpcChannel, ISimulationSession, PipeSimulationSession, CrashBlock
 src/ArduSim.Runner     Interop (SimHostApi mirror, callbacks, loader), SimulationHost (+ restart), Network (NetworkService: real sockets for ESP Wi-Fi), ProjectFolderFiles (SD card folders), Session (SessionServer, PipeServer, InProcessSimulationSession), Headless (+ PngWriter)
-src/ArduSim.App        WPF UI: MainWindow (chrome, panels), Views (SchematicCanvas, CodeEditor, LcdScreen, OledScreen, TftScreen, LedScreens, PlotterView, TimelineView, ExampleThumbnails, UnsavedDialog, SettingsDialog, AccuracySheet, converters), ViewModels (Main, Scene, Palette, Properties, CodeDocument, Plotter, Timeline), Services (build, environment, UserState, Theme, TonePlayer), Themes (Dark, Light, Controls, Parts), Localization (Strings, LogText), Resources/Strings.resx
+src/ArduSim.App        WPF UI: MainWindow (+ Shell: toolbar stages, Рядом, explorer glue, dropped folders), Views (SchematicCanvas, CodeEditor + CodeEditorAssist, LcdScreen, OledScreen, TftScreen, LedScreens, PlotterView, TimelineView, ExampleThumbnails, UnsavedDialog, SettingsDialog, AccuracySheet, ShortcutSheet, converters), ViewModels (Main + Shell, Explorer, Start; Scene, Palette, PartSearch, Properties, CodeDocument, DiagnosticHints, Plotter, Timeline), Services (build, environment, UserState, Theme, TonePlayer, ClangdClient, ExampleCatalog), Themes (Dark, Light, Controls, Parts), Localization (Strings, LogText), Resources/Strings.resx
 firmware/shim          C++ Arduino shim (ABI 2.3): shared include/ (Arduino.h, wiring_private.h, sim_abi.h, sim/ incl. timers.h, led_strip.h) and src/; cores/avr, cores/esp32, cores/esp8266 and cores/esp-common (shared by both ESP cores: WiFiNetwork, HTTPClient, EEPROM); core libraries (AVR EEPROM; ESP32 WiFi, Preferences, ESP32Servo; ESP8266WiFi); variants/nano (also Pro Mini), uno, mega, esp32-devkit, esp8266; shared libraries Wire, SPI, Servo and SD (the Arduino SD API on SdFat); test/ (harness)
 libraries/             vendored Arduino libraries (LiquidCrystal, LiquidCrystal_I2C, Adafruit_GFX, Adafruit_BusIO, Adafruit_SSD1306, Adafruit_SH110X, U8g2, GyverOLED, Keypad, DHT_sensor_library, Adafruit_Unified_Sensor, OneWire, DallasTemperature, IRremote, Adafruit_NeoPixel, FastLED, SevSeg, TM1637, LedControl, MD_MAX72XX, MD_Parola, RTClib, SdFat, Adafruit_ST7735_and_ST7789_Library, Adafruit_ILI9341, Adafruit_PCD8544_Nokia_5110_LCD_library, Adafruit_SSD1327), unmodified; libraries/compat/<library>/<path> replaces a vendored header or source at build time through a clang VFS overlay (U8g2: the ESP8266 font read; OneWire: Arduino pin calls; IRremote: the timer; NeoPixel, FastLED: the LED frame call; SdFat: open flags, a pointer print; Adafruit_BusIO: no fast pin I/O); library detection reads the replacement's includes
 examples/              user-facing example projects (Blink, Button, FloatingInput, Potentiometer, LcdHello, LcdI2c, LcdCustomChars, OledAdafruit, OledU8g2, OledGyver, Sh1106, Esp32Blink, Esp32Fade, Esp32Tasks, Esp32WiFi, Esp32Preferences, Esp32Oled, Esp8266Blink, Esp8266Fade, Esp8266WiFi, Esp8266Eeprom, Esp8266Oled, RotaryEncoder, Keypad4x4, Joystick, Dht22, Ds18b20, Ultrasonic, IrRemote, ServoKnob, Relay, SevenSegment, Tm1637, MatrixParola, MatrixLedControl, NeoPixelRing, FastLedMatrix, Ds3231Clock, SdCardLog, TftIli9341, TftSt7735, TftSt7789Esp32, Nokia5110, OledSsd1309, OledSsd1327Esp32, LcdA02, UnoBlink, Mega2560Ports, ProMini3v3, BuzzerMelody, LogicAnalyzerDemo); copied next to the app
 tests/                 ArduSim.Core.Tests, ArduSim.Build.Tests, ArduSim.App.Tests (view models, no window), ArduSim.Integration.Tests (+ Projects/ fixture sketches; PerformanceTests run alone)
 tools/                 toolchain-eval (ADR-002), nano-timing-bench (ADR-005 calibration), publish (self-contained folder)
-docs/                  BRIEF (spec), ARCHITECTURE, UI, PLAN, DECISIONS, CHANGELOG, adr/
+docs/                  BRIEF (spec), ARCHITECTURE, UI, UI-BACKLOG, PLAN, DECISIONS, CHANGELOG, adr/
 ```
 
 `firmware/` and `libraries/` are copied next to every executable that builds firmware (content items in `ArduSim.Build.csproj`).
@@ -61,7 +61,9 @@ docs/                  BRIEF (spec), ARCHITECTURE, UI, PLAN, DECISIONS, CHANGELO
 - Vendored libraries are never patched silently; fixes go to `libraries/compat/`.
 - Conventional commits on `main`, with no AI attribution in messages or PR descriptions (the owner's rule).
 
-## Known limitations (current state: M11, tools and boards)
+## Known limitations (current state: usability pass after M11; next is M12, the DC solver)
+
+- Editor: clangd answers with the file's words until it has read the headers; go to definition can open library headers as ordinary tabs. Gestures on wires, the Рядом divider and dropped folders are not automated. The usability audit's remaining items, with their fixes, are in `docs/UI-BACKLOG.md`.
 
 - Tools: hardware bus waveforms are drawn from the bytes (SPI as mode 0, no clock stretching); recording runs only while the Диаграмма tab is open; its rows are not saved; `analogWrite` on a buzzer is silent, and a tone shorter than a snapshot can be missed. Boards: the Uno's and Mega's duplicate SDA/SCL headers are not drawn; Mega timing is the Nano table. PlatformIO: `lib_deps` are not downloaded. The published folder was smoke-tested on the dev machine only.
 
@@ -75,7 +77,7 @@ docs/                  BRIEF (spec), ARCHITECTURE, UI, PLAN, DECISIONS, CHANGELO
 - ESP32: FreeRTOS tasks are cooperative (no preemption, core number ignored); Wi-Fi networks and the real-network switch are edited in `project.simproj.json` only (`settings.wifi`, `settings.network`); hardware timers, touch, the temperature sensor, deep-sleep wake-ups other than the timer, client TLS certificates are not simulated; every ESP.restart() loads another copy of firmware.dll and parks a thread.
 
 - The brief §7 acceptance pass on a clean Windows VM has not been done (everything was checked on the dev machine only).
-- Not in the UI yet: live levels in the properties pin list, common properties for a multi-selection. Параметры holds only the theme.
+- Параметры holds the theme and the canvas hint switch.
 - Canvas mouse gestures and palette drag and drop have no automated checks; the automated checks drive the view models and render the window offscreen. Canvas fps and App memory are measured by offscreen scenario runs, not in `dotnet test`.
 - I2C and SPI are master-only; I2C is hardware-only (no bit-banged I2C, no slave mode). SPI modes 1 and 2 warn (device models sample on the rising edge).
 - HD44780: no 5x10 font (drawn as 5x8). LiquidCrystal_I2C has no license of its own (bundled on the owner's decision; see THIRD_PARTY.md).

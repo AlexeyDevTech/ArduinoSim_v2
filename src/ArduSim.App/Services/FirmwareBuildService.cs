@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net.Http;
 using ArduSim.Build;
 using ArduSim.Build.Compilation;
@@ -27,7 +28,7 @@ public sealed class FirmwareBuildService : IDisposable
     public Task<Toolchain> InstallToolchainAsync(IProgress<ToolchainProgress> progress, CancellationToken cancellationToken) =>
         _toolchains.EnsureInstalledAsync(progress, cancellationToken);
 
-    public static Task<BuildResult> BuildAsync(Toolchain toolchain, string projectDirectory, ProjectFile project, BoardProfile board, CancellationToken cancellationToken)
+    public static Task<BuildResult> BuildAsync(Toolchain toolchain, string projectDirectory, ProjectFile project, BoardProfile board, IProgress<BuildProgress>? progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(board);
@@ -42,7 +43,35 @@ public sealed class FirmwareBuildService : IDisposable
             board.Core,
             board.CoreBase,
             [.. project.IncludeDirectories(projectDirectory)]);
-        return Task.Run(() => builder.BuildAsync(request, cancellationToken), cancellationToken);
+        return Task.Run(() => builder.BuildAsync(request, progress, cancellationToken), cancellationToken);
+    }
+
+    /// <summary>
+    /// What clangd needs to read this project's code as the build does (ADR-016): the shim, the board's
+    /// variant and macros, every library's headers, and Arduino.h included first, as in a sketch.
+    /// </summary>
+    public static IReadOnlyList<string> EditorFlags(ProjectFile project, string projectDirectory, BoardProfile board)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(board);
+        ShimLayout shim = ShimLayout.Bundled;
+        string[] cores = [shim.CoreDirectory(board.Core), .. board.CoreBase is { } shared ? [shim.CoreDirectory(shared)] : Array.Empty<string>()];
+        var flags = new List<string> { "-xc++", "-std=gnu++17", "--target=x86_64-w64-mingw32", "-include", "Arduino.h" };
+        flags.AddRange(board.Defines.Select(d => "-D" + d));
+        flags.AddRange((project.Settings.Defines ?? []).Select(d => "-D" + d));
+        flags.Add("-I" + shim.IncludeDirectory);
+        flags.AddRange(cores.Select(c => Path.Combine(c, "include")).Where(Directory.Exists).Select(i => "-I" + i));
+        flags.Add("-I" + shim.VariantDirectory(board.Variant));
+        flags.Add("-I" + project.SketchDirectory(projectDirectory));
+        flags.AddRange(project.IncludeDirectories(projectDirectory).Select(i => "-I" + i));
+        IEnumerable<string> roots = [.. cores.Select(c => Path.Combine(c, "libraries")), shim.LibrariesDirectory, .. ArduSimPaths.LibraryRoots(project.LibraryDirectories(projectDirectory))];
+        foreach (string library in roots.Where(Directory.Exists).SelectMany(Directory.EnumerateDirectories))
+        {
+            string source = Path.Combine(library, "src");
+            flags.Add("-I" + (Directory.Exists(source) ? source : library));
+        }
+
+        return flags;
     }
 
     public void Dispose() => _http.Dispose();

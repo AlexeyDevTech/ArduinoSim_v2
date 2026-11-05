@@ -1,9 +1,9 @@
 // LogicAnalyzerDemo: something to look at on the Диаграмма tab. Every half second the Nano reads the
 // seconds from a DS3231 over I2C, draws them on a MAX7219 over hardware SPI, reports them on Serial,
 // shifts the same byte out by hand on D4/D3 (bit-banged SPI: D3 clock, D4 data) and dims an LED on D5.
-// Open Диаграмма, then + Шина: I2C, SPI, Serial TX, and Другие выводы: SPI, MOSI D4, SCK D3 for the
-// bit-banged byte; + Сигнал: D3, D4, D5, D10. Press Run; zoom with the wheel, drag to pan, click to
-// set the marker that Δ measures from.
+// Opening this example adds the rows to Диаграмма: the I2C, SPI and Serial buses, the bit-banged SPI on
+// D4 and D3, and the pins D3, D4, D5, D10. Press Run; zoom with the wheel, drag to pan, click to set
+// the marker that Δ measures from.
 
 #include <SPI.h>
 #include <Wire.h>
