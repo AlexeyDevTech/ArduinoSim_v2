@@ -98,11 +98,54 @@
       </Border>
     </DataTemplate>
 
+    <!-- The right panel's transitions on the Экраны tab: what starts one and where it leads. -->
+    <DataTemplate x:Key="ScreenTransitionList">
+      <ItemsControl ItemsSource="{Binding}" IsTabStop="False">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type vm:TransitionRow}">
+            <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,4,0,6">
+              <StackPanel>
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Width="24" Height="24" FontSize="10" Content="&#xE711;" Margin="4,0,0,0" ToolTip="{l:Loc Screens_RemoveRow}"
+                          Command="{Binding DataContext.Screens.RemoveTransitionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                          Visibility="{Binding CanRemove, Converter={StaticResource BoolToVisibility}}" />
+                  <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Width="24" Height="24" FontSize="12" Content="&#xE943;" Margin="4,0,0,0" ToolTip="{l:Loc Screens_GoToCode}"
+                          Command="{Binding DataContext.Screens.GoToTransitionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                          Visibility="{Binding HasCode, Converter={StaticResource BoolToVisibility}}" />
+                  <Grid>
+                    <ComboBox ItemsSource="{Binding Triggers}" SelectedItem="{Binding SelectedTrigger}" DisplayMemberPath="Label" Visibility="{Binding CanEditTrigger, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Text="{Binding TriggerText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Tip}"
+                               Visibility="{Binding CanEditTrigger, Converter={StaticResource InvertBoolToVisibility}}" />
+                  </Grid>
+                </DockPanel>
+                <TextBox Text="{Binding TriggerValue}" Height="28" Margin="0,4,0,0" ToolTip="{l:Loc Screens_TriggerValueTip}" Visibility="{Binding NeedsValue, Converter={StaticResource BoolToVisibility}}" />
+                <DockPanel Margin="0,4,0,0">
+                  <TextBlock DockPanel.Dock="Left" Text="→" Style="{StaticResource Caption}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                  <Grid>
+                    <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}" DisplayMemberPath="Label" Visibility="{Binding CanEditTarget, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Text="{Binding TargetText}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{l:Loc Screens_SharedTargetTip}"
+                               Visibility="{Binding CanEditTarget, Converter={StaticResource InvertBoolToVisibility}}" />
+                  </Grid>
+                </DockPanel>
+                <TextBlock Text="{Binding Tip}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="{Binding Tip, Converter={StaticResource NullToVisibility}}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </DataTemplate>
+
     <!-- Center tab headers -->
     <DataTemplate DataType="{x:Type vm:SceneTab}">
       <StackPanel Orientation="Horizontal">
         <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE950;" Margin="0,0,8,0" />
         <TextBlock Text="{l:Loc Tab_Scene}" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:ScreensTab}">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE7F4;" Margin="0,0,8,0" />
+        <TextBlock Text="{l:Loc Tab_Screens}" />
       </StackPanel>
     </DataTemplate>
     <DataTemplate DataType="{x:Type vm:CodeDocumentViewModel}">
@@ -334,6 +377,7 @@
               <ListBox Style="{StaticResource ListBox.Segmented}" SelectedIndex="{Binding LeftTab}" HorizontalAlignment="Left">
                 <ListBoxItem Content="{l:Loc Panel_Palette}" ToolTip="{l:Loc Panel_PaletteTip}" />
                 <ListBoxItem Content="{l:Loc Panel_Project}" ToolTip="{l:Loc Panel_ProjectTip}" />
+                <ListBoxItem Content="{l:Loc Panel_Screens}" ToolTip="{l:Loc Panel_ScreensTip}" Visibility="{Binding HasScreensTab, Converter={StaticResource BoolToVisibility}}" />
               </ListBox>
             </DockPanel>
 
@@ -374,6 +418,37 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </ScrollViewer>
+            </DockPanel>
+
+            <!-- Screens: the list of the Экраны tab (ADR-019) -->
+            <DockPanel Visibility="{Binding DataContext.LeftTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource IsVisibleWhen}, ConverterParameter=2}" DataContext="{Binding Screens}">
+              <TextBlock DockPanel.Dock="Top" Text="{l:Loc Screens_AddInCodeHint}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="12,0,12,8" Visibility="{Binding IsFromCode, Converter={StaticResource BoolToVisibility}}" />
+              <WrapPanel DockPanel.Dock="Top" Margin="12,0,12,8" Visibility="{Binding IsFromCode, Converter={StaticResource InvertBoolToVisibility}}">
+                <Button Command="{Binding AddScreenCommand}" ToolTip="{l:Loc Screens_AddScreenTip}" Margin="0,0,4,0">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE710;" Margin="0,0,6,0" />
+                    <TextBlock Text="{l:Loc Screens_AddScreen}" />
+                  </StackPanel>
+                </Button>
+                <Button Command="{Binding AddMenuScreenCommand}" ToolTip="{l:Loc Screens_AddMenuTip}">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Icon}" FontSize="14" Text="&#xE710;" Margin="0,0,6,0" />
+                    <TextBlock Text="{l:Loc Screens_AddMenu}" />
+                  </StackPanel>
+                </Button>
+              </WrapPanel>
+              <ListBox Style="{StaticResource ListBox.Palette}" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" MouseDoubleClick="OnScreenRowDoubleClick" Margin="8,0,8,8">
+                <ListBox.ItemTemplate>
+                  <DataTemplate DataType="{x:Type vm:ScreenRow}">
+                    <DockPanel>
+                      <TextBlock DockPanel.Dock="Right" Text="{Binding Transitions}" Style="{StaticResource Caption}" Margin="8,0,0,0" ToolTip="{l:Loc Screens_RowTransitionsTip}" />
+                      <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" FontSize="12" Text="&#xE768;" Margin="0,0,6,0" Foreground="{DynamicResource Brush.Accent}" ToolTip="{l:Loc Screens_IsStart}"
+                                 Visibility="{Binding IsStart, Converter={StaticResource BoolToVisibility}}" />
+                      <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    </DockPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
             </DockPanel>
 
             <!-- Project explorer -->
@@ -511,6 +586,7 @@
           </Grid.ColumnDefinitions>
           <v:SchematicCanvas x:Name="Canvas" DataContext="{Binding Scene}" ShowHelpRequested="OnShowHelp" AddPartRequested="OnAddPartRequested" OpenPropertiesRequested="OnOpenProperties"
                              Visibility="{Binding DataContext.IsCanvasVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
+          <v:ScreensView DataContext="{Binding Screens}" Visibility="{Binding DataContext.IsScreensTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
           <GridSplitter x:Name="CodeSplitter" Grid.Column="1" Style="{StaticResource Splitter.Vertical}" DragCompleted="OnSplitterDragCompleted"
                         Visibility="{Binding SplitView, Converter={StaticResource BoolToVisibility}}" />
           <ItemsControl x:Name="Editors" ItemsSource="{Binding Tabs}" IsTabStop="False">
@@ -521,6 +597,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.Resources>
               <DataTemplate DataType="{x:Type vm:SceneTab}" />
+              <DataTemplate DataType="{x:Type vm:ScreensTab}" />
               <DataTemplate DataType="{x:Type vm:CodeDocumentViewModel}">
                 <v:CodeEditor>
                   <v:CodeEditor.Visibility>
@@ -647,6 +724,70 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
+                <!-- The selected screen on the Экраны tab: what leads away from it, its menu, and the way to its code (ADR-019). -->
+                <StackPanel DataContext="{Binding DataContext.Screens, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Visibility="{Binding DataContext.IsScreensTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{Binding ElementNote}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"
+                             Visibility="{Binding ElementNote, Converter={StaticResource NullToVisibility}}" />
+                  <WrapPanel Margin="0,0,0,12">
+                    <Button Content="{l:Loc Screens_GoToCode}" Command="{Binding GoToCodeCommand}" Margin="0,0,4,4" Visibility="{Binding HasSourceLink, Converter={StaticResource BoolToVisibility}}" />
+                    <Button Content="{l:Loc Screens_SetStart}" Command="{Binding SetStartCommand}" Margin="0,0,4,4" ToolTip="{l:Loc Screens_SetStartTip}" Visibility="{Binding CanSetStart, Converter={StaticResource BoolToVisibility}}" />
+                    <Button Content="{l:Loc Screens_Remove}" Command="{Binding RemoveSelectedCommand}" Margin="0,0,4,4" ToolTip="{l:Loc Screens_RemoveTip}" Visibility="{Binding CanRemoveSelected, Converter={StaticResource BoolToVisibility}}" />
+                  </WrapPanel>
+
+                  <!-- Menu items -->
+                  <StackPanel Visibility="{Binding HasMenu, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,12">
+                    <DockPanel Margin="0,0,0,4">
+                      <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Width="24" Height="24" FontSize="12" Content="&#xE710;" Command="{Binding AddMenuItemCommand}" ToolTip="{l:Loc Screens_AddMenuItem}" Visibility="{Binding IsGenerated, Converter={StaticResource BoolToVisibility}}" />
+                      <TextBlock Text="{l:Loc Screens_MenuItems}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <ItemsControl ItemsSource="{Binding MenuRows}" IsTabStop="False">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:MenuRow}">
+                          <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,4,0,6">
+                            <StackPanel>
+                              <DockPanel>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Width="24" Height="24" FontSize="10" Content="&#xE711;" Margin="4,0,0,0" ToolTip="{l:Loc Screens_RemoveRow}"
+                                        Command="{Binding DataContext.Screens.RemoveMenuItemCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                                        Visibility="{Binding CanRemove, Converter={StaticResource BoolToVisibility}}" />
+                                <TextBox Text="{Binding Text}" Height="28" IsEnabled="{Binding CanEditText}" />
+                              </DockPanel>
+                              <DockPanel Margin="0,4,0,0">
+                                <TextBlock DockPanel.Dock="Left" Text="→" Style="{StaticResource Caption}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <Grid>
+                                  <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}" DisplayMemberPath="Label" Visibility="{Binding CanEditTarget, Converter={StaticResource BoolToVisibility}}" />
+                                  <TextBlock Text="{Binding TargetText}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                             Visibility="{Binding CanEditTarget, Converter={StaticResource InvertBoolToVisibility}}" />
+                                </Grid>
+                              </DockPanel>
+                              <StackPanel Margin="16,4,0,0" Visibility="{Binding NeedsAction, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="{l:Loc Screens_ActionLabel}" Style="{StaticResource Caption}" Margin="0,0,0,2" />
+                                <TextBox Text="{Binding Action}" Height="28" FontFamily="{DynamicResource Font.Mono}" ToolTip="{l:Loc Screens_ActionTip}" />
+                              </StackPanel>
+                            </StackPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+
+                  <!-- Transitions -->
+                  <StackPanel Visibility="{Binding ShowsScreenPanel, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,12">
+                    <DockPanel Margin="0,0,0,4">
+                      <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Width="24" Height="24" FontSize="12" Content="&#xE710;" Command="{Binding AddTransitionCommand}" ToolTip="{l:Loc Screens_AddTransition}" Visibility="{Binding IsGenerated, Converter={StaticResource BoolToVisibility}}" />
+                      <TextBlock Text="{l:Loc Screens_Transitions}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <ContentControl Content="{Binding TransitionRows}" ContentTemplate="{StaticResource ScreenTransitionList}" IsTabStop="False" />
+                  </StackPanel>
+                  <StackPanel Visibility="{Binding ShowsAnywhere, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,12">
+                    <DockPanel Margin="0,0,0,4">
+                      <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Width="24" Height="24" FontSize="12" Content="&#xE710;" Command="{Binding AddAnywhereCommand}" ToolTip="{l:Loc Screens_AddTransition}" Visibility="{Binding IsGenerated, Converter={StaticResource BoolToVisibility}}" />
+                      <TextBlock Text="{l:Loc Screens_FromAnywhere}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <ContentControl Content="{Binding AnywhereRows}" ContentTemplate="{StaticResource ScreenTransitionList}" IsTabStop="False" />
+                  </StackPanel>
+                </StackPanel>
+
                 <!-- The project's saved memory: only this button resets it short of deleting files by hand. -->
                 <Button DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" Command="{Binding ClearEepromCommand}" HorizontalAlignment="Left" Margin="0,0,0,12"
                         ToolTip="{l:Loc Properties_ClearEepromTip}" Visibility="{Binding ShowProjectActions, Converter={StaticResource BoolToVisibility}}">
@@ -704,6 +845,9 @@
                       <Setter Property="Visibility" Value="Visible" />
                       <Style.Triggers>
                         <DataTrigger Binding="{Binding Mode}" Value="Project">
+                          <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Mode}" Value="External">
                           <Setter Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
                       </Style.Triggers>

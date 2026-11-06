@@ -7,6 +7,7 @@ One folder per example project (ADR-008 layout). Every example is built and run 
 | Blink | D13 and an external LED toggling every second |
 | Button | INPUT_PULLUP, debouncing, a toggled LED, Serial |
 | FloatingInput | the floating-input warning |
+| ScreensMenu | screens and transitions from the Экраны tab: a menu on a rotary encoder, values from `ui_hooks.cpp`, home from any screen (20x4 LCD on I2C) |
 | LcdHello | LiquidCrystal on a 20x4 LCD in 4-bit mode: hello, world!, a seconds counter, a createChar glyph |
 | LcdI2c | LiquidCrystal_I2C on a 16x2 LCD with a PCF8574 backpack at 0x27 |
 | LcdCustomChars | createChar glyphs and scrollDisplayLeft over I2C |

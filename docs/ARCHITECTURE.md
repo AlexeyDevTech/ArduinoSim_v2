@@ -29,7 +29,7 @@ ArduSim compiles an Arduino sketch with a host C++ compiler against our own Ardu
 
 | Project | Contains | May reference |
 | --- | --- | --- |
-| `ArduSim.Core` | virtual clock, scheduler, circuit (nets), parts (definitions and behaviors), MCU model, project file, display controllers (M4+) | nothing of ours |
+| `ArduSim.Core` | virtual clock, scheduler, circuit (nets), parts (definitions and behaviors), MCU model, project file, display controllers (M4+), screens and their code (ADR-019) | nothing of ours |
 | `ArduSim.Boards` | board profiles, pin maps, timing tables, compiler macros | Core |
 | `ArduSim.Build` | toolchain manager, `.ino` preprocessor, library resolver, library catalog and installer (ADR-018), compiler driver, object cache, diagnostics parser, PDB symbolization | nothing of ours |
 | `ArduSim.Ipc` | message records, framing, `ISimulationSession`, `PipeSimulationSession`, crash block | nothing of ours |
@@ -105,6 +105,7 @@ firmware/shim/
 - `Editing`: the scene as the editor changes it, UI-free and unit-tested. `SceneModel` (mutable parts and wires, to and from `SceneDocument`), `SceneEditor` (every edit: place with ids, move, rotate about the selection keeping pins on the 0.1" grid, flip, delete, wires with waypoints, properties, rename, copy/paste as JSON; snapshot undo/redo; pin positions, bounds, orthogonal routes, nets and their kind for coloring).
 - `Diagnostics.SimulationLog`: messages are interpolated strings; each entry keeps the English text, a key (`code` or `code.variant`) and the formatted arguments, so the App shows its own translation.
 - `Projects`: `ProjectFile` (load, atomic save that keeps unknown members) and `ProjectTemplate` (a new project: the board and an empty sketch).
+- `Screens` (ADR-019), UI-free: `ScreenModel` (`ScreenDocument`, the file `screens.json`), `SketchScanner` and `BodyWalker` (a tolerant reading of C++: tokens, enums, functions, displays; statements with the conditions around them), `ScreenCodeAnalyzer` (a document from sources; `DisplayIn` finds a display object that generated code can share), `ScreenCodeEdits` (one-token edits, refused if the text moved), `ScreenHardware` (the display and inputs off a scene), `ScreenCodeGenerator` (`ui_screens.*`, `ui_hooks.cpp`, the lines that connect a sketch), `ScreenEditor` (a generated project's undoable edits), `ScreenMapLayout`.
 
 ## UI (`ArduSim.App`)
 
@@ -114,6 +115,7 @@ firmware/shim/
 - Display rendering converts frames from snapshots into `WriteableBitmap`s shown with nearest-neighbor scaling: `Views.LcdScreen` draws the HD44780 glass dot by dot, `Views.OledScreen` the OLED pixels (gray levels too), `Views.TftScreen` color TFTs and the Nokia 5110 glass, and `Views.LedScreens` seven-segment digits, LED matrices and WS2812 LEDs (as drawings) (with a gap between them when zoomed in, a glow, the panel color and contrast) at the zoom's resolution (the canvas reports device pixels per unit through `SceneViewModel.SetPixelsPerUnit`); identical frames are skipped.
 - `PlotterViewModel` parses Serial lines for the Serial Plotter tab, `Views.PlotterView` draws it. `Services.Theme` swaps the token dictionary (`Themes/Dark.xaml` or `Themes/Light.xaml`, same keys); views that draw with code-side colors (canvas grid, code editor, plotter, wire palette) follow its `Changed` event. `Views.ExampleThumbnails` renders each example's scene with an offscreen `SchematicCanvas` for the start view, at idle priority.
 - `TimelineViewModel` and `Views.TimelineView` are the Диаграмма tab. `Services.WaveOutTonePlayer` (behind `ITonePlayer`; silent in tests) plays the buzzers' tones through winmm.
+- The Экраны tab (`docs/UI.md` §2.10): `ScreensViewModel` works through `IScreensHost`, which `MainViewModel.Screens.cs` implements: sources from open documents first, edits through their `TextDocument`. `Views.ScreenMapView` and `Views.ScreenFaceView` draw with `DrawingContext` and turn gestures into view-model calls; `Views.ScreenPreview` makes a screen's bitmap. The right panel is `PropertiesViewModel` in its `External` mode, plus rows bound to `ScreensViewModel`. `BuildFirmwareAsync` generates before compiling.
 - Opening a folder with `platformio.ini` and no project imports it in place (`ArduSim.Build.Import.PlatformIoProject`, ADR-015).
 - Dialogs: unsaved changes, Параметры (theme), and the "О точности симуляции" side sheet.
 - All strings come from `Resources/Strings.resx` (Russian neutral); simulation log entries are translated by key (`Log_<key>`), falling back to Core's English text.
@@ -128,7 +130,7 @@ firmware/shim/
 | Recent projects, panel layout, theme | `%LOCALAPPDATA%\ArduSim\ui-state.json` |
 | The Arduino library catalog's saved copy and its ETag | `%LOCALAPPDATA%\ArduSim\library-index` |
 | Libraries added to a project | `<project>\libs`, with the project (ADR-018) |
-| Project | its folder: `project.simproj.json`, `sketch/`, `eeprom.bin` (ADR-008), `preferences.json` (ESP32), an SD card's folder (`sd/`, ADR-012) |
+| Project | its folder: `project.simproj.json`, `sketch/`, `eeprom.bin` (ADR-008), `preferences.json` (ESP32), an SD card's folder (`sd/`, ADR-012), `screens.json` (ADR-019) |
 
 ## Testing
 

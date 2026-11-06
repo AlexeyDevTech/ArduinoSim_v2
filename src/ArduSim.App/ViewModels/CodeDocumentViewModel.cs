@@ -94,6 +94,9 @@ public sealed partial class CodeDocumentViewModel : ObservableObject
     /// <summary>The file was not UTF-8 (a sketch from an old Arduino IDE): it was read as Windows-1251 and will be saved as UTF-8.</summary>
     public bool LegacyEncoding { get; private set; }
 
+    /// <summary>A source file's text, read as a tab would read it.</summary>
+    public static string ReadFile(string path) => ReadText(path, out _);
+
     private static string ReadText(string path, out bool legacy)
     {
         byte[] bytes = File.ReadAllBytes(path);

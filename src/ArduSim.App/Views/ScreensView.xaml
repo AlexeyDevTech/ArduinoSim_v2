@@ -1,0 +1,64 @@
+<UserControl x:Class="ArduSim.App.Views.ScreensView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="clr-namespace:ArduSim.App.Localization"
+             xmlns:v="clr-namespace:ArduSim.App.Views"
+             Background="{DynamicResource Brush.Canvas}">
+  <UserControl.Resources>
+    <v:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+    <v:BoolToVisibilityConverter x:Key="InvertBoolToVisibility" Invert="True" />
+    <Style x:Key="Line.WhenText" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Style.Triggers>
+        <Trigger Property="Text" Value="">
+          <Setter Property="Visibility" Value="Collapsed" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+  </UserControl.Resources>
+
+  <Grid>
+    <!-- No screens yet: one clear way to start. -->
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520" Visibility="{Binding IsEmptyProject, Converter={StaticResource BoolToVisibility}}">
+      <TextBlock Text="{l:Loc Screens_EmptyTitle}" FontSize="{DynamicResource FontSize.Title}" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,8" />
+      <TextBlock Text="{l:Loc Screens_EmptyBody}" Style="{StaticResource Caption}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,16" />
+      <Button Style="{StaticResource Button.Primary}" Content="{l:Loc Screens_Create}" Command="{Binding CreateCommand}" HorizontalAlignment="Center" Padding="16,0" />
+      <TextBlock Text="{Binding Notice}" Style="{StaticResource Line.WhenText}" Foreground="{DynamicResource Brush.Warning}" TextAlignment="Center" Margin="0,12,0,0" />
+    </StackPanel>
+
+    <DockPanel Visibility="{Binding HasDocument, Converter={StaticResource BoolToVisibility}}">
+      <DockPanel DockPanel.Dock="Top" Margin="8,6,8,6" LastChildFill="False">
+        <ListBox DockPanel.Dock="Left" Style="{StaticResource ListBox.Segmented}" SelectedIndex="{Binding FaceIndex}" Margin="0,0,12,0">
+          <ListBoxItem Content="{l:Loc Screens_Map}" ToolTip="{l:Loc Screens_MapTip}" />
+          <ListBoxItem Content="{l:Loc Screens_Face}" ToolTip="{l:Loc Screens_FaceTip}" />
+        </ListBox>
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Visibility="{Binding CanAddElements, Converter={StaticResource BoolToVisibility}}">
+          <Button Content="{l:Loc Screens_AddText}" Command="{Binding AddElementCommand}" CommandParameter="Text" Margin="0,0,4,0" Padding="10,0" />
+          <Button Content="{l:Loc Screens_AddValue}" Command="{Binding AddElementCommand}" CommandParameter="Value" ToolTip="{l:Loc Screens_AddValueTip}" Margin="0,0,4,0" Padding="10,0" />
+          <StackPanel Orientation="Horizontal" Visibility="{Binding IsOled, Converter={StaticResource BoolToVisibility}}">
+            <Button Content="{l:Loc Screens_AddLine}" Command="{Binding AddElementCommand}" CommandParameter="Line" Margin="0,0,4,0" Padding="10,0" />
+            <Button Content="{l:Loc Screens_AddFrame}" Command="{Binding AddElementCommand}" CommandParameter="Frame" Margin="0,0,4,0" Padding="10,0" />
+            <Button Content="{l:Loc Screens_AddBox}" Command="{Binding AddElementCommand}" CommandParameter="Box" Margin="0,0,4,0" Padding="10,0" />
+          </StackPanel>
+        </StackPanel>
+        <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE72C;" Command="{Binding RefreshCommand}" ToolTip="{l:Loc Screens_RefreshTip}" Visibility="{Binding IsFromCode, Converter={StaticResource BoolToVisibility}}" />
+        <Button DockPanel.Dock="Right" Content="{l:Loc Screens_ShowCode}" Command="{Binding ShowGeneratedCodeCommand}" ToolTip="{l:Loc Screens_ShowCodeTip}" Padding="10,0" Margin="4,0,0,0" Visibility="{Binding IsGenerated, Converter={StaticResource BoolToVisibility}}" />
+        <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE9A6;" Click="OnFit" ToolTip="{l:Loc Screens_FitTip}" Visibility="{Binding IsMap, Converter={StaticResource BoolToVisibility}}" />
+        <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE7A6;" Command="{Binding RedoEditCommand}" ToolTip="{l:Loc Screens_RedoTip}" />
+        <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE7A7;" Command="{Binding UndoEditCommand}" ToolTip="{l:Loc Screens_UndoTip}" />
+      </DockPanel>
+
+      <StackPanel DockPanel.Dock="Bottom" Margin="10,4,10,8">
+        <TextBlock Text="{Binding Notice}" Style="{StaticResource Line.WhenText}" Foreground="{DynamicResource Brush.Warning}" />
+        <TextBlock Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis">
+          <Run Text="{Binding DisplayText, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding SourceText, Mode=OneWay}" />
+        </TextBlock>
+      </StackPanel>
+
+      <Grid>
+        <v:ScreenMapView x:Name="Map" Visibility="{Binding IsMap, Converter={StaticResource BoolToVisibility}}" />
+        <v:ScreenFaceView Visibility="{Binding IsFace, Converter={StaticResource BoolToVisibility}}" />
+      </Grid>
+    </DockPanel>
+  </Grid>
+</UserControl>

@@ -455,7 +455,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             PropertiesOpen = PropertiesOpen,
             BottomOpen = BottomOpen || BottomAutoFolded,
             BottomTab = SelectedBottomTab,
-            LeftTab = LeftTab,
+            LeftTab = LeftTab == ScreensPage ? Math.Max(_pageBeforeScreens, 0) : LeftTab,
             SplitView = SplitView,
             SplitRatio = splitRatio,
             CollapsedCategories = Palette.CollapsedCategories,
@@ -694,6 +694,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
 
         SelectedTab = SceneTab.Instance;
+        FindScreensInSketch();
         _revision = _savedRevision = 0;
         _settingsDirty = false;
         _loading = false;
@@ -757,6 +758,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         Tabs.Clear();
         SelectedTab = null;
+        CloseScreens();
         Properties = null;
         Scene = null;
         OnBoardSet(null);
@@ -859,6 +861,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         _revision++;
         UpdateDirty();
+        UpdateScreensTab();
         UndoCommand.NotifyCanExecuteChanged();
         RedoCommand.NotifyCanExecuteChanged();
     }
@@ -1123,8 +1126,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private CodeDocumentViewModel AddDocument(string path)
     {
-        var document = new CodeDocumentViewModel(path) { IsReadOnly = !IsInProject(path) };
+        var document = new CodeDocumentViewModel(path) { IsReadOnly = !IsInProject(path) || IsGeneratedScreenCode(path) };
         document.PropertyChanged += OnDocumentChanged;
+        document.Document.TextChanged += (_, _) => OnSketchTextChanged();
         document.Diagnostics = [.. Diagnostics.Select(d => d.Diagnostic).Where(d => d.File is not null && SamePath(d.File, path))];
         Tabs.Add(document);
         if (document.LegacyEncoding)
@@ -1238,15 +1242,35 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     // ---- scene -----------------------------------------------------------------------------------
 
-    private bool CanUndo() => Scene is { IsLocked: false } scene && scene.Editor.CanUndo && CanEdit && IsCanvasVisible;
+    private bool CanUndo() => IsScreensTab ? Screens?.CanUndoEdit == true : Scene is { IsLocked: false } scene && scene.Editor.CanUndo && CanEdit && IsCanvasVisible;
 
-    private bool CanRedo() => Scene is { IsLocked: false } scene && scene.Editor.CanRedo && CanEdit && IsCanvasVisible;
+    private bool CanRedo() => IsScreensTab ? Screens?.CanRedoEdit == true : Scene is { IsLocked: false } scene && scene.Editor.CanRedo && CanEdit && IsCanvasVisible;
 
     [RelayCommand(CanExecute = nameof(CanUndo))]
-    private void Undo() => Scene?.Editor.Undo();
+    private void Undo()
+    {
+        if (IsScreensTab)
+        {
+            Screens?.UndoEditCommand.Execute(null);
+        }
+        else
+        {
+            Scene?.Editor.Undo();
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanRedo))]
-    private void Redo() => Scene?.Editor.Redo();
+    private void Redo()
+    {
+        if (IsScreensTab)
+        {
+            Screens?.RedoEditCommand.Execute(null);
+        }
+        else
+        {
+            Scene?.Editor.Redo();
+        }
+    }
 
     [RelayCommand]
     private void TogglePalette() => PaletteOpen = !PaletteOpen;
@@ -1321,6 +1345,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             return false;
         }
 
+        GenerateScreens();
         Toolchain? toolchain = _builds.FindToolchain();
         if (toolchain is null)
         {
@@ -1504,7 +1529,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
 
         RestoreAfterFailure();
-        if (!SplitView && SelectedTab is CodeDocumentViewModel)
+        if (IsScreensTab || (!SplitView && SelectedTab is CodeDocumentViewModel))
         {
             SelectedTab = SceneTab.Instance;
         }

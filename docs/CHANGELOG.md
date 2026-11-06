@@ -1,5 +1,17 @@
 # Changelog
 
+## Screens and transitions (2026-11-06)
+
+The owner's request: an editor of screens and transitions for projects with a 1602, 2004 or OLED display, and forming that structure from an existing project when possible (ADR-019).
+
+- A new tab, Экраны, beside Схема. Карта shows every screen as a picture with its transitions as labelled arrows; Экран shows one large, with its text dragged by character or by pixel. The left panel lists the screens, the right panel shows what is selected, and Рядом keeps the code beside the tab.
+- A project with screens in its code gets all this from the code. It finds the screen variable, the transitions with their keys and menu items, the screens' text, menus and values, through wrappers such as a project's own buffer class in front of the display. The code stays the source of truth: what was read as exactly one token changes in place, in its tab, with undo; what is computed at run time is shown and left alone; a line says why. Only map positions are stored, in `screens.json`.
+- A project without screens can create them. `screens.json` is then the model, `ui_screens.h` and `ui_screens.cpp` are generated from it before each build (a `switch` per screen, no heap, no warnings), and `ui_hooks.cpp` is yours and only ever added to. The display, buttons, keypad and encoder come from the schematic. Drag from one card to another to connect them. A sketch's own display object stays its own.
+- All this was built and run on the simulated hardware: a 2004 on I2C and a 1602 on parallel pins, with buttons, a keypad and an encoder; an SSD1306 and an SH1106 with Adafruit's libraries; U8g2, GyverOLED and Adafruit with a display object the sketch already had.
+- New example: ScreensMenu.
+
+How to try it: open the ScreensMenu example, then Экраны, and drag a card or, on Экран, a text; Запуск, then press the encoder's knob. Or open a project with screens in its code and look at the map.
+
 ## Libraries are added, not configured (2026-11-06)
 
 The owner's request: the text field «Папки библиотек (через ;)» asked for paths nobody could guess, and a wrong one said nothing (ADR-018).

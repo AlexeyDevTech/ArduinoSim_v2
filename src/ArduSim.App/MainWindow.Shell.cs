@@ -166,6 +166,15 @@ public partial class MainWindow
         menu.IsOpen = true;
     }
 
+    /// <summary>A double click in the list of screens opens that screen.</summary>
+    private void OnScreenRowDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_viewModel.Screens is { } screens && screens.SelectedRow is not null)
+        {
+            screens.IsFace = true;
+        }
+    }
+
     // ---- code beside the schematic -----------------------------------------------------------------
 
     private void ApplyCenterLayout()

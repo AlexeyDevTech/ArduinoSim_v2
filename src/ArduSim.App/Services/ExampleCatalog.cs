@@ -32,6 +32,7 @@ public static class ExampleCatalog
         ["Ds18b20"] = ("sensors", 1, SerialPanel),
         ["Ultrasonic"] = ("sensors", 2, SerialPanel),
         ["Ds3231Clock"] = ("sensors", 3, SerialPanel),
+        ["ScreensMenu"] = ("displays", -1, SerialPanel),
         ["LcdI2c"] = ("displays", 0, SerialPanel),
         ["LcdHello"] = ("displays", 1, SerialPanel),
         ["LcdCustomChars"] = ("displays", 2, SerialPanel),

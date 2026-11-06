@@ -122,3 +122,5 @@ Kept for the record; each proposal below is now the decision in its ADR.
 **Usability pass ✅ (2026-11-05).** Research, audit and the owner's choices: code beside the schematic, a project explorer, the editor's IDE side through clangd, folding toolbar, start view, wiring rules, hints and F1, palette, properties, contrast and focus (ADR-016). Not yet: docs/UI-BACKLOG.md.
 
 **M12 — Electrical DC solver ✅ (2026-11-06).** Chosen by the owner on 2026-11-05: nodal analysis of voltages and currents on every change of the circuit, LEDs with forward voltage and brightness from current, dividers, pin overload above 40 mA, an LED without a resistor, currents on the schematic. No capacitors or transients; virtual time and sketch speed stay as they are. This narrows brief §4's "no SPICE" on the owner's decision (ADR-017).
+
+**Screens and transitions ✅ (2026-11-06).** The owner's request of 2026-11-06, outside the milestone list: the Экраны tab, screens read from a sketch's code and edited in place, generated code for a project without them (ADR-019).

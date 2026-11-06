@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "source": "Generated",
+  "display": {
+    "family": "CharLcd",
+    "width": 20,
+    "height": 4,
+    "library": "LiquidCrystalI2c",
+    "variable": "uiDisplay",
+    "part": "lcd1",
+    "existing": false,
+    "typeName": "",
+    "textFromBaseline": false
+  },
+  "start": "home",
+  "screens": [
+    {
+      "id": "home",
+      "title": "Главный",
+      "elements": [
+        {
+          "id": "e1",
+          "kind": "Text",
+          "x": 0,
+          "y": 0,
+          "text": "ArduSim screens",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "isConditional": false,
+          "isAlternative": false,
+          "isPlaced": true
+        },
+        {
+          "id": "e2",
+          "kind": "Text",
+          "x": 0,
+          "y": 2,
+          "text": "Up:",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "isConditional": false,
+          "isAlternative": false,
+          "isPlaced": true
+        },
+        {
+          "id": "e3",
+          "kind": "Value",
+          "x": 4,
+          "y": 2,
+          "text": "uptime",
+          "width": 5,
+          "height": 0,
+          "size": 1,
+          "isConditional": false,
+          "isAlternative": false,
+          "isPlaced": true
+        },
+        {
+          "id": "e4",
+          "kind": "Text",
+          "x": 0,
+          "y": 3,
+          "text": "Press knob: menu",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "isConditional": false,
+          "isAlternative": false,
+          "isPlaced": true
+        }
+      ],
+      "transitions": [
+        {
+          "trigger": {
+            "kind": "EncoderPress",
+            "part": "enc1",
+            "value": "",
+            "name": "",
+            "menuItem": -1,
+            "when": ""
+          },
+          "target": "menu1"
+        }
+      ],
+      "mapX": 0,
+      "mapY": 0,
+      "drawnElsewhere": false
+    },
+    {
+      "id": "screen1",
+      "title": "Датчик",
+      "elements": [
+        {
+          "id": "e1",
+          "kind": "Text",
+          "x": 0,
+          "y": 0,
+          "text": "Sensor on A0",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "isConditional": false,
+          "isAlternative": false,
+          "isPlaced": true
+        },
+        {
+          "id": "e2",
+          "kind": "Value",
+          "x": 0,
+          "y": 1,
+          "text": "adc",
+          "width": 5,
+          "height": 0,
+          "size": 1,
+          "isConditional": false,
+          "isAlternative": false,
+          "isPlaced": true
+        },
+        {
+          "id": "e3",
+          "kind": "Text",
+          "x": 0,
+          "y": 3,
+          "text": "Press knob: menu",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "isConditional": false,
+          "isAlternative": false,
+          "isPlaced": true
+        }
+      ],
+      "transitions": [
+        {
+          "trigger": {
+            "kind": "EncoderPress",
+            "part": "enc1",
+            "value": "",
+            "name": "",
+            "menuItem": -1,
+            "when": ""
+          },
+          "target": "menu1"
+        }
+      ],
+      "mapX": 600,
+      "mapY": 0,
+      "drawnElsewhere": false
+    },
+    {
+      "id": "screen2",
+      "title": "О программе",
+      "elements": [
+        {
+          "id": "e1",
+          "kind": "Text",
+          "x": 0,
+          "y": 0,
+          "text": "Made on the map",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "isConditional": false,
+          "isAlternative": false,
+          "isPlaced": true
+        },
+        {
+          "id": "e2",
+          "kind": "Text",
+          "x": 0,
+          "y": 1,
+          "text": "of the Screens tab",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "isConditional": false,
+          "isAlternative": false,
+          "isPlaced": true
+        }
+      ],
+      "transitions": [
+        {
+          "trigger": {
+            "kind": "Timeout",
+            "part": "",
+            "value": "800",
+            "name": "",
+            "menuItem": -1,
+            "when": ""
+          },
+          "target": "home"
+        }
+      ],
+      "mapX": 600,
+      "mapY": 170,
+      "drawnElsewhere": false
+    },
+    {
+      "id": "menu1",
+      "title": "Меню",
+      "elements": [
+        {
+          "id": "e1",
+          "kind": "Text",
+          "x": 0,
+          "y": 0,
+          "text": "Menu",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "isConditional": false,
+          "isAlternative": false,
+          "isPlaced": true
+        }
+      ],
+      "menu": {
+        "items": [
+          {
+            "text": "Sensor",
+            "target": "screen1",
+            "action": ""
+          },
+          {
+            "text": "About",
+            "target": "screen2",
+            "action": ""
+          },
+          {
+            "text": "Back",
+            "target": "home",
+            "action": ""
+          }
+        ],
+        "top": 1,
+        "rows": 3,
+        "up": {
+          "kind": "EncoderLeft",
+          "part": "enc1",
+          "value": "",
+          "name": "",
+          "menuItem": -1,
+          "when": ""
+        },
+        "down": {
+          "kind": "EncoderRight",
+          "part": "enc1",
+          "value": "",
+          "name": "",
+          "menuItem": -1,
+          "when": ""
+        },
+        "select": {
+          "kind": "EncoderPress",
+          "part": "enc1",
+          "value": "",
+          "name": "",
+          "menuItem": -1,
+          "when": ""
+        }
+      },
+      "transitions": [],
+      "mapX": 300,
+      "mapY": 0,
+      "drawnElsewhere": false
+    }
+  ],
+  "fromAnywhere": [
+    {
+      "trigger": {
+        "kind": "Button",
+        "part": "btn1",
+        "value": "",
+        "name": "",
+        "menuItem": -1,
+        "when": ""
+      },
+      "target": "home"
+    }
+  ]
+}

@@ -815,6 +815,10 @@
   <data name="Example_Ds3231Clock_Desc" xml:space="preserve"><value>RTClib читает дату, время и температуру микросхемы по I2C.</value></data>
   <data name="Example_Ds3231Clock_Try" xml:space="preserve"><value>Запустите: дата и время идут в Монитор порта; будильник раз в минуту тянет SQW к земле.</value></data>
   <data name="Example_Ds3231Clock_Keys" xml:space="preserve"><value>часы rtc время i2c будильник rtclib</value></data>
+  <data name="Example_ScreensMenu" xml:space="preserve"><value>Экраны и меню на LCD 2004</value></data>
+  <data name="Example_ScreensMenu_Desc" xml:space="preserve"><value>Экраны и переходы нарисованы на вкладке «Экраны», код создан по ним: меню на энкодере, значения из вашего кода, возврат кнопкой.</value></data>
+  <data name="Example_ScreensMenu_Try" xml:space="preserve"><value>Откройте вкладку «Экраны» и передвиньте текст. Запустите: нажатие на ручку открывает меню, поворот выбирает пункт, кнопка возвращает на главный экран.</value></data>
+  <data name="Example_ScreensMenu_Keys" xml:space="preserve"><value>экраны меню переходы редактор lcd дисплей 2004 энкодер screens menu</value></data>
   <data name="Example_LcdI2c" xml:space="preserve"><value>LCD 1602 по I2C</value></data>
   <data name="Example_LcdI2c_Desc" xml:space="preserve"><value>«hello, world!» и секунды на дисплее с платой PCF8574.</value></data>
   <data name="Example_LcdI2c_Try" xml:space="preserve"><value>Запустите и подождите секунду: библиотека инициализирует дисплей. Смените подсветку в «Свойствах».</value></data>
@@ -1125,4 +1129,109 @@
   <data name="Shortcuts_Running_8" xml:space="preserve"><value>Ctrl+щелчок по кнопке или клавише|Зафиксировать, ещё щелчок отпускает</value></data>
   <data name="Shortcuts_Running_9" xml:space="preserve"><value>Tab, затем стрелки, Page, Home, End|Ручка, энкодер, джойстик, датчик с клавиатуры</value></data>
   <data name="Shortcuts_Running_10" xml:space="preserve"><value>Tab, затем 0-9, A-D, *, #|Клавиатура 4×4 с клавиатуры</value></data>
+  <data name="Tab_Screens" xml:space="preserve"><value>Экраны</value></data>
+  <data name="Panel_Screens" xml:space="preserve"><value>Экраны</value></data>
+  <data name="Panel_ScreensTip" xml:space="preserve"><value>Экраны проекта и переходы между ними: открывает вкладку «Экраны»</value></data>
+  <data name="Screens_Title" xml:space="preserve"><value>Экраны</value></data>
+  <data name="Screens_Generated" xml:space="preserve"><value>Экраны хранятся в screens.json, код ui_screens.* создаётся при каждой сборке</value></data>
+  <data name="Screens_FromCode" xml:space="preserve"><value>Прочитано из кода: экранов {0}, переходов {1}. Точные значения правятся прямо в исходнике, остальное показано как есть</value></data>
+  <data name="Screens_DisplayLcd" xml:space="preserve"><value>Дисплей {0}×{1} ({2})</value></data>
+  <data name="Screens_DisplayOled" xml:space="preserve"><value>OLED {0}×{1} ({2})</value></data>
+  <data name="Screens_FileUnreadable" xml:space="preserve"><value>Не удалось прочитать screens.json: {0}</value></data>
+  <data name="Screens_SaveFailed" xml:space="preserve"><value>Не удалось записать файл: {0}</value></data>
+  <data name="Screens_TriggerPress" xml:space="preserve"><value>{0}: нажатие</value></data>
+  <data name="Screens_TriggerTimeout" xml:space="preserve"><value>через {0} мс</value></data>
+  <data name="Screens_TriggerCode" xml:space="preserve"><value>условие в коде</value></data>
+  <data name="Screens_TriggerItem" xml:space="preserve"><value>{0}: «{1}»</value></data>
+  <data name="Screens_When" xml:space="preserve"><value>при условии {0}</value></data>
+  <data name="Screens_OptionButton" xml:space="preserve"><value>Кнопка {0}</value></data>
+  <data name="Screens_OptionKey" xml:space="preserve"><value>{0}: клавиша {1}</value></data>
+  <data name="Screens_OptionTimeout" xml:space="preserve"><value>Через время, мс</value></data>
+  <data name="Screens_OptionEvent" xml:space="preserve"><value>Событие из кода (uiSend)</value></data>
+  <data name="Screens_NoTarget" xml:space="preserve"><value>Без перехода</value></data>
+  <data name="Screens_NoControl" xml:space="preserve"><value>Не задано</value></data>
+  <data name="Screens_Element_Text" xml:space="preserve"><value>Текст</value></data>
+  <data name="Screens_Element_Value" xml:space="preserve"><value>Значение</value></data>
+  <data name="Screens_Element_Line" xml:space="preserve"><value>Линия</value></data>
+  <data name="Screens_Element_Frame" xml:space="preserve"><value>Рамка</value></data>
+  <data name="Screens_Element_Box" xml:space="preserve"><value>Прямоугольник</value></data>
+  <data name="Screens_IsStart" xml:space="preserve"><value>Стартовый экран</value></data>
+  <data name="Screens_FieldTitle" xml:space="preserve"><value>Название</value></data>
+  <data name="Screens_FieldColumn" xml:space="preserve"><value>Столбец</value></data>
+  <data name="Screens_FieldRow" xml:space="preserve"><value>Строка</value></data>
+  <data name="Screens_FieldX" xml:space="preserve"><value>X, пикселей</value></data>
+  <data name="Screens_FieldY" xml:space="preserve"><value>Y, пикселей</value></data>
+  <data name="Screens_FieldText" xml:space="preserve"><value>Текст</value></data>
+  <data name="Screens_FieldHook" xml:space="preserve"><value>Имя функции значения</value></data>
+  <data name="Screens_FieldExpression" xml:space="preserve"><value>Выражение в коде</value></data>
+  <data name="Screens_FieldFieldWidth" xml:space="preserve"><value>Ширина поля, символов</value></data>
+  <data name="Screens_FieldEndX" xml:space="preserve"><value>Конец линии X</value></data>
+  <data name="Screens_FieldEndY" xml:space="preserve"><value>Конец линии Y</value></data>
+  <data name="Screens_FieldWidth" xml:space="preserve"><value>Ширина</value></data>
+  <data name="Screens_FieldHeight" xml:space="preserve"><value>Высота</value></data>
+  <data name="Screens_FieldSize" xml:space="preserve"><value>Масштаб текста</value></data>
+  <data name="Screens_MenuUp" xml:space="preserve"><value>Вверх по меню</value></data>
+  <data name="Screens_MenuDown" xml:space="preserve"><value>Вниз по меню</value></data>
+  <data name="Screens_MenuSelect" xml:space="preserve"><value>Выбрать пункт</value></data>
+  <data name="Screens_MenuRows" xml:space="preserve"><value>Строк на экране</value></data>
+  <data name="Screens_NotInCode" xml:space="preserve"><value>Это место в коде не задано одним значением, его можно изменить только вручную</value></data>
+  <data name="Screens_CodeChanged" xml:space="preserve"><value>Код изменился после чтения. Экраны прочитаны заново, повторите правку</value></data>
+  <data name="Screens_NoNewTransitionInCode" xml:space="preserve"><value>В проекте с собственным кодом новые переходы добавляются в коде</value></data>
+  <data name="Screens_NoDisplay" xml:space="preserve"><value>На схеме нет дисплея 1602, 2004 или OLED. Добавьте его и вернитесь сюда</value></data>
+  <data name="Screens_Created" xml:space="preserve"><value>Экраны созданы, скетч подключён к ним: uiBegin() и uiUpdate()</value></data>
+  <data name="Screens_DisplayDiffers" xml:space="preserve"><value>На схеме другой дисплей, а экраны рассчитаны на прежний. Экраны не изменены</value></data>
+  <data name="Screens_U8g2Page" xml:space="preserve"><value>{0} рисует постранично, а созданным экранам нужен полный буфер. Замените в типе _1_ или _2_ на _F_</value></data>
+  <data name="Screens_NonAscii" xml:space="preserve"><value>В шрифте дисплея нет кириллицы: на настоящем дисплее эти символы покажутся другими</value></data>
+  <data name="Screens_HomeTitle" xml:space="preserve"><value>Главный</value></data>
+  <data name="Screens_NewScreen" xml:space="preserve"><value>Экран {0}</value></data>
+  <data name="Screens_NewMenu" xml:space="preserve"><value>Меню {0}</value></data>
+  <data name="Screens_NewText" xml:space="preserve"><value>Text</value></data>
+  <data name="Screens_NewItem" xml:space="preserve"><value>Item {0}</value></data>
+  <data name="Screens_EmptyTitle" xml:space="preserve"><value>Экраны ещё не заданы</value></data>
+  <data name="Screens_EmptyBody" xml:space="preserve"><value>В коде скетча не нашлось экранов. Их можно нарисовать здесь: ArduSim создаст понятный код в ui_screens.cpp и подключит его к скетчу.</value></data>
+  <data name="Screens_Create" xml:space="preserve"><value>Создать экраны</value></data>
+  <data name="Screens_Map" xml:space="preserve"><value>Карта</value></data>
+  <data name="Screens_MapTip" xml:space="preserve"><value>Все экраны и переходы между ними</value></data>
+  <data name="Screens_Face" xml:space="preserve"><value>Экран</value></data>
+  <data name="Screens_FaceTip" xml:space="preserve"><value>Выбранный экран: текст перетаскивается по символам или пикселям</value></data>
+  <data name="Screens_AddText" xml:space="preserve"><value>Текст</value></data>
+  <data name="Screens_AddValue" xml:space="preserve"><value>Значение</value></data>
+  <data name="Screens_AddValueTip" xml:space="preserve"><value>Поле, которое заполняет ваша функция в ui_hooks.cpp</value></data>
+  <data name="Screens_AddLine" xml:space="preserve"><value>Линия</value></data>
+  <data name="Screens_AddFrame" xml:space="preserve"><value>Рамка</value></data>
+  <data name="Screens_AddBox" xml:space="preserve"><value>Прямоугольник</value></data>
+  <data name="Screens_RefreshTip" xml:space="preserve"><value>Прочитать код заново</value></data>
+  <data name="Screens_ShowCode" xml:space="preserve"><value>Показать код</value></data>
+  <data name="Screens_ShowCodeTip" xml:space="preserve"><value>Открывает ui_hooks.cpp: здесь пишутся значения и действия. Рядом лежит ui_screens.cpp, он создаётся заново при сборке</value></data>
+  <data name="Screens_RedoTip" xml:space="preserve"><value>Повторить (Ctrl+Y)</value></data>
+  <data name="Screens_UndoTip" xml:space="preserve"><value>Отменить (Ctrl+Z)</value></data>
+  <data name="Screens_Anywhere" xml:space="preserve"><value>С любого экрана</value></data>
+  <data name="Screens_DrawnElsewhere" xml:space="preserve"><value>Рисует себя сам</value></data>
+  <data name="Screens_ComputedNote" xml:space="preserve"><value>Вычисляется при работе, поэтому показано как значение и здесь не правится</value></data>
+  <data name="Screens_ConditionalNote" xml:space="preserve"><value>Рисуется только при условии в коде</value></data>
+  <data name="Screens_DrawnElsewhereNote" xml:space="preserve"><value>Этот экран рисует отдельный код, его содержимое здесь не разобрать</value></data>
+  <data name="Screens_GoToCode" xml:space="preserve"><value>Показать в коде</value></data>
+  <data name="Screens_SetStart" xml:space="preserve"><value>Сделать стартовым</value></data>
+  <data name="Screens_SetStartTip" xml:space="preserve"><value>С этого экрана начинается работа</value></data>
+  <data name="Screens_Remove" xml:space="preserve"><value>Удалить</value></data>
+  <data name="Screens_RemoveTip" xml:space="preserve"><value>Удалить выбранное (Delete)</value></data>
+  <data name="Screens_RemoveRow" xml:space="preserve"><value>Убрать</value></data>
+  <data name="Screens_MenuItems" xml:space="preserve"><value>Пункты меню</value></data>
+  <data name="Screens_AddMenuItem" xml:space="preserve"><value>Добавить пункт</value></data>
+  <data name="Screens_ActionTip" xml:space="preserve"><value>Имя функции uiAction_… в ui_hooks.cpp, которую вызовет пункт. Пусто: пункт ничего не делает</value></data>
+  <data name="Screens_Transitions" xml:space="preserve"><value>Переходы с этого экрана</value></data>
+  <data name="Screens_AddTransition" xml:space="preserve"><value>Добавить переход</value></data>
+  <data name="Screens_FromAnywhere" xml:space="preserve"><value>С любого экрана</value></data>
+  <data name="Screens_TriggerValueTip" xml:space="preserve"><value>Время в миллисекундах или имя события для uiSend</value></data>
+  <data name="Screens_SharedTargetTip" xml:space="preserve"><value>Цель задана в общем месте кода: эта строка обслуживает несколько переходов, поэтому здесь не меняется</value></data>
+  <data name="Screens_AddScreen" xml:space="preserve"><value>Экран</value></data>
+  <data name="Screens_AddScreenTip" xml:space="preserve"><value>Новый экран</value></data>
+  <data name="Screens_AddMenu" xml:space="preserve"><value>Меню</value></data>
+  <data name="Screens_AddMenuTip" xml:space="preserve"><value>Новый экран с меню. Управление подбирается из деталей на схеме</value></data>
+  <data name="Screens_FitTip" xml:space="preserve"><value>Показать всю карту</value></data>
+  <data name="Screens_MenuTop" xml:space="preserve"><value>Меню начинается со строки</value></data>
+  <data name="Screens_MenuTopOled" xml:space="preserve"><value>Меню начинается с Y, пикселей</value></data>
+  <data name="Screens_ActionLabel" xml:space="preserve"><value>Действие (функция в ui_hooks.cpp)</value></data>
+  <data name="Screens_AddInCodeHint" xml:space="preserve"><value>Экраны прочитаны из кода, новые добавляются там же</value></data>
+  <data name="Screens_RowTransitionsTip" xml:space="preserve"><value>Переходов с этого экрана</value></data>
 </root>

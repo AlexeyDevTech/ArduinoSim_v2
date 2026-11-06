@@ -17,6 +17,9 @@ public enum PropertiesMode
     Part,
     Parts,
     Wire,
+
+    /// <summary>Another view owns the panel: the Экраны tab.</summary>
+    External,
 }
 
 public sealed record OptionItem(string Value, string Label, Color? Swatch);
@@ -42,6 +45,12 @@ public sealed partial class PropertyField : ObservableObject
         SelectedOption = options.FirstOrDefault(o => o.Value == value);
         _loading = false;
     }
+
+    /// <summary>A choice shown as a dropdown however few options it has: their labels are long.</summary>
+    public bool AsDropdown { get; init; }
+
+    /// <summary>What ↑, ↓ and the wheel add to a number, when not the size-dependent step: a cell, a pixel.</summary>
+    public double? Increment { get; init; }
 
     /// <summary>How far ↑, ↓ and the focused wheel move a live reading; also the slider's small step.</summary>
     public double SliderStep { get; init; } = 1;
@@ -76,7 +85,7 @@ public sealed partial class PropertyField : ObservableObject
             return false;
         }
 
-        double step = IsLive ? SliderStep : Math.Abs(Maximum - Minimum) is > 0 and <= 1 ? 0.01 : number == 0 ? 1 : Math.Max(1, Math.Pow(10, Math.Floor(Math.Log10(Math.Abs(number))) - (Math.Abs(number) < 100 ? 0 : 1)));
+        double step = Increment is { } increment ? increment : IsLive ? SliderStep : Math.Abs(Maximum - Minimum) is > 0 and <= 1 ? 0.01 : number == 0 ? 1 : Math.Max(1, Math.Pow(10, Math.Floor(Math.Log10(Math.Abs(number))) - (Math.Abs(number) < 100 ? 0 : 1)));
         double next = Math.Round((number + (direction * step)) / step) * step;
         if (Maximum > Minimum)
         {
@@ -172,7 +181,7 @@ public sealed partial class PropertyField : ObservableObject
 
     /// <summary>The editor kind (docs/UI.md §2.4): "swatches", "segmented" (≤ 4 choices), "dropdown", "key" or "text".</summary>
     public string Editor => IsChoice
-        ? HasSwatches ? "swatches" : Options.Count <= 4 ? "segmented" : "dropdown"
+        ? HasSwatches ? "swatches" : Options.Count <= 4 && !AsDropdown ? "segmented" : "dropdown"
         : IsKey ? "key" : "text";
 
     [ObservableProperty]
@@ -234,6 +243,7 @@ public sealed partial class PropertiesViewModel : ObservableObject
     private Action? _unsubscribe;
     private (string Id, ComponentDefinition? Definition, bool Locked)? _fieldsFor;
     private (HashSet<string> Ids, bool Locked)? _commonFor;
+    private object? _externalKey;
 
     /// <param name="openFolder">Opens a folder of the project in Explorer (the SD card's), creating it; null without a project.</param>
     public PropertiesViewModel(SceneViewModel scene, Func<ProjectSettings> settings, Action<ProjectSettings> updateSettings, Action<string>? openFolder = null)
@@ -301,7 +311,55 @@ public sealed partial class PropertiesViewModel : ObservableObject
     }
 
     /// <summary>The selected part keeps files in a project folder (the SD card).</summary>
-    public bool HasCardFolder => _openFolder is not null && _scene.SinglePart is { Type: "sd-card" };
+    public bool HasCardFolder => _openFolder is not null && _externalKey is null && _scene.SinglePart is { Type: "sd-card" };
+
+    /// <summary>
+    /// Another view takes the panel, until <see cref="EndExternal"/>. The same key with the same fields
+    /// updates the values in place, so that the focus stays in the field.
+    /// </summary>
+    public void ShowExternal(object key, string title, string subtitle, IReadOnlyList<PropertyField> fields)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(fields);
+        bool same = key.Equals(_externalKey) && Fields.Select(f => f.Name).SequenceEqual(fields.Select(f => f.Name));
+        _externalKey = key;
+        Mode = PropertiesMode.External;
+        Title = title;
+        Subtitle = subtitle;
+        IdError = "";
+        Pins.Clear();
+        OnPropertyChanged(nameof(HasCardFolder));
+        if (same)
+        {
+            foreach ((PropertyField shown, PropertyField next) in Fields.Zip(fields))
+            {
+                shown.Sync(next.Text);
+                shown.IsEnabled = next.IsEnabled;
+            }
+
+            return;
+        }
+
+        _unsubscribe?.Invoke();
+        _unsubscribe = null;
+        _fieldsFor = null;
+        _commonFor = null;
+        Fields.Clear();
+        foreach (PropertyField field in fields)
+        {
+            Fields.Add(field);
+        }
+    }
+
+    public void EndExternal()
+    {
+        if (_externalKey is not null)
+        {
+            _externalKey = null;
+            Fields.Clear();
+            Rebuild();
+        }
+    }
 
     [RelayCommand]
     private void OpenCardFolder()
@@ -422,6 +480,11 @@ public sealed partial class PropertiesViewModel : ObservableObject
 
     private void Rebuild()
     {
+        if (_externalKey is not null)
+        {
+            return;
+        }
+
         OnPropertyChanged(nameof(HasCardFolder));
         bool keepFields = _scene.SelectedWire is null
             && (_scene.SinglePart is { } same ? RefreshInPlace(same) : _scene.SelectedParts.Count > 1 && RefreshCommonInPlace());

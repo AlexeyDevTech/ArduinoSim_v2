@@ -176,3 +176,12 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-06 — A library's click opens its main header (read-only unless it is in the project), the header named after its folder or else the first one.
 - 2026-11-06 — The dialog shows the first 100 matches and says how many there are: the list exists to be narrowed, and 10 000 rows with version lists would be slow for nothing.
 - 2026-11-06 — ShellTests and LibraryDialogTests share an xUnit collection: two MainViewModels on separate threads at once trip a static collection, which one app with one window never does.
+- 2026-11-06 — Screens: `screens.json` is written at each edit, not at Сохранить. The model is not a text in a tab that could show unsaved changes, and generated files must be able to follow it before any build.
+- 2026-11-06 — Screens: `ui_screens.*` are read-only in a code tab, since a change there would be lost at the next build. `ui_hooks.cpp` is the one to edit, and gets only additions.
+- 2026-11-06 — Screens: event names are `UI_ON_<PART>` beside `UI_<SCREEN>` in two unscoped enums, so that a button named like a screen does not clash with it.
+- 2026-11-06 — Screens: generated code holds only what it uses (no value code without values, no timer without timeouts), so that a build of it has no warnings in the Сборка tab.
+- 2026-11-06 — Screens: the map folds a level of more than four screens into more columns: a tall map fits a wide window at a size too small to read.
+- 2026-11-06 — Screens: what counts as the display in code includes a class of the sketch's own with `setCursor(x, y)`; NanoOS draws through such a buffer, and nothing else tells it from a helper.
+- 2026-11-06 — Screens: the Runner does not regenerate `ui_screens.*`, only the app does before a build. Headless runs take a project as it is on disk, and the files are there.
+- 2026-11-06 — Screens: in the Рядом mode the tab takes the schematic's place and code stays to its right, so that a link to a line does not leave the tab.
+- 2026-11-06 — Screens: Ctrl+Z on the tab is the window's command, which follows the tab in front. In a project from code its stack holds the tab's own edits; the editor's own Ctrl+Z works too, and an edit refused because the text moved says so.

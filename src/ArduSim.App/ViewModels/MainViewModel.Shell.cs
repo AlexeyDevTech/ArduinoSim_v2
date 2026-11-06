@@ -159,6 +159,12 @@ public sealed partial class MainViewModel
 
     partial void OnLeftTabChanged(int value)
     {
+        // Its segment opens the tab, which is what the page's list belongs to.
+        if (value == ScreensPage && !IsScreensTab)
+        {
+            ShowScreens();
+        }
+
         if (value == ProjectPage)
         {
             RefreshExplorer();
@@ -231,7 +237,7 @@ public sealed partial class MainViewModel
     public CodeDocumentViewModel? VisibleDocument =>
         SelectedTab as CodeDocumentViewModel ?? (SplitView ? _lastDocument ?? Documents.FirstOrDefault() : null);
 
-    public bool IsCanvasVisible => IsSceneTab || SplitView;
+    public bool IsCanvasVisible => (IsSceneTab || SplitView) && !IsScreensTab;
 
     partial void OnSplitViewChanged(bool value) => RaiseUndoState();
 
@@ -243,6 +249,7 @@ public sealed partial class MainViewModel
 
     partial void OnSelectedTabChanged(object? value)
     {
+        OnScreensTabShown(value is ScreensTab);
         RaiseUndoState();
         if (value is CodeDocumentViewModel document)
         {
@@ -269,7 +276,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        if (SelectedTab is SceneTab)
+        if (SelectedTab is SceneTab or ScreensTab)
         {
             if ((_lastDocument ?? Documents.FirstOrDefault()) is { } document)
             {
