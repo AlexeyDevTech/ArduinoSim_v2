@@ -15,20 +15,20 @@
       { "id": "r4", "type": "resistor", "x": 220, "y": 420, "rotation": 0, "flip": false, "properties": { "resistance": 4700 } }
     ],
     "wires": [
-      { "id": "w1", "from": { "component": "board", "pin": "D10" }, "to": { "component": "r1", "pin": "2" }, "waypoints": [[140, 270], [60, 270]], "color": "auto" },
-      { "id": "w2", "from": { "component": "r1", "pin": "1" }, "to": { "component": "led1", "pin": "A" }, "waypoints": [[0, 220], [10, 220]], "color": "auto" },
-      { "id": "w3", "from": { "component": "led1", "pin": "C" }, "to": { "component": "led2", "pin": "C" }, "waypoints": [[30, 215], [110, 215]], "color": "auto" },
-      { "id": "w4", "from": { "component": "board", "pin": "D9" }, "to": { "component": "r2", "pin": "2" }, "waypoints": [[150, 250], [140, 250]], "color": "auto" },
-      { "id": "w5", "from": { "component": "r2", "pin": "1" }, "to": { "component": "led2", "pin": "A" }, "waypoints": [[80, 220], [90, 220]], "color": "auto" },
-      { "id": "w6", "from": { "component": "led2", "pin": "C" }, "to": { "component": "led3", "pin": "C" }, "waypoints": [[110, 215], [160, 215], [160, 255], [200, 255]], "color": "auto" },
+      { "id": "w1", "from": { "component": "board", "pin": "D10" }, "to": { "component": "r1", "pin": "2" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "r1", "pin": "1" }, "to": { "component": "led1", "pin": "A" }, "waypoints": [], "color": "auto" },
+      { "id": "w3", "from": { "component": "led1", "pin": "C" }, "to": { "component": "led2", "pin": "C" }, "waypoints": [], "color": "auto" },
+      { "id": "w4", "from": { "component": "board", "pin": "D9" }, "to": { "component": "r2", "pin": "2" }, "waypoints": [], "color": "auto" },
+      { "id": "w5", "from": { "component": "r2", "pin": "1" }, "to": { "component": "led2", "pin": "A" }, "waypoints": [], "color": "auto" },
+      { "id": "w6", "from": { "component": "led2", "pin": "C" }, "to": { "component": "led3", "pin": "C" }, "waypoints": [], "color": "auto" },
       { "id": "w7", "from": { "component": "board", "pin": "D6" }, "to": { "component": "led3", "pin": "A" }, "waypoints": [], "color": "auto" },
-      { "id": "w8", "from": { "component": "led3", "pin": "C" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [[200, 270], [230, 270]], "color": "auto" },
-      { "id": "w9", "from": { "component": "btn1", "pin": "1" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [[310, 280], [220, 280]], "color": "auto" },
-      { "id": "w10", "from": { "component": "btn1", "pin": "2" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[350, 400], [250, 400]], "color": "auto" },
-      { "id": "w11", "from": { "component": "board", "pin": "5V" }, "to": { "component": "r3", "pin": "1" }, "waypoints": [[230, 390], [130, 390]], "color": "auto" },
-      { "id": "w12", "from": { "component": "r3", "pin": "2" }, "to": { "component": "board", "pin": "A0" }, "waypoints": [[190, 410], [150, 410]], "color": "auto" },
+      { "id": "w8", "from": { "component": "led3", "pin": "C" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [], "color": "auto" },
+      { "id": "w9", "from": { "component": "btn1", "pin": "1" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [], "color": "auto" },
+      { "id": "w10", "from": { "component": "btn1", "pin": "2" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [], "color": "auto" },
+      { "id": "w11", "from": { "component": "board", "pin": "5V" }, "to": { "component": "r3", "pin": "1" }, "waypoints": [], "color": "auto" },
+      { "id": "w12", "from": { "component": "r3", "pin": "2" }, "to": { "component": "board", "pin": "A0" }, "waypoints": [], "color": "auto" },
       { "id": "w13", "from": { "component": "r3", "pin": "2" }, "to": { "component": "r4", "pin": "1" }, "waypoints": [], "color": "auto" },
-      { "id": "w14", "from": { "component": "r4", "pin": "2" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[280, 410], [250, 410]], "color": "auto" }
+      { "id": "w14", "from": { "component": "r4", "pin": "2" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [], "color": "auto" }
     ]
   },
   "settings": { "speed": 1.0, "serial": { "baud": 115200, "lineEnding": "LF" }, "libraryPaths": [] }

@@ -42,6 +42,31 @@ public sealed class LibraryResolverTests : IDisposable
     }
 
     [Fact]
+    public void What_a_sketchs_own_header_includes_is_found_too()
+    {
+        Write("bundled/Bus/Bus.h");
+        Write("bundled/Oled/Oled.h");
+        Write("sketch/S/src/App.h", "#include <Bus.h>\n#include \"more/Deep.h\"\n");
+        Write("sketch/S/src/more/Deep.h", "#include <Oled.h>\n");
+        string sketch = Write("sketch/S/S.ino", "#include \"src/App.h\"\n");
+
+        LibraryResolution result = new LibraryResolver([Dir("bundled")], []).Resolve([sketch]);
+
+        Assert.Equal(["Bus", "Oled"], result.Libraries.Select(l => l.Name));
+        Assert.Empty(result.UnresolvedIncludes);
+    }
+
+    [Fact]
+    public void A_header_that_includes_itself_ends()
+    {
+        Write("sketch/S/a.h", "#include \"b.h\"\n");
+        Write("sketch/S/b.h", "#include \"a.h\"\n");
+        string sketch = Write("sketch/S/S.ino", "#include \"a.h\"\n");
+
+        Assert.Empty(new LibraryResolver([Dir("sketch")], []).Resolve([sketch]).UnresolvedIncludes);
+    }
+
+    [Fact]
     public void Earlier_search_roots_win()
     {
         Write("documents/Oled/Oled.h");

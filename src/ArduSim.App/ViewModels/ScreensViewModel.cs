@@ -34,8 +34,8 @@ public interface IScreensHost
     /// <summary>Writes a file of the sketch, through its editor if one is open.</summary>
     void WriteSketchFile(string path, string text);
 
-    /// <summary>Replaces a token in a source, through its document, so that the editor can undo it. False if the file has changed since the scan.</summary>
-    bool ApplySourceEdit(SourceEdit edit);
+    /// <summary>Makes these edits at once, through the sources' documents, so that the editor can undo them. False, and nothing done, if a file has changed since the scan.</summary>
+    bool ApplySourceEdits(IReadOnlyList<SourceEdit> edits);
 
     /// <summary>Inserts text into the sketch's main file, through its document.</summary>
     void InsertIntoMainSketch(IReadOnlyList<(int Offset, string Text)> insertions);
@@ -124,12 +124,12 @@ public sealed partial class TransitionRow : ObservableObject
         Tip = ScreensViewModel.TipOf(transition);
         Triggers = triggers;
         Targets = targets;
-        CanEditTrigger = generated;
+        CanEditTrigger = generated || transition.KeySpan is not null;
         CanEditTarget = generated || transition.TargetSpan is not null;
-        CanRemove = generated;
+        CanRemove = generated || transition.RemoveSpans.Count > 0;
         HasCode = transition.Location is not null;
         TriggerValue = transition.Trigger.Value;
-        SelectedTrigger = triggers.FirstOrDefault(o => o.Value == ScreensViewModel.OptionOf(transition.Trigger));
+        SelectedTrigger = triggers.FirstOrDefault(o => o.Value == ScreensViewModel.OptionOf(transition.Trigger) || o.Value == ScreensViewModel.OptionOf(transition.Trigger with { Part = "" }));
         SelectedTarget = targets.FirstOrDefault(o => o.Value == transition.Target);
         _loaded = true;
     }
@@ -237,12 +237,13 @@ public sealed partial class ScreensViewModel : ObservableObject
     private static readonly string[] KeypadKeys = ["1", "2", "3", "A", "4", "5", "6", "B", "7", "8", "9", "C", "*", "0", "#", "D"];
 
     private readonly IScreensHost _host;
-    private readonly Stack<SourceEdit> _codeUndo = new();
-    private readonly Stack<SourceEdit> _codeRedo = new();
+    private readonly Stack<IReadOnlyList<SourceEdit>> _codeUndo = new();
+    private readonly Stack<IReadOnlyList<SourceEdit>> _codeRedo = new();
     private ScreenEditor? _editor;
     private ScreenWiring? _wiring;
     private DateTime _savedAt;
     private bool _dragging;
+    private bool _resizing;
 
     public ScreensViewModel(IScreensHost host)
     {
@@ -297,7 +298,7 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     /// <summary>The selected screen's face rather than the map.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsMap), nameof(FaceIndex), nameof(CanAddElements))]
+    [NotifyPropertyChangedFor(nameof(IsMap), nameof(FaceIndex), nameof(CanAddElements), nameof(ShowsMapHint))]
     public partial bool IsFace { get; set; }
 
     partial void OnIsFaceChanged(bool value) => RaiseCommands();
@@ -331,15 +332,29 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     public ScreenElement? SelectedElement => SelectedElementId is { } id ? SelectedScreen?.Elements.FirstOrDefault(e => e.Id == id) : null;
 
-    public bool CanAddScreens => IsGenerated;
+    /// <summary>A screen can be added: to the model, or to code whose shape was recognised.</summary>
+    public bool CanAddScreens => IsGenerated || Document?.Shape is { NewConstant: not null, NewDrawCase: not null };
 
-    public bool CanAddElements => IsGenerated && IsFace && SelectedScreen is not null;
+    public bool CanAddElements => IsFace && SelectedScreen is { } screen && (IsGenerated || screen.DrawInsert is not null);
 
-    public bool CanRemoveSelected => IsGenerated && (SelectedElementId is not null || SelectedTransition is not null || SelectedScreen is not null);
+    public bool CanRemoveSelected =>
+        IsGenerated ? SelectedElementId is not null || SelectedTransition is not null || SelectedScreen is not null
+        : SelectedElement is { } element ? element.RemoveSpans.Count > 0
+        : SelectedTransition is { } picked ? TransitionAt(picked)?.RemoveSpans.Count > 0
+        : SelectedScreen?.RemoveSpans.Count > 0;
 
-    public bool CanSetStart => IsGenerated && SelectedScreen is { } screen && Document?.Start != screen.Id;
+    public bool CanSetStart => (IsGenerated || Document?.Shape?.StartSpan is not null) && SelectedScreen is { } screen && Document?.Start != screen.Id;
 
-    public bool CanAddTransition => IsGenerated && SelectedScreen is not null && SelectedElementId is null;
+    /// <summary>A transition can be made: in the model, or in code that handles keys in a way that was recognised.</summary>
+    public bool CanConnect => IsGenerated || Document?.Shape is { NewTransition: not null, KeyVariable.Length: > 0, GotoFormat.Length: > 0 };
+
+    public bool CanAddTransition => CanConnect && SelectedScreen is not null && SelectedElementId is null;
+
+    public bool CanDuplicate => SelectedElement is not null ? CanAddElements : IsGenerated && SelectedScreen is not null;
+
+    public bool ShowsMapHint => IsMap && (CanAddScreens || CanConnect);
+
+    public bool CanCenter => SelectedElement is { Kind: ElementKind.Text or ElementKind.Value } element && CanMove(element);
 
     public bool CanAddMenuItem => IsGenerated && SelectedScreen?.Menu is not null && SelectedElementId is null;
 
@@ -357,7 +372,7 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     /// <summary>Why a selected thing cannot be edited here: what is computed at run time, a screen that draws itself.</summary>
     public string ElementNote =>
-        SelectedElement is { Kind: ElementKind.Value } && IsFromCode ? Strings.Get("Screens_ComputedNote")
+        SelectedElement is { Kind: ElementKind.Value, ExpressionSpan: null } && IsFromCode ? Strings.Get("Screens_ComputedNote")
         : SelectedElement is { IsConditional: true } ? Strings.Get("Screens_ConditionalNote")
         : SelectedElementId is null && SelectedScreen is { DrawnElsewhere: true } ? Strings.Get("Screens_DrawnElsewhereNote")
         : "";
@@ -450,7 +465,7 @@ public sealed partial class ScreensViewModel : ObservableObject
     private void OnEditorChanged()
     {
         // A card being dragged: only the map draws anew, and the file waits for the drop.
-        if (_dragging)
+        if (_dragging || _resizing)
         {
             Document = _editor!.Document;
             Changed?.Invoke();
@@ -522,6 +537,8 @@ public sealed partial class ScreensViewModel : ObservableObject
         AddAnywhereCommand.NotifyCanExecuteChanged();
         AddMenuItemCommand.NotifyCanExecuteChanged();
         AddElementCommand.NotifyCanExecuteChanged();
+        DuplicateSelectedCommand.NotifyCanExecuteChanged();
+        CenterSelectedCommand.NotifyCanExecuteChanged();
         GoToCodeCommand.NotifyCanExecuteChanged();
         CreateCommand.NotifyCanExecuteChanged();
     }
@@ -704,6 +721,23 @@ public sealed partial class ScreensViewModel : ObservableObject
         return options;
     }
 
+    // Keys a sketch from code could compare with: what it names, and a keypad's on the schematic.
+    private List<OptionItem> KeyOptions()
+    {
+        var keys = new List<string>(KeypadKeys);
+        IReadOnlyDictionary<string, string> named = Document?.Shape?.KeyNames ?? new Dictionary<string, string>();
+        keys.AddRange(named.Keys.Where(k => !keys.Contains(k)));
+        foreach (ScreenTrigger trigger in (Document?.Screens ?? []).SelectMany(s => s.Transitions).Concat(Document?.FromAnywhere ?? []).Select(t => t.Trigger).Where(t => t.Kind == TriggerKind.Key))
+        {
+            if (!keys.Contains(trigger.Value))
+            {
+                keys.Add(trigger.Value);
+            }
+        }
+
+        return [.. keys.Select(k => new OptionItem("key::" + k, named.TryGetValue(k, out string? name) ? k + "  (" + name + ")" : k, null))];
+    }
+
     private List<OptionItem> TargetOptions(bool allowNone)
     {
         var options = new List<OptionItem>();
@@ -721,7 +755,7 @@ public sealed partial class ScreensViewModel : ObservableObject
     private void RebuildPanel()
     {
         ScreenNode? screen = SelectedElementId is null ? SelectedScreen : null;
-        IReadOnlyList<OptionItem> triggers = IsGenerated ? TriggerOptions() : [];
+        IReadOnlyList<OptionItem> triggers = IsGenerated ? TriggerOptions() : CanConnect ? KeyOptions() : [];
         List<OptionItem> targets = TargetOptions(allowNone: false);
         Fill(TransitionRows, screen?.Transitions ?? [], screen?.Id, screen, triggers, targets);
         Fill(AnywhereRows, SelectedElementId is null ? Document?.FromAnywhere ?? [] : [], null, null, triggers, targets);
@@ -810,6 +844,11 @@ public sealed partial class ScreensViewModel : ObservableObject
         {
             ElementFields(fields, screen.Id, element);
         }
+        else if (IsFromCode && screen.UseSpans.Count > 0)
+        {
+            string id = screen.Id;
+            fields.Add(new PropertyField("title", Strings.Get("Screens_FieldConstant"), PropertyKind.Text, id, null, [], (_, v) => RenameScreen(id, v.Trim())));
+        }
         else if (IsGenerated)
         {
             string id = screen.Id;
@@ -859,9 +898,9 @@ public sealed partial class ScreensViewModel : ObservableObject
         }
         else if (element.Kind == ElementKind.Value)
         {
-            fields.Add(new PropertyField("text", Strings.Get(IsGenerated ? "Screens_FieldHook" : "Screens_FieldExpression"), PropertyKind.Text, element.Text, null, [], (_, v) => Edit(e => e with { Text = ScreenCodeGenerator.Identifier(v.Trim()) }))
+            fields.Add(new PropertyField("text", Strings.Get(IsGenerated ? "Screens_FieldHook" : "Screens_FieldExpression"), PropertyKind.Text, element.Text, null, [], (_, v) => SetValue(screen, id, v.Trim()))
             {
-                IsEnabled = IsGenerated,
+                IsEnabled = IsGenerated || element.ExpressionSpan is not null,
             });
         }
 
@@ -872,11 +911,11 @@ public sealed partial class ScreensViewModel : ObservableObject
             fields.Add(Number("width", Strings.Get("Screens_FieldFieldWidth"), element.Width, true, v => Edit(e => e with { Width = Math.Max(1, v) })));
         }
 
-        if (IsGenerated && element.Kind is ElementKind.Frame or ElementKind.Box or ElementKind.Line)
+        if (element.Kind is ElementKind.Frame or ElementKind.Box or ElementKind.Line)
         {
             bool line = element.Kind == ElementKind.Line;
-            fields.Add(Number("width", Strings.Get(line ? "Screens_FieldEndX" : "Screens_FieldWidth"), element.Width, true, v => Edit(e => e with { Width = v })));
-            fields.Add(Number("height", Strings.Get(line ? "Screens_FieldEndY" : "Screens_FieldHeight"), element.Height, true, v => Edit(e => e with { Height = v })));
+            fields.Add(Number("width", Strings.Get(line ? "Screens_FieldEndX" : "Screens_FieldWidth"), element.Width, IsGenerated || element.WidthSpan is not null, v => ResizeElement(id, v, SelectedElement?.Height ?? 0, finished: true)));
+            fields.Add(Number("height", Strings.Get(line ? "Screens_FieldEndY" : "Screens_FieldHeight"), element.Height, IsGenerated || element.HeightSpan is not null, v => ResizeElement(id, SelectedElement?.Width ?? 0, v, finished: true)));
         }
 
         if (IsGenerated && IsOled && element.Kind is ElementKind.Text or ElementKind.Value)
@@ -900,26 +939,134 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     // ---- edits: in the model, or in the code that was read ----------------------------------------------
 
-    private void ApplyToCode(SourceEdit? edit)
+    private bool ApplyToCode(SourceEdit? edit) => ApplyToCode(edit is null ? null : [edit]);
+
+    private bool ApplyToCode(IReadOnlyList<SourceEdit>? edits)
     {
-        if (edit is null)
+        if (edits is null || edits.Count == 0)
         {
             Notice = Strings.Get("Screens_NotInCode");
-            return;
+            return false;
         }
 
-        if (!_host.ApplySourceEdit(edit))
+        if (!_host.ApplySourceEdits(edits))
         {
             Notice = Strings.Get("Screens_CodeChanged");
             Refresh();
-            return;
+            return false;
         }
 
         Notice = "";
-        _codeUndo.Push(edit.Inverse());
+        _codeUndo.Push(ScreenCodeEdits.Inverse(edits));
         _codeRedo.Clear();
         Refresh();
+        return true;
     }
+
+    // A value in a generated project is a hook; in code, the expression printed there.
+    private void SetValue(string screen, string id, string text)
+    {
+        if (IsGenerated)
+        {
+            _editor?.UpdateElement(screen, id, e => e with { Text = ScreenCodeGenerator.Identifier(text) });
+        }
+        else if (text.Length > 0 && Document?.Find(screen)?.Elements.FirstOrDefault(e => e.Id == id)?.ExpressionSpan is { } span)
+        {
+            ApplyToCode(new SourceEdit(span, text));
+        }
+    }
+
+    /// <summary>A double-click's text, or the panel's: a text says it, a value is its hook or expression.</summary>
+    public void SetElementText(string id, string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (SelectedScreenId is not { } screen || SelectedScreen?.Elements.FirstOrDefault(e => e.Id == id) is not { } element)
+        {
+            return;
+        }
+
+        if (element.Kind == ElementKind.Value)
+        {
+            SetValue(screen, id, text.Trim());
+        }
+        else if (element.Kind == ElementKind.Text && text != element.Text)
+        {
+            SetText(screen, id, text);
+        }
+    }
+
+    /// <summary>A shape's size, or a line's far end, from a handle or a field; a value's field in a generated project.</summary>
+    public void ResizeElement(string id, int width, int height, bool finished)
+    {
+        if (SelectedScreen is not { } screen || screen.Elements.FirstOrDefault(e => e.Id == id) is not { } element)
+        {
+            return;
+        }
+
+        if (IsGenerated)
+        {
+            _editor?.UpdateElement(screen.Id, id, e => e with { Width = width, Height = height }, checkpoint: !_resizing);
+            _resizing = !finished;
+            return;
+        }
+
+        if (!finished)
+        {
+            return;
+        }
+
+        var edits = new List<SourceEdit>();
+        if (width != element.Width && ScreenCodeEdits.SetNumber(element.WidthSpan, width) is { } across)
+        {
+            edits.Add(across);
+        }
+
+        if (height != element.Height && ScreenCodeEdits.SetNumber(element.HeightSpan, height) is { } down)
+        {
+            edits.Add(down);
+        }
+
+        if (edits.Count > 0)
+        {
+            ApplyToCode(edits);
+        }
+    }
+
+    /// <summary>Whether a shape's size can be changed here.</summary>
+    public bool CanResize(ScreenElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.Kind is ElementKind.Frame or ElementKind.Box or ElementKind.Line && (IsGenerated || element.WidthSpan is not null || element.HeightSpan is not null);
+    }
+
+    private void RenameScreen(string id, string name)
+    {
+        if (name == id || Document?.Find(id) is not { } screen)
+        {
+            return;
+        }
+
+        if (!IsIdentifier(name) || Document.Find(name) is not null)
+        {
+            Notice = Strings.Format("Screens_BadConstant", name);
+            RaiseAll();
+            return;
+        }
+
+        // Its place on the map goes with its new name.
+        Document = Document with { Screens = [.. Document.Screens.Select(s => s.Id == id ? s with { Id = name } : s)] };
+        if (ApplyToCode(ScreenCodeEdits.Rename(screen.UseSpans, name)))
+        {
+            SelectScreen(name);
+        }
+        else
+        {
+            Refresh();
+        }
+    }
+
+    private static bool IsIdentifier(string name) =>
+        name.Length > 0 && (char.IsAsciiLetter(name[0]) || name[0] == '_') && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
 
     /// <summary>Reads the code again, keeping the selection where it can.</summary>
     [RelayCommand]
@@ -961,16 +1108,25 @@ public sealed partial class ScreensViewModel : ObservableObject
             return;
         }
 
-        // Moving in code is one or two tokens: whichever axis changed. Each edit shifts what follows, so the second is read afresh.
-        string screenId = screen.Id;
-        if (x != element.X)
+        // Moving in code is one or two tokens, whichever axis changed: one undo step.
+        var edits = new List<SourceEdit>();
+        if (x != element.X && ScreenCodeEdits.SetNumber(element.XSpan, x) is { } across)
         {
-            ApplyToCode(ScreenCodeEdits.SetNumber(element.XSpan, x));
+            edits.Add(across);
         }
 
-        if (y != element.Y)
+        if (y != element.Y && ScreenCodeEdits.SetNumber(element.YSpan, y) is { } down)
         {
-            ApplyToCode(ScreenCodeEdits.SetNumber(Document?.Find(screenId)?.Elements.FirstOrDefault(e => e.Id == id)?.YSpan, y));
+            edits.Add(down);
+        }
+
+        if (edits.Count > 0)
+        {
+            ApplyToCode(edits);
+        }
+        else if (x != element.X || y != element.Y)
+        {
+            Notice = Strings.Get("Screens_NotInCode");
         }
     }
 
@@ -993,6 +1149,11 @@ public sealed partial class ScreensViewModel : ObservableObject
         else if (target != row.Transition.Target)
         {
             ApplyToCode(ScreenCodeEdits.SetTarget(row.Transition, target));
+        }
+        else if (row.SelectedTrigger is { } key && row.Transition.KeySpan is { } span && Document?.Shape is { } shape
+            && key.Value != OptionOf(row.Transition.Trigger with { Part = "" }))
+        {
+            ApplyToCode(new SourceEdit(span, ScreenCodeEdits.KeyText(shape, key.Value[5..])));
         }
     }
 
@@ -1026,11 +1187,11 @@ public sealed partial class ScreensViewModel : ObservableObject
         {
             _editor?.Undo();
         }
-        else if (_codeUndo.TryPop(out SourceEdit? edit))
+        else if (_codeUndo.TryPop(out IReadOnlyList<SourceEdit>? edits))
         {
-            if (_host.ApplySourceEdit(edit))
+            if (_host.ApplySourceEdits(edits))
             {
-                _codeRedo.Push(edit.Inverse());
+                _codeRedo.Push(ScreenCodeEdits.Inverse(edits));
             }
             else
             {
@@ -1050,11 +1211,11 @@ public sealed partial class ScreensViewModel : ObservableObject
         {
             _editor?.Redo();
         }
-        else if (_codeRedo.TryPop(out SourceEdit? edit))
+        else if (_codeRedo.TryPop(out IReadOnlyList<SourceEdit>? edits))
         {
-            if (_host.ApplySourceEdit(edit))
+            if (_host.ApplySourceEdits(edits))
             {
-                _codeUndo.Push(edit.Inverse());
+                _codeUndo.Push(ScreenCodeEdits.Inverse(edits));
             }
             else
             {
@@ -1114,14 +1275,28 @@ public sealed partial class ScreensViewModel : ObservableObject
     public void Connect(string from, string to)
     {
         ArgumentNullException.ThrowIfNull(from);
-        if (_editor is null)
+        if (_editor is not null)
+        {
+            _editor.AddTransition(from, DefaultTrigger(), to);
+            SelectScreen(from);
+        }
+        else if (Document is { } document && CanConnect)
+        {
+            ApplyToCode(ScreenCodeEdits.AddTransition(document, from, UnusedKey(document.Find(from)), to));
+            SelectScreen(from);
+        }
+        else
         {
             Notice = Strings.Get("Screens_NoNewTransitionInCode");
-            return;
         }
+    }
 
-        _editor.AddTransition(from, DefaultTrigger(), to);
-        SelectScreen(from);
+    // A key that does nothing on this screen yet: the row in the panel can change it.
+    private string UnusedKey(ScreenNode? from)
+    {
+        var used = (from?.Transitions ?? []).Select(t => t.Trigger.Value).Concat((Document?.FromAnywhere ?? []).Select(t => t.Trigger.Value)).ToHashSet(StringComparer.Ordinal);
+        List<OptionItem> options = KeyOptions();
+        return (options.FirstOrDefault(o => !used.Contains(o.Value[5..])) ?? options[0]).Value[5..];
     }
 
     private ScreenTrigger DefaultTrigger()
@@ -1158,6 +1333,7 @@ public sealed partial class ScreensViewModel : ObservableObject
             display = own;
         }
 
+        _savedAt = default;
         UseEditor(ScreenEditor.Starting(display, _host.ProjectTitle.Length > 0 ? AsciiOr(_host.ProjectTitle, "Hello") : "Hello", Strings.Get("Screens_HomeTitle")));
         Save();
         _wiring = null;
@@ -1203,12 +1379,45 @@ public sealed partial class ScreensViewModel : ObservableObject
     private bool CanAddScreen() => CanAddScreens;
 
     [RelayCommand(CanExecute = nameof(CanAddScreen))]
-    private void AddScreen() => Added(_editor?.AddScreen(NextTitle("Screens_NewScreen"), NextX(), NextY()));
+    private void AddScreen() => AddScreenAt(NextX(), NextY());
 
-    [RelayCommand(CanExecute = nameof(CanAddScreen))]
-    private void AddMenuScreen()
+    /// <summary>A new screen, at this place on the map.</summary>
+    public void AddScreenAt(double x, double y)
     {
-        ScreenNode? screen = _editor?.AddScreen(NextTitle("Screens_NewMenu"), NextX(), NextY(), asMenu: true);
+        if (_editor is not null)
+        {
+            Added(_editor.AddScreen(NextTitle("Screens_NewScreen"), x, y));
+        }
+        else if (Document is { } document && CanAddScreens)
+        {
+            int number = document.Screens.Count + 1;
+            while (document.Find("SCREEN_" + number.ToString(CultureInfo.InvariantCulture)) is not null)
+            {
+                number++;
+            }
+
+            string id = "SCREEN_" + number.ToString(CultureInfo.InvariantCulture);
+            if (ApplyToCode(ScreenCodeEdits.AddScreen(document, id)))
+            {
+                MoveOnMap(id, x, y, finished: true);
+                SelectScreen(id);
+            }
+        }
+        else
+        {
+            Notice = Strings.Get("Screens_NoNewScreenInCode");
+        }
+    }
+
+    private bool CanAddMenu() => IsGenerated;
+
+    [RelayCommand(CanExecute = nameof(CanAddMenu))]
+    private void AddMenuScreen() => AddMenuScreenAt(NextX(), NextY());
+
+    /// <summary>A new menu, at this place on the map, already working with the schematic's inputs.</summary>
+    public void AddMenuScreenAt(double x, double y)
+    {
+        ScreenNode? screen = _editor?.AddScreen(NextTitle("Screens_NewMenu"), x, y, asMenu: true);
         if (screen?.Menu is { } menu)
         {
             (ScreenTrigger? up, ScreenTrigger? down, ScreenTrigger? select) = DefaultMenuControls();
@@ -1263,14 +1472,70 @@ public sealed partial class ScreensViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanAddElementNow))]
     private void AddElement(string? kind)
     {
-        if (SelectedScreen is not { } screen || _editor is null || !Enum.TryParse(kind, out ElementKind parsed))
+        if (SelectedScreen is { } screen && Enum.TryParse(kind, out ElementKind parsed))
+        {
+            AddElementAt(parsed, 0, NextFree(screen));
+        }
+    }
+
+    /// <summary>A new element where it was dropped: in the model, or as code at the end of the screen's own drawing.</summary>
+    public void AddElementAt(ElementKind kind, int x, int y, string? text = null, int size = 1)
+    {
+        if (SelectedScreen is not { } screen || Document is not { } document)
         {
             return;
         }
 
-        string text = parsed == ElementKind.Text ? Strings.Get("Screens_NewText") : parsed == ElementKind.Value ? "value" : "";
-        ScreenElement element = _editor.AddElement(screen.Id, parsed, 0, NextFree(screen), text);
-        SelectElement(element.Id);
+        x = Math.Clamp(x, 0, Math.Max(0, document.Display.Width - 1));
+        y = Math.Clamp(y, 0, Math.Max(0, document.Display.Height - 1));
+        if (_editor is not null)
+        {
+            string written = text ?? (kind == ElementKind.Text ? Strings.Get("Screens_NewText") : kind == ElementKind.Value ? "value" : "");
+            ScreenElement element = _editor.AddElement(screen.Id, kind, x, y, written);
+            if (size != 1)
+            {
+                _editor.UpdateElement(screen.Id, element.Id, e => e with { Size = size }, checkpoint: false);
+            }
+
+            SelectElement(element.Id);
+            return;
+        }
+
+        string code = text ?? (kind == ElementKind.Text ? Strings.Get("Screens_NewText") : kind == ElementKind.Value ? "millis() / 1000" : "");
+        (int width, int height) = kind == ElementKind.Line ? (x + 20, y) : (20, 10);
+        string id = screen.Id;
+        if (ApplyToCode(ScreenCodeEdits.AddElement(screen, document.Display, kind, x, y, width, height, code)))
+        {
+            // What was added is the last that matches: the code's order is the list's.
+            ScreenElement? added = Document?.Find(id)?.Elements.LastOrDefault(e => e.Kind == kind && e.X == x && e.Y == y);
+            SelectElement(added?.Id);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDuplicate))]
+    private void DuplicateSelected()
+    {
+        if (SelectedElement is { } element && Document is { } document)
+        {
+            bool lcd = document.Display.Family == DisplayFamily.CharLcd;
+            AddElementAt(element.Kind, element.X, element.Y + (lcd ? 1 : Math.Max(8 * element.Size, 8)), element.Text, element.Size);
+        }
+        else if (_editor is not null && SelectedScreen is { } screen)
+        {
+            Added(_editor.DuplicateScreen(screen.Id, Strings.Format("Screens_CopyOf", screen.Title.Length > 0 ? screen.Title : screen.Id)));
+        }
+    }
+
+    /// <summary>The selected text in the middle of its line.</summary>
+    [RelayCommand(CanExecute = nameof(CanCenter))]
+    private void CenterSelected()
+    {
+        if (SelectedElement is { } element && Document is { } document)
+        {
+            int length = element.Kind == ElementKind.Value ? Math.Max(element.Width, 1) : element.Text.Trim().Length;
+            int across = document.Display.Family == DisplayFamily.CharLcd ? length : length * 6 * element.Size;
+            MoveElement(element.Id, Math.Max(0, (document.Display.Width - across) / 2), element.Y);
+        }
     }
 
     private int NextFree(ScreenNode screen)
@@ -1299,6 +1564,7 @@ public sealed partial class ScreensViewModel : ObservableObject
     {
         if (_editor is null)
         {
+            RemoveFromCode();
             return;
         }
 
@@ -1318,6 +1584,35 @@ public sealed partial class ScreensViewModel : ObservableObject
         }
     }
 
+    private void RemoveFromCode()
+    {
+        if (SelectedElement is { } element)
+        {
+            if (ApplyToCode(ScreenCodeEdits.Remove(element.RemoveSpans)))
+            {
+                SelectElement(null);
+            }
+        }
+        else if (SelectedTransition is { } picked)
+        {
+            if (ApplyToCode(ScreenCodeEdits.Remove(TransitionAt(picked)?.RemoveSpans ?? [])))
+            {
+                SelectedTransition = null;
+            }
+        }
+        else if (SelectedScreen is { } screen)
+        {
+            if (screen.RemoveSpans.Count == 0)
+            {
+                Notice = Strings.Get("Screens_ScreenStillUsed");
+            }
+            else if (ApplyToCode(ScreenCodeEdits.Remove(screen.RemoveSpans)))
+            {
+                SelectScreen(Document?.Start);
+            }
+        }
+    }
+
     private bool CanSetStartNow() => CanSetStart;
 
     [RelayCommand(CanExecute = nameof(CanSetStartNow))]
@@ -1325,7 +1620,14 @@ public sealed partial class ScreensViewModel : ObservableObject
     {
         if (SelectedScreenId is { } id)
         {
-            _editor?.SetStart(id);
+            if (_editor is not null)
+            {
+                _editor.SetStart(id);
+            }
+            else if (Document?.Shape?.StartSpan is { } span)
+            {
+                ApplyToCode(new SourceEdit(span, id));
+            }
         }
     }
 
@@ -1336,25 +1638,45 @@ public sealed partial class ScreensViewModel : ObservableObject
     {
         if (SelectedScreenId is { } from && Document is { } document)
         {
-            _editor?.AddTransition(from, DefaultTrigger(), document.Screens.FirstOrDefault(s => s.Id != from)?.Id ?? from);
+            Connect(from, document.Screens.FirstOrDefault(s => s.Id != from)?.Id ?? from);
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanAddScreen))]
+    private bool CanAddAnywhereNow() => CanConnect;
+
+    [RelayCommand(CanExecute = nameof(CanAddAnywhereNow))]
     private void AddAnywhere()
     {
-        if (Document is { } document)
+        if (Document is not { } document)
         {
-            _editor?.AddTransition(null, DefaultTrigger(), document.Start);
+            return;
+        }
+
+        if (_editor is not null)
+        {
+            _editor.AddTransition(null, DefaultTrigger(), document.Start);
+        }
+        else
+        {
+            ApplyToCode(ScreenCodeEdits.AddTransition(document, null, UnusedKey(null), document.Start));
         }
     }
 
     [RelayCommand]
     private void RemoveTransition(TransitionRow? row)
     {
-        if (row is not null)
+        if (row is null)
         {
-            _editor?.RemoveTransition(row.From, row.Index);
+            return;
+        }
+
+        if (_editor is not null)
+        {
+            _editor.RemoveTransition(row.From, row.Index);
+        }
+        else
+        {
+            ApplyToCode(ScreenCodeEdits.Remove(row.Transition.RemoveSpans));
         }
     }
 

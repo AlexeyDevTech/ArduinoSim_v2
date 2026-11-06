@@ -134,6 +134,11 @@ public sealed partial class CodeDocumentViewModel : ObservableObject
 
     public string Title => System.IO.Path.GetFileName(Path);
 
+    /// <summary>What kind of file it is, as the tab and the explorer show it.</summary>
+    public string Badge => Services.FileKinds.BadgeOf(Path).Text;
+
+    public Services.BadgeTone Tone => Services.FileKinds.BadgeOf(Path).Tone;
+
     public TextDocument Document { get; } = new();
 
     [ObservableProperty]

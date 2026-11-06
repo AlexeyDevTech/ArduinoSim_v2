@@ -11,7 +11,7 @@
     "wires": [
       { "id": "w1", "from": { "component": "board", "pin": "D4" }, "to": { "component": "r1", "pin": "1" }, "waypoints": [], "color": "auto" },
       { "id": "w2", "from": { "component": "r1", "pin": "2" }, "to": { "component": "led1", "pin": "A" }, "waypoints": [], "color": "auto" },
-      { "id": "w3", "from": { "component": "led1", "pin": "C" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [[50, 120], [40, 120]], "color": "auto" }
+      { "id": "w3", "from": { "component": "led1", "pin": "C" }, "to": { "component": "board", "pin": "GND.2" }, "waypoints": [], "color": "auto" }
     ]
   },
   "settings": { "speed": 1.0, "serial": { "baud": 115200, "lineEnding": "LF" }, "libraryPaths": [] }

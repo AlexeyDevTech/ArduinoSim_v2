@@ -345,9 +345,19 @@ public partial class MainWindow
     // Left and right fold and unfold, as in any tree.
     private void OnExplorerRowKey(object sender, KeyEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: ExplorerEntry { IsFolder: true } folder } && e.Key is Key.Left or Key.Right)
+        if (sender is FrameworkElement { DataContext: ExplorerEntry { CanFold: true } row } && e.Key is Key.Left or Key.Right)
         {
-            _viewModel.SetFolderExpanded(folder, e.Key == Key.Right);
+            _viewModel.SetRowExpanded(row, e.Key == Key.Right);
+            e.Handled = true;
+        }
+    }
+
+    // The chevron folds; the rest of the row opens.
+    private void OnExplorerChevron(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ExplorerEntry { CanFold: true } row })
+        {
+            _viewModel.SetRowExpanded(row, !row.IsExpanded);
             e.Handled = true;
         }
     }
@@ -415,6 +425,13 @@ public partial class MainWindow
         var besideIt = new MenuItem { Header = Strings.Get("Explorer_NewFileHere") };
         besideIt.Click += (_, _) => AskFileName(null, row, Path.GetDirectoryName(entry.Path));
         menu.Items.Add(open);
+        if (entry.Path is { } path && _viewModel.PartnerOf(path) is { } partner)
+        {
+            var other = new MenuItem { Header = Strings.Get(ArduSim.App.Services.FileKinds.IsHeader(path) ? "Explorer_GoToSource" : "Explorer_GoToHeader"), InputGestureText = "Alt+O" };
+            other.Click += (_, _) => _viewModel.OpenFile(partner);
+            menu.Items.Add(other);
+        }
+
         menu.Items.Add(besideIt);
         menu.Items.Add(rename);
         menu.Items.Add(delete);

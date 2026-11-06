@@ -680,6 +680,9 @@
   <data name="Example_StartOver" xml:space="preserve"><value>Начать заново</value></data>
   <data name="Example_StartOverTip" xml:space="preserve"><value>Новая копия примера без ваших правок; эта копия останется</value></data>
   <data name="Menu_Help" xml:space="preserve"><value>Клавиши и _жесты</value></data>
+  <data name="Canvas_LayOutWires" xml:space="preserve"><value>Разложить</value></data>
+  <data name="Canvas_LayOutWiresTip" xml:space="preserve"><value>Разложить все провода заново: прямо из пинов, вокруг деталей, каждый своей дорожкой. Углы, поставленные вручную, тоже сбрасываются (Ctrl+Z вернёт)</value></data>
+  <data name="Menu_LayOutWires" xml:space="preserve"><value>Разложить провода</value></data>
   <data name="Menu_ResetRoute" xml:space="preserve"><value>Сбросить маршрут</value></data>
   <data name="Menu_AddPart" xml:space="preserve"><value>Добавить деталь…</value></data>
   <data name="Menu_Properties" xml:space="preserve"><value>Свойства</value></data>
@@ -1086,7 +1089,6 @@
   <data name="Shortcuts_Running_7" xml:space="preserve"><value>Щелчок по значку предупреждения|Открыть сообщение в «Журнале»</value></data>
   <data name="Editor_ReloadTip" xml:space="preserve"><value>Заменить текст версией с диска. Ваши правки можно вернуть: Ctrl+Z</value></data>
   <data name="Editor_GoToInvalid" xml:space="preserve"><value>Нет такой строки</value></data>
-  <data name="Explorer_Outline" xml:space="preserve"><value>Структура: {0}</value></data>
   <data name="Banner_InstallingTitle" xml:space="preserve"><value>Устанавливается компилятор</value></data>
   <data name="Banner_InstallingBody" xml:space="preserve"><value>Скачивается {0} МиБ, это нужно один раз.</value></data>
   <data name="Banner_ToolchainFailedBody" xml:space="preserve"><value>Проверьте соединение с интернетом и нажмите «Скачать». Если антивирус блокирует распаковку, добавьте папку ArduSim в исключения.</value></data>
@@ -1124,7 +1126,8 @@
   <data name="Settings_WheelPansTip" xml:space="preserve"><value>Прокрутка двигает схему, Ctrl+прокрутка меняет масштаб. Выключено: прокрутка меняет масштаб, как на мыши</value></data>
   <data name="Shortcuts_Panels_11" xml:space="preserve"><value>Ctrl+F6, Ctrl+Shift+F6|Следующая и предыдущая панель</value></data>
   <data name="Shortcuts_Panels_12" xml:space="preserve"><value>Alt|Меню проекта</value></data>
-  <data name="Shortcuts_Panels_13" xml:space="preserve"><value>←, →|Свернуть и развернуть папку в обозревателе проекта</value></data>
+  <data name="Shortcuts_Panels_13" xml:space="preserve"><value>←, →|Свернуть и развернуть папку или файл в обозревателе проекта</value></data>
+  <data name="Shortcuts_Panels_14" xml:space="preserve"><value>Alt+O|Заголовок и реализация файла</value></data>
   <data name="Shortcuts_Canvas_20" xml:space="preserve"><value>Правая кнопка + мышь, стрелки|Сдвиг вида (стрелки: ничего не выделено)</value></data>
   <data name="Shortcuts_Running_8" xml:space="preserve"><value>Ctrl+щелчок по кнопке или клавише|Зафиксировать, ещё щелчок отпускает</value></data>
   <data name="Shortcuts_Running_9" xml:space="preserve"><value>Tab, затем стрелки, Page, Home, End|Ручка, энкодер, джойстик, датчик с клавиатуры</value></data>
@@ -1134,7 +1137,7 @@
   <data name="Panel_ScreensTip" xml:space="preserve"><value>Экраны проекта и переходы между ними: открывает вкладку «Экраны»</value></data>
   <data name="Screens_Title" xml:space="preserve"><value>Экраны</value></data>
   <data name="Screens_Generated" xml:space="preserve"><value>Экраны хранятся в screens.json, код ui_screens.* создаётся при каждой сборке</value></data>
-  <data name="Screens_FromCode" xml:space="preserve"><value>Прочитано из кода: экранов {0}, переходов {1}. Точные значения правятся прямо в исходнике, остальное показано как есть</value></data>
+  <data name="Screens_FromCode" xml:space="preserve"><value>Прочитано из кода: экранов {0}, переходов {1}. Всё, что вы делаете здесь, сразу пишется в исходник и отменяется через Ctrl+Z</value></data>
   <data name="Screens_DisplayLcd" xml:space="preserve"><value>Дисплей {0}×{1} ({2})</value></data>
   <data name="Screens_DisplayOled" xml:space="preserve"><value>OLED {0}×{1} ({2})</value></data>
   <data name="Screens_FileUnreadable" xml:space="preserve"><value>Не удалось прочитать screens.json: {0}</value></data>
@@ -1176,7 +1179,7 @@
   <data name="Screens_MenuRows" xml:space="preserve"><value>Строк на экране</value></data>
   <data name="Screens_NotInCode" xml:space="preserve"><value>Это место в коде не задано одним значением, его можно изменить только вручную</value></data>
   <data name="Screens_CodeChanged" xml:space="preserve"><value>Код изменился после чтения. Экраны прочитаны заново, повторите правку</value></data>
-  <data name="Screens_NoNewTransitionInCode" xml:space="preserve"><value>В проекте с собственным кодом новые переходы добавляются в коде</value></data>
+  <data name="Screens_NoNewTransitionInCode" xml:space="preserve"><value>Новый переход сюда не добавить: в этом коде не нашлось обработчика клавиш</value></data>
   <data name="Screens_NoDisplay" xml:space="preserve"><value>На схеме нет дисплея 1602, 2004 или OLED. Добавьте его и вернитесь сюда</value></data>
   <data name="Screens_Created" xml:space="preserve"><value>Экраны созданы, скетч подключён к ним: uiBegin() и uiUpdate()</value></data>
   <data name="Screens_DisplayDiffers" xml:space="preserve"><value>На схеме другой дисплей, а экраны рассчитаны на прежний. Экраны не изменены</value></data>
@@ -1232,6 +1235,21 @@
   <data name="Screens_MenuTop" xml:space="preserve"><value>Меню начинается со строки</value></data>
   <data name="Screens_MenuTopOled" xml:space="preserve"><value>Меню начинается с Y, пикселей</value></data>
   <data name="Screens_ActionLabel" xml:space="preserve"><value>Действие (функция в ui_hooks.cpp)</value></data>
-  <data name="Screens_AddInCodeHint" xml:space="preserve"><value>Экраны прочитаны из кода, новые добавляются там же</value></data>
+  <data name="Screens_FieldConstant" xml:space="preserve"><value>Константа экрана в коде</value></data>
+  <data name="Screens_BadConstant" xml:space="preserve"><value>«{0}» не подходит: нужно имя C++, которого ещё нет среди экранов</value></data>
+  <data name="Screens_NoNewScreenInCode" xml:space="preserve"><value>Новый экран сюда не добавить: в этом коде не нашлось перечисления экранов и switch, который их рисует</value></data>
+  <data name="Screens_ScreenStillUsed" xml:space="preserve"><value>Этот экран упомянут в коде ещё где-то, и его не убрать без правки вручную</value></data>
+  <data name="Screens_CopyOf" xml:space="preserve"><value>{0} (копия)</value></data>
+  <data name="Screens_Center" xml:space="preserve"><value>По центру</value></data>
+  <data name="Screens_CenterTip" xml:space="preserve"><value>Поставить в середину строки</value></data>
+  <data name="Screens_Duplicate" xml:space="preserve"><value>Дублировать</value></data>
+  <data name="Screens_DuplicateTip" xml:space="preserve"><value>Копия ниже или рядом (Ctrl+D)</value></data>
+  <data name="Screens_FaceHint" xml:space="preserve"><value>Перетащите элемент с панели на экран. Двойной щелчок правит текст, стрелки двигают, Ctrl+D дублирует, Delete удаляет</value></data>
+  <data name="Screens_MapHint" xml:space="preserve"><value>Двойной щелчок по карточке открывает экран, по пустому месту создаёт новый. Потяните за кружок справа к другой карточке, чтобы связать их</value></data>
+  <data name="Screens_MenuOpen" xml:space="preserve"><value>Открыть экран</value></data>
+  <data name="Screens_MenuNew" xml:space="preserve"><value>Новый экран здесь</value></data>
+  <data name="Screens_MenuNewMenu" xml:space="preserve"><value>Новое меню здесь</value></data>
+  <data name="Explorer_GoToHeader" xml:space="preserve"><value>Перейти к заголовку</value></data>
+  <data name="Explorer_GoToSource" xml:space="preserve"><value>Перейти к реализации</value></data>
   <data name="Screens_RowTransitionsTip" xml:space="preserve"><value>Переходов с этого экрана</value></data>
 </root>

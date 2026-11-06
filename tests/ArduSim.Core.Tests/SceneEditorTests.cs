@@ -67,7 +67,7 @@ public sealed class SceneEditorTests
     }
 
     [Fact]
-    public void Moving_parts_moves_the_corners_of_wires_between_them_only()
+    public void Moving_parts_takes_wires_between_them_along_and_lays_out_those_with_one_end_on_them()
     {
         SceneEditor editor = NewEditor();
         PartModel led = editor.AddPart("led", 300, 100);
@@ -79,7 +79,9 @@ public sealed class SceneEditorTests
 
         Assert.Equal((320.0, 90.0), (led.X, led.Y));
         Assert.Equal((420.0, 200.0), inner.Waypoints[0]);
-        Assert.Equal((120.0, 210.0), outer.Waypoints[0]);
+        Assert.False(inner.IsAuto);
+        Assert.True(outer.IsAuto);
+        Assert.DoesNotContain((120.0, 210.0), outer.Waypoints);
     }
 
     [Theory]

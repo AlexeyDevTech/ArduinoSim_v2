@@ -11,8 +11,8 @@
       { "id": "w1", "from": { "component": "enc1", "pin": "CLK" }, "to": { "component": "board", "pin": "D4" }, "waypoints": [], "color": "auto" },
       { "id": "w2", "from": { "component": "enc1", "pin": "DT" }, "to": { "component": "board", "pin": "D3" }, "waypoints": [], "color": "auto" },
       { "id": "w3", "from": { "component": "enc1", "pin": "SW" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [], "color": "auto" },
-      { "id": "w4", "from": { "component": "enc1", "pin": "+" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[230, 260], [290, 260], [290, 390], [230, 390]], "color": "auto" },
-      { "id": "w5", "from": { "component": "enc1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[240, 250], [300, 250], [300, 400], [250, 400]], "color": "auto" }
+      { "id": "w4", "from": { "component": "enc1", "pin": "+" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [], "color": "auto" },
+      { "id": "w5", "from": { "component": "enc1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [], "color": "auto" }
     ]
   },
   "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }

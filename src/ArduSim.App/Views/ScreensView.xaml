@@ -33,12 +33,12 @@
           <ListBoxItem Content="{l:Loc Screens_Face}" ToolTip="{l:Loc Screens_FaceTip}" />
         </ListBox>
         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Visibility="{Binding CanAddElements, Converter={StaticResource BoolToVisibility}}">
-          <Button Content="{l:Loc Screens_AddText}" Command="{Binding AddElementCommand}" CommandParameter="Text" Margin="0,0,4,0" Padding="10,0" />
-          <Button Content="{l:Loc Screens_AddValue}" Command="{Binding AddElementCommand}" CommandParameter="Value" ToolTip="{l:Loc Screens_AddValueTip}" Margin="0,0,4,0" Padding="10,0" />
+          <Button Content="{l:Loc Screens_AddText}" Command="{Binding AddElementCommand}" CommandParameter="Text" Tag="Text" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
+          <Button Content="{l:Loc Screens_AddValue}" Command="{Binding AddElementCommand}" CommandParameter="Value" Tag="Value" ToolTip="{l:Loc Screens_AddValueTip}" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
           <StackPanel Orientation="Horizontal" Visibility="{Binding IsOled, Converter={StaticResource BoolToVisibility}}">
-            <Button Content="{l:Loc Screens_AddLine}" Command="{Binding AddElementCommand}" CommandParameter="Line" Margin="0,0,4,0" Padding="10,0" />
-            <Button Content="{l:Loc Screens_AddFrame}" Command="{Binding AddElementCommand}" CommandParameter="Frame" Margin="0,0,4,0" Padding="10,0" />
-            <Button Content="{l:Loc Screens_AddBox}" Command="{Binding AddElementCommand}" CommandParameter="Box" Margin="0,0,4,0" Padding="10,0" />
+            <Button Content="{l:Loc Screens_AddLine}" Command="{Binding AddElementCommand}" CommandParameter="Line" Tag="Line" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
+            <Button Content="{l:Loc Screens_AddFrame}" Command="{Binding AddElementCommand}" CommandParameter="Frame" Tag="Frame" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
+            <Button Content="{l:Loc Screens_AddBox}" Command="{Binding AddElementCommand}" CommandParameter="Box" Tag="Box" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
           </StackPanel>
         </StackPanel>
         <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE72C;" Command="{Binding RefreshCommand}" ToolTip="{l:Loc Screens_RefreshTip}" Visibility="{Binding IsFromCode, Converter={StaticResource BoolToVisibility}}" />
@@ -50,6 +50,8 @@
 
       <StackPanel DockPanel.Dock="Bottom" Margin="10,4,10,8">
         <TextBlock Text="{Binding Notice}" Style="{StaticResource Line.WhenText}" Foreground="{DynamicResource Brush.Warning}" />
+        <TextBlock Text="{l:Loc Screens_FaceHint}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" Visibility="{Binding CanAddElements, Converter={StaticResource BoolToVisibility}}" />
+        <TextBlock Text="{l:Loc Screens_MapHint}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" Visibility="{Binding ShowsMapHint, Converter={StaticResource BoolToVisibility}}" />
         <TextBlock Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis">
           <Run Text="{Binding DisplayText, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding SourceText, Mode=OneWay}" />
         </TextBlock>
@@ -57,7 +59,10 @@
 
       <Grid>
         <v:ScreenMapView x:Name="Map" Visibility="{Binding IsMap, Converter={StaticResource BoolToVisibility}}" />
-        <v:ScreenFaceView Visibility="{Binding IsFace, Converter={StaticResource BoolToVisibility}}" />
+        <v:ScreenFaceView x:Name="Face" Visibility="{Binding IsFace, Converter={StaticResource BoolToVisibility}}" />
+        <Canvas IsHitTestVisible="True" Background="{x:Null}">
+          <TextBox x:Name="InlineEditor" Visibility="Collapsed" FontFamily="{DynamicResource Font.Mono}" KeyDown="OnInlineKey" LostKeyboardFocus="OnInlineLostFocus" />
+        </Canvas>
       </Grid>
     </DockPanel>
   </Grid>

@@ -8,14 +8,14 @@
       { "id": "disp1", "type": "pcd8544", "x": 100, "y": 30, "rotation": 0, "flip": false }
     ],
     "wires": [
-      { "id": "w1", "from": { "component": "disp1", "pin": "RST" }, "to": { "component": "board", "pin": "D3" }, "waypoints": [[150, 20], [360, 20], [360, 220], [210, 220]], "color": "auto" },
-      { "id": "w2", "from": { "component": "disp1", "pin": "CE" }, "to": { "component": "board", "pin": "D4" }, "waypoints": [[160, 10], [350, 10], [350, 230], [200, 230]], "color": "auto" },
-      { "id": "w3", "from": { "component": "disp1", "pin": "DC" }, "to": { "component": "board", "pin": "D5" }, "waypoints": [[170, 0], [340, 0], [340, 240], [190, 240]], "color": "auto" },
-      { "id": "w4", "from": { "component": "disp1", "pin": "DIN" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [[180, -10], [330, -10], [330, 250], [130, 250]], "color": "auto" },
-      { "id": "w5", "from": { "component": "disp1", "pin": "CLK" }, "to": { "component": "board", "pin": "D13" }, "waypoints": [[190, -20], [320, -20], [320, 420], [120, 420]], "color": "auto" },
-      { "id": "w6", "from": { "component": "disp1", "pin": "VCC" }, "to": { "component": "board", "pin": "3V3" }, "waypoints": [[200, -30], [310, -30], [310, 430], [130, 430]], "color": "auto" },
-      { "id": "w7", "from": { "component": "disp1", "pin": "LIGHT" }, "to": { "component": "board", "pin": "D6" }, "waypoints": [[210, -40], [300, -40], [300, 280], [180, 280]], "color": "auto" },
-      { "id": "w8", "from": { "component": "disp1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[220, -50], [290, -50], [290, 450], [250, 450]], "color": "auto" }
+      { "id": "w1", "from": { "component": "disp1", "pin": "RST" }, "to": { "component": "board", "pin": "D3" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "disp1", "pin": "CE" }, "to": { "component": "board", "pin": "D4" }, "waypoints": [], "color": "auto" },
+      { "id": "w3", "from": { "component": "disp1", "pin": "DC" }, "to": { "component": "board", "pin": "D5" }, "waypoints": [], "color": "auto" },
+      { "id": "w4", "from": { "component": "disp1", "pin": "DIN" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [], "color": "auto" },
+      { "id": "w5", "from": { "component": "disp1", "pin": "CLK" }, "to": { "component": "board", "pin": "D13" }, "waypoints": [], "color": "auto" },
+      { "id": "w6", "from": { "component": "disp1", "pin": "VCC" }, "to": { "component": "board", "pin": "3V3" }, "waypoints": [], "color": "auto" },
+      { "id": "w7", "from": { "component": "disp1", "pin": "LIGHT" }, "to": { "component": "board", "pin": "D6" }, "waypoints": [], "color": "auto" },
+      { "id": "w8", "from": { "component": "disp1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [], "color": "auto" }
     ]
   },
   "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }

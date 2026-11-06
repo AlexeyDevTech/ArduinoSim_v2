@@ -1,5 +1,32 @@
 # Changelog
 
+## Wires that hold on, a tree of what files contain, a constructor of screens (2026-11-06)
+
+The owner's three remarks on the last version.
+
+**Wires** (ADR-020). They were corners in a file, and stayed behind when a part moved.
+
+- The editor lays wires out: straight out of each pin, around parts, each net on its own track.
+- A part moved, rotated or resized takes its wires with it, laid out anew at once; wires go aside for a part set down on them.
+- Over a target pin the ghost shows the wire it will be. Разложить, on the canvas and in its menu, lays out all of them in one undo step. Corners set by hand stay until an end moves alone.
+- A route of the editor's is not saved; the file format is the same.
+
+**Explorer.**
+
+- A file has a badge for what it is (`ino`, `c++`, `c`, `h`), here and on its tab.
+- As in Visual Studio, a file holds what is in it: the header of its name, its classes with their members, its functions and variables. The Структура group is gone. The file on screen is open in the tree; a chevron opens any other.
+- Alt+O goes between a header and its source. A new `.h` starts with `#pragma once`, a new source with the `#include` of its header.
+
+**The Экраны tab is a constructor** (ADR-019), in a project from code as well as a generated one.
+
+- Add text, values and shapes from the toolbar, by a click or by dropping them where they go. Edit text in place with a double-click, drag with the result drawn live, resize a shape by its handle, centre it, duplicate it with Ctrl+D.
+- On the map, a double-click on empty space makes a screen, a drag from a card's handle to another card makes a transition, and the right button has the rest.
+- In a project from code all of this is written straight into the source in the sketch's own style, with undo: an element where the screen's drawing ends, a constant and a `case` for a screen, `if (screen == A && key == '5') { enterScreen(B); return; }` for a transition. Keys, targets, expressions, a screen's name and the start screen can be changed; elements, transitions and whole screens can be removed where they stand alone. What the sketch's shape does not allow is refused with the reason. Tests build and run what this writes.
+
+**Also found on the way.** A sketch with its `#include`s in headers under `src` did not build, because libraries reached only through them were not found. NanoOS_v1 is such a sketch, and it builds and runs now. `__heap_start` and `__brkval` link on AVR boards, with a build warning that free SRAM worked out from them is not real.
+
+How to try it: open a project, drag a part around the schematic, press Разложить. Then Проект: open a `.cpp` and look under it. Then Экраны → Экран: drag Текст onto the display, double-click it.
+
 ## Screens and transitions (2026-11-06)
 
 The owner's request: an editor of screens and transitions for projects with a 1602, 2004 or OLED display, and forming that structure from an existing project when possible (ADR-019).

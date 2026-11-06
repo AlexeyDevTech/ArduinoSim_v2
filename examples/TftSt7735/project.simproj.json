@@ -9,14 +9,14 @@
       { "id": "pot1", "type": "potentiometer", "x": 120, "y": 540, "rotation": 180, "flip": false, "properties": { "value": 0.6 } }
     ],
     "wires": [
-      { "id": "w1", "from": { "component": "disp1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[160, -30], [360, -30], [360, 380], [230, 380]], "color": "auto" },
-      { "id": "w2", "from": { "component": "disp1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[170, -40], [350, -40], [350, 390], [250, 390]], "color": "auto" },
-      { "id": "w3", "from": { "component": "disp1", "pin": "CS" }, "to": { "component": "board", "pin": "D10" }, "waypoints": [[180, -50], [340, -50], [340, 240], [140, 240]], "color": "auto" },
-      { "id": "w4", "from": { "component": "disp1", "pin": "RESET" }, "to": { "component": "board", "pin": "D8" }, "waypoints": [[190, -60], [330, -60], [330, 250], [160, 250]], "color": "auto" },
-      { "id": "w5", "from": { "component": "disp1", "pin": "A0" }, "to": { "component": "board", "pin": "D9" }, "waypoints": [[200, -70], [320, -70], [320, 260], [150, 260]], "color": "auto" },
-      { "id": "w6", "from": { "component": "disp1", "pin": "SDA" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [[210, -80], [310, -80], [310, 270], [130, 270]], "color": "auto" },
-      { "id": "w7", "from": { "component": "disp1", "pin": "SCK" }, "to": { "component": "board", "pin": "D13" }, "waypoints": [[220, -90], [300, -90], [300, 440], [120, 440]], "color": "auto" },
-      { "id": "w8", "from": { "component": "disp1", "pin": "LED" }, "to": { "component": "board", "pin": "3V3" }, "waypoints": [[230, -100], [290, -100], [290, 450], [130, 450]], "color": "auto" },
+      { "id": "w1", "from": { "component": "disp1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "disp1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [], "color": "auto" },
+      { "id": "w3", "from": { "component": "disp1", "pin": "CS" }, "to": { "component": "board", "pin": "D10" }, "waypoints": [], "color": "auto" },
+      { "id": "w4", "from": { "component": "disp1", "pin": "RESET" }, "to": { "component": "board", "pin": "D8" }, "waypoints": [], "color": "auto" },
+      { "id": "w5", "from": { "component": "disp1", "pin": "A0" }, "to": { "component": "board", "pin": "D9" }, "waypoints": [], "color": "auto" },
+      { "id": "w6", "from": { "component": "disp1", "pin": "SDA" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [], "color": "auto" },
+      { "id": "w7", "from": { "component": "disp1", "pin": "SCK" }, "to": { "component": "board", "pin": "D13" }, "waypoints": [], "color": "auto" },
+      { "id": "w8", "from": { "component": "disp1", "pin": "LED" }, "to": { "component": "board", "pin": "3V3" }, "waypoints": [], "color": "auto" },
       { "id": "w9", "from": { "component": "pot1", "pin": "W" }, "to": { "component": "board", "pin": "A0" }, "waypoints": [], "color": "auto" },
       { "id": "w10", "from": { "component": "pot1", "pin": "2" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [], "color": "auto" },
       { "id": "w11", "from": { "component": "pot1", "pin": "1" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [], "color": "auto" }

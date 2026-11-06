@@ -739,8 +739,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private void CloseProject()
     {
         _ = StopClangdAsync(forget: true);
-        _outline = [];
-        _outlineOf = null;
+        _symbols.Clear();
+        _openedFiles.Clear();
+        _closedFiles.Clear();
+        _foldedSymbols.Clear();
         _watcher?.Dispose();
         _watcher = null;
         if (Scene is not null)

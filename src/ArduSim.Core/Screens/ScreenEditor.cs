@@ -113,6 +113,19 @@ public sealed class ScreenEditor(ScreenDocument document)
         return screen;
     }
 
+    /// <summary>A copy of a screen beside it, with its elements and menu; transitions stay with the original.</summary>
+    public ScreenNode? DuplicateScreen(string id, string title)
+    {
+        if (Document.Find(id) is not { } original)
+        {
+            return null;
+        }
+
+        var copy = original with { Id = FreshId("screen"), Title = title, Transitions = [], MapX = original.MapX + 40, MapY = original.MapY + 40 };
+        Apply(Document with { Screens = [.. Document.Screens, copy] });
+        return copy;
+    }
+
     /// <summary>Removes a screen and what leads to it. The start moves to the first that is left.</summary>
     public void RemoveScreen(string id)
     {

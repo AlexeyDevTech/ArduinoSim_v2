@@ -43,11 +43,14 @@ public sealed partial class SceneEditor
     private readonly ComponentRegistry _registry;
     private readonly Stack<SceneDocument> _undo = new();
     private readonly Stack<SceneDocument> _redo = new();
+    private readonly WireRouter _router;
 
     public SceneEditor(SceneModel scene, ComponentRegistry registry)
     {
         Scene = scene;
         _registry = registry;
+        _router = new WireRouter(this);
+        LayOutWhatHasNoRoute();
     }
 
     /// <summary>Raised after every change, including undo and redo.</summary>
@@ -75,9 +78,91 @@ public sealed partial class SceneEditor
     /// <summary>Records the current scene as one undo step; call before a change (or once before a drag).</summary>
     public void Checkpoint()
     {
-        _undo.Push(Scene.ToDocument(_registry));
+        _undo.Push(Scene.ToDocument(_registry, keepRoutes: true));
         _redo.Clear();
         Trim(_undo);
+    }
+
+    /// <summary>
+    /// Wires a file brought without a route are laid out now. So are corners nobody could have set by hand:
+    /// off the grid (another tool wrote them), or the one bend the editor used to choose by itself.
+    /// </summary>
+    private void LayOutWhatHasNoRoute()
+    {
+        foreach (WireModel wire in Scene.Wires.Where(w => !w.IsAuto))
+        {
+            bool offGrid = wire.Waypoints.Any(c => c.X != Snap(c.X) || c.Y != Snap(c.Y));
+            bool plainBend = wire.Waypoints.Count == 1 && PinPosition(wire.From) is { } a && PinPosition(wire.To) is { } b && wire.Waypoints[0] == (a.X, b.Y);
+            wire.IsAuto = offGrid || plainBend;
+        }
+
+        _router.Lay([.. Scene.Wires.Where(w => w.IsAuto)], thorough: true);
+    }
+
+    // After parts changed place or shape: a wire with one end on them is laid out anew, since no corner
+    // of its old route still means anything, and so is a laid-out wire they now lie over.
+    private void RerouteAround(IReadOnlyCollection<string> moved, bool bothEndsToo = false)
+    {
+        var boxes = Scene.Parts.Where(p => moved.Contains(p.Id)).Select(Bounds).ToList();
+        var dirty = new List<WireModel>();
+        foreach (WireModel wire in Scene.Wires)
+        {
+            bool from = moved.Contains(wire.From.Component);
+            bool to = moved.Contains(wire.To.Component);
+            if (from != to || (from && to && bothEndsToo))
+            {
+                wire.IsAuto = true;
+                dirty.Add(wire);
+            }
+            else if (wire.IsAuto && !(from && to))
+            {
+                IReadOnlyList<(double X, double Y)> route = Route(wire);
+                if (boxes.Any(b => CrossesBox(route, b.Left, b.Top, b.Right, b.Bottom)))
+                {
+                    dirty.Add(wire);
+                }
+            }
+        }
+
+        _router.Lay(dirty, thorough: false);
+    }
+
+    /// <summary>Разложить провода: every wire laid out anew, corners set by hand too. One undo step.</summary>
+    public void LayOutWires()
+    {
+        if (Scene.Wires.Count == 0)
+        {
+            return;
+        }
+
+        Checkpoint();
+        foreach (WireModel wire in Scene.Wires)
+        {
+            wire.IsAuto = true;
+        }
+
+        _router.Lay(Scene.Wires, thorough: true);
+        Changed?.Invoke();
+    }
+
+    /// <summary>Сбросить маршрут: this wire goes back to being laid out by the editor.</summary>
+    public void ResetRoute(string wireId)
+    {
+        if (Scene.FindWire(wireId) is { IsAuto: false } wire)
+        {
+            Checkpoint();
+            wire.IsAuto = true;
+            _router.Lay([wire], thorough: false);
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>The route a new wire between these pins would take.</summary>
+    public IReadOnlyList<(double X, double Y)> PreviewRoute(PinReference from, PinReference to)
+    {
+        ArgumentNullException.ThrowIfNull(from);
+        ArgumentNullException.ThrowIfNull(to);
+        return PinPosition(from) is { } a && PinPosition(to) is { } b ? Route(a, _router.Preview(from, to), b) : [];
     }
 
     public void Undo() => Swap(_undo, _redo);
@@ -90,6 +175,7 @@ public sealed partial class SceneEditor
         if (_undo.Count > 0)
         {
             Scene = SceneModel.FromDocument(_undo.Pop());
+            LayOutWhatHasNoRoute();
             Changed?.Invoke();
         }
     }
@@ -112,11 +198,12 @@ public sealed partial class SceneEditor
         }
 
         Scene.Parts.Add(part);
+        RerouteAround([part.Id]);
         Changed?.Invoke();
         return part;
     }
 
-    /// <summary>Moves parts (and the corners of wires that run between them); pass checkpoint=false while a drag continues.</summary>
+    /// <summary>Moves parts: wires between them go along, wires with one end on them are laid out anew. Pass checkpoint=false while a drag continues.</summary>
     public void MoveParts(IReadOnlyCollection<string> ids, double dx, double dy, bool checkpoint = true)
     {
         if (ids.Count == 0 || (dx == 0 && dy == 0))
@@ -143,6 +230,7 @@ public sealed partial class SceneEditor
             }
         }
 
+        RerouteAround(ids);
         Changed?.Invoke();
     }
 
@@ -173,6 +261,7 @@ public sealed partial class SceneEditor
             AlignToGrid(part);
         }
 
+        RerouteAround(ids, bothEndsToo: true);
         Changed?.Invoke();
     }
 
@@ -191,6 +280,7 @@ public sealed partial class SceneEditor
             AlignToGrid(part);
         }
 
+        RerouteAround(ids, bothEndsToo: true);
         Changed?.Invoke();
     }
 
@@ -219,7 +309,13 @@ public sealed partial class SceneEditor
         Checkpoint();
         var wire = new WireModel(NewWireId(), from, to);
         wire.Waypoints.AddRange(waypoints);
+        wire.IsAuto = wire.Waypoints.Count == 0;
         Scene.Wires.Add(wire);
+        if (wire.IsAuto)
+        {
+            _router.Lay([wire], thorough: false);
+        }
+
         Changed?.Invoke();
         return wire;
     }
@@ -237,7 +333,8 @@ public sealed partial class SceneEditor
         }
 
         wire.Waypoints.Clear();
-        wire.Waypoints.AddRange(waypoints);
+        wire.Waypoints.AddRange(waypoints.Select(c => (Snap(c.X), Snap(c.Y))));
+        wire.IsAuto = false;
         Changed?.Invoke();
     }
 
@@ -259,91 +356,10 @@ public sealed partial class SceneEditor
             wire.To = pin;
         }
 
-        wire.Waypoints.Clear();
-        wire.Waypoints.AddRange(BestCorner(wire.From, wire.To));
+        wire.IsAuto = true;
+        _router.Lay([wire], thorough: false);
         Changed?.Invoke();
         return true;
-    }
-
-    /// <summary>
-    /// The corner a new wire between two pins needs: none when the horizontal-first L is as good as the
-    /// vertical-first one. Each is scored by what it passes over: other parts' pins (it would read as a
-    /// connection), then part bodies, then wires already there.
-    /// </summary>
-    public IReadOnlyList<(double X, double Y)> BestCorner(PinReference from, PinReference to)
-    {
-        ArgumentNullException.ThrowIfNull(from);
-        ArgumentNullException.ThrowIfNull(to);
-        if (PinPosition(from) is not { } a || PinPosition(to) is not { } b || a.X == b.X || a.Y == b.Y)
-        {
-            return [];
-        }
-
-        double horizontal = RouteCost(Route(a, [], b), from, to);
-        double vertical = RouteCost(Route(a, [], b, verticalFirst: true), from, to);
-        return vertical < horizontal ? [(a.X, b.Y)] : [];
-    }
-
-    private double RouteCost(IReadOnlyList<(double X, double Y)> route, PinReference from, PinReference to)
-    {
-        const double Near = 2;
-        double cost = 0;
-        foreach (PartModel part in Scene.Parts)
-        {
-            if (Definition(part) is not { } definition)
-            {
-                continue;
-            }
-
-            foreach (PinDefinition pin in definition.Pins)
-            {
-                var reference = new PinReference(part.Id, pin.Name);
-                if (reference != from && reference != to && PinPosition(reference) is { } at && OnRoute(route, at, Near))
-                {
-                    cost += 100;
-                }
-            }
-
-            (double left, double top, double right, double bottom) = Bounds(part);
-            if (part.Id != from.Component && part.Id != to.Component && CrossesBox(route, left, top, right, bottom))
-            {
-                cost += 10;
-            }
-        }
-
-        foreach (WireModel wire in Scene.Wires)
-        {
-            if ((wire.From == from && wire.To == to) || (wire.From == to && wire.To == from))
-            {
-                continue;
-            }
-
-            IReadOnlyList<(double X, double Y)> other = Route(wire);
-            for (int i = 0; i + 1 < other.Count; i++)
-            {
-                if (OnRoute(route, other[i], Near) && OnRoute(route, other[i + 1], Near))
-                {
-                    cost++;
-                }
-            }
-        }
-
-        return cost;
-    }
-
-    private static bool OnRoute(IReadOnlyList<(double X, double Y)> route, (double X, double Y) point, double near)
-    {
-        for (int i = 0; i + 1 < route.Count; i++)
-        {
-            (double ax, double ay) = route[i];
-            (double bx, double by) = route[i + 1];
-            if (point.X >= Math.Min(ax, bx) - near && point.X <= Math.Max(ax, bx) + near && point.Y >= Math.Min(ay, by) - near && point.Y <= Math.Max(ay, by) + near)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static bool CrossesBox(IReadOnlyList<(double X, double Y)> route, double left, double top, double right, double bottom)
@@ -475,6 +491,7 @@ public sealed partial class SceneEditor
             Checkpoint();
         }
 
+        (double Left, double Top, double Right, double Bottom) box = Bounds(part);
         part.Properties[name] = value.Clone();
 
         // A property can change the pins (the LCD's interface): wires to pins that are gone go too.
@@ -482,6 +499,12 @@ public sealed partial class SceneEditor
         {
             Scene.Wires.RemoveAll(w => (w.From.Component == partId && definition.FindPin(w.From.Pin) is null) ||
                                        (w.To.Component == partId && definition.FindPin(w.To.Pin) is null));
+        }
+
+        // And the size (the LCD's rows): what ends there no longer ends where it did.
+        if (Bounds(part) != box)
+        {
+            RerouteAround([partId], bothEndsToo: true);
         }
 
         Changed?.Invoke();
@@ -503,6 +526,7 @@ public sealed partial class SceneEditor
         Scene.Parts[Scene.Parts.IndexOf(board)] = new PartModel(board.Id, boardType) { X = board.X, Y = board.Y, Rotation = board.Rotation, Flip = board.Flip };
         Scene.Wires.RemoveAll(w => (w.From.Component == board.Id && definition.FindPin(w.From.Pin) is null) ||
                                    (w.To.Component == board.Id && definition.FindPin(w.To.Pin) is null));
+        RerouteAround([board.Id]);
         Changed?.Invoke();
         return true;
     }
@@ -603,6 +627,8 @@ public sealed partial class SceneEditor
             Scene.Wires.Add(wire);
         }
 
+        _router.Lay([.. Scene.Wires.Where(w => w.IsAuto && w.Waypoints.Count == 0 && ids.ContainsValue(w.From.Component))], thorough: true);
+        RerouteAround([.. ids.Values]);
         Changed?.Invoke();
         return [.. ids.Values];
     }
@@ -773,8 +799,9 @@ public sealed partial class SceneEditor
             return;
         }
 
-        to.Push(Scene.ToDocument(_registry));
+        to.Push(Scene.ToDocument(_registry, keepRoutes: true));
         Scene = SceneModel.FromDocument(from.Pop());
+        LayOutWhatHasNoRoute();
         Changed?.Invoke();
     }
 

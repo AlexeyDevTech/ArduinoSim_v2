@@ -141,7 +141,12 @@ public sealed record WireDocument
 
     public PinReference To { get; init; } = new("", "");
 
+    /// <summary>Corners set by hand; none means the editor lays the wire out (ADR-020).</summary>
     public IReadOnlyList<IReadOnlyList<double>> Waypoints { get; init; } = [];
+
+    /// <summary>In an undo step only: these corners are the editor's. Never in a file.</summary>
+    [JsonIgnore]
+    public bool AutoRouted { get; init; }
 
     public string Color { get; init; } = "auto";
     [JsonExtensionData]

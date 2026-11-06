@@ -26,7 +26,7 @@ public sealed class PartModel(string id, string type)
     internal IDictionary<string, JsonElement>? Unknown { get; set; }
 }
 
-/// <summary>A wire from pin to pin through manual corners (ADR-008).</summary>
+/// <summary>A wire from pin to pin (ADR-008): through corners set by hand, or laid out by the editor (ADR-020).</summary>
 public sealed class WireModel(string id, PinReference from, PinReference to)
 {
     public string Id { get; set; } = id;
@@ -35,7 +35,11 @@ public sealed class WireModel(string id, PinReference from, PinReference to)
 
     public PinReference To { get; set; } = to;
 
+    /// <summary>The route's corners, whoever chose them.</summary>
     public List<(double X, double Y)> Waypoints { get; } = [];
+
+    /// <summary>The editor chose the corners and may choose again: they are not saved. False once someone edits the route by hand.</summary>
+    public bool IsAuto { get; set; } = true;
 
     /// <summary><c>auto</c> (by what the net carries) or a swatch name.</summary>
     public string Color { get; set; } = "auto";
@@ -77,6 +81,7 @@ public sealed class SceneModel
         {
             var wire = new WireModel(w.Id, w.From, w.To) { Color = w.Color, Unknown = w.Unknown };
             wire.Waypoints.AddRange(w.Waypoints.Where(p => p.Count >= 2).Select(p => (p[0], p[1])));
+            wire.IsAuto = w.AutoRouted || wire.Waypoints.Count == 0;
             scene.Wires.Add(wire);
         }
 
@@ -84,7 +89,9 @@ public sealed class SceneModel
     }
 
     /// <summary>The document form; property values equal to the definition's default are left out (ADR-008).</summary>
-    public SceneDocument ToDocument(ComponentRegistry registry)
+    /// <param name="registry">The parts' definitions.</param>
+    /// <param name="keepRoutes">An undo step keeps the laid-out routes too, so that undo brings back what was on screen; a file does not need them.</param>
+    public SceneDocument ToDocument(ComponentRegistry registry, bool keepRoutes = false)
     {
         ArgumentNullException.ThrowIfNull(registry);
         return new SceneDocument
@@ -105,7 +112,8 @@ public sealed class SceneModel
                 Id = w.Id,
                 From = w.From,
                 To = w.To,
-                Waypoints = w.Waypoints.Select(p => (IReadOnlyList<double>)[p.X, p.Y]).ToList(),
+                Waypoints = w.IsAuto && !keepRoutes ? [] : w.Waypoints.Select(p => (IReadOnlyList<double>)[p.X, p.Y]).ToList(),
+                AutoRouted = w.IsAuto && keepRoutes,
                 Color = w.Color,
                 Unknown = w.Unknown,
             }).ToList(),

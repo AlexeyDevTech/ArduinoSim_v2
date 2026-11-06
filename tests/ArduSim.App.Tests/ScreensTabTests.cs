@@ -256,16 +256,175 @@ public sealed class ScreensTabTests : IDisposable
     });
 
     [Fact]
-    public void What_is_computed_at_run_time_cannot_be_edited() => OnSta(async () =>
+    public void A_value_is_its_expression_in_the_code() => OnSta(async () =>
     {
         MainViewModel vm = await Opened(NewViewModel(), Project(LcdScene, Handwritten));
         ScreensViewModel screens = ShowScreens(vm);
         screens.SelectScreen("FRONT");
-
         screens.SelectElement(screens.SelectedScreen!.Elements.Single(e => e.Kind == ElementKind.Value).Id);
 
-        Assert.False(vm.Properties!.Fields.Single(f => f.Name == "text").IsEnabled);
-        Assert.NotEmpty(screens.ElementNote);
+        PropertyField field = vm.Properties!.Fields.Single(f => f.Name == "text");
+        Assert.True(field.IsEnabled);
+        field.Text = "millis() / 1000";
+        field.Commit();
+
+        Assert.Contains("lcd.print(millis() / 1000);", vm.Documents.First().Document.Text, StringComparison.Ordinal);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void What_a_shared_helper_draws_can_be_seen_but_not_taken_away_for_one_screen() => OnSta(async () =>
+    {
+        string code = Handwritten.Replace(
+            "void show() {",
+            "void title() { lcd.setCursor(0, 0); lcd.print(\"T\"); }\n\nvoid show() {",
+            StringComparison.Ordinal).Replace("case FRONT: lcd", "case FRONT: title(); lcd", StringComparison.Ordinal).Replace("case INFO: lcd", "case INFO: title(); lcd", StringComparison.Ordinal);
+        MainViewModel vm = await Opened(NewViewModel(), Project(LcdScene, code));
+        ScreensViewModel screens = ShowScreens(vm);
+        screens.SelectScreen("FRONT");
+
+        screens.SelectElement(screens.SelectedScreen!.Elements.First(e => e.Text == "T").Id);
+
+        Assert.False(screens.CanRemoveSelected);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void The_constructor_adds_text_to_a_screen_from_code_and_takes_it_away() => OnSta(async () =>
+    {
+        MainViewModel vm = await Opened(NewViewModel(), Project(LcdScene, Handwritten));
+        ScreensViewModel screens = ShowScreens(vm);
+        CodeDocumentViewModel document = vm.Documents.First();
+        screens.SelectScreen("INFO");
+        screens.IsFace = true;
+        Assert.True(screens.CanAddElements);
+
+        screens.AddElementAt(ElementKind.Text, 3, 1, "Added");
+
+        Assert.Contains("lcd.setCursor(3, 1); lcd.print(F(\"Added\"));", document.Document.Text, StringComparison.Ordinal);
+        Assert.Equal("Added", screens.SelectedElement!.Text);
+        Assert.True(document.IsDirty);
+
+        // In place, as a double-click does it, and along by a drag, then gone: one undo at a time.
+        screens.SetElementText(screens.SelectedElementId!, "Changed");
+        Assert.Contains("F(\"Changed\")", document.Document.Text, StringComparison.Ordinal);
+        screens.MoveElement(screens.SelectedElementId!, 5, 0);
+        Assert.Contains("lcd.setCursor(5, 0); lcd.print(F(\"Changed\"));", document.Document.Text, StringComparison.Ordinal);
+        Assert.True(screens.CanRemoveSelected);
+        screens.RemoveSelected();
+        Assert.DoesNotContain("Changed", document.Document.Text, StringComparison.Ordinal);
+
+        screens.UndoEditCommand.Execute(null);
+        Assert.Contains("lcd.setCursor(5, 0); lcd.print(F(\"Changed\"));", document.Document.Text, StringComparison.Ordinal);
+        screens.UndoEditCommand.Execute(null);
+        screens.UndoEditCommand.Execute(null);
+        screens.UndoEditCommand.Execute(null);
+        Assert.Equal(Handwritten, document.Document.Text);
+        screens.RedoEditCommand.Execute(null);
+        Assert.Contains("F(\"Added\")", document.Document.Text, StringComparison.Ordinal);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void The_constructor_adds_screens_and_transitions_to_code() => OnSta(async () =>
+    {
+        string project = Project(LcdScene, Handwritten);
+        MainViewModel vm = await Opened(NewViewModel(), project);
+        ScreensViewModel screens = ShowScreens(vm);
+        CodeDocumentViewModel document = vm.Documents.First();
+        Assert.True(screens.CanAddScreens);
+        Assert.True(screens.CanConnect);
+
+        screens.AddScreenAt(700, 300);
+
+        Assert.Equal("SCREEN_3", screens.SelectedScreenId);
+        Assert.Contains("enum Page { FRONT, INFO, SCREEN_3 };", document.Document.Text, StringComparison.Ordinal);
+        Assert.Contains("case SCREEN_3:", document.Document.Text, StringComparison.Ordinal);
+        Assert.Equal(700, screens.SelectedScreen!.MapX);
+
+        // A drag from card to card: a key that does nothing there yet, which its row can change.
+        screens.Connect("FRONT", "SCREEN_3");
+        screens.SelectScreen("FRONT");
+        TransitionRow row = screens.TransitionRows.Single(r => r.Transition.Target == "SCREEN_3");
+        Assert.True(row.CanEditTrigger);
+        Assert.True(row.CanRemove);
+        row.SelectedTrigger = row.Triggers.First(t => t.Value == "key::7");
+        Assert.Contains("if (page == FRONT && key == '7') { page = SCREEN_3; return; }", document.Document.Text, StringComparison.Ordinal);
+
+        // Renamed everywhere; the map keeps it where it was.
+        screens.SelectScreen("SCREEN_3");
+        PropertyField name = vm.Properties!.Fields.Single(f => f.Name == "title");
+        name.Text = "ABOUT";
+        name.Commit();
+        Assert.Equal("ABOUT", screens.SelectedScreenId);
+        Assert.DoesNotContain("case SCREEN_3", document.Document.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain(", SCREEN_3", document.Document.Text, StringComparison.Ordinal);
+        Assert.Equal(700, screens.SelectedScreen!.MapX);
+
+        // The first screen comes from where the variable starts.
+        Assert.True(screens.CanSetStart);
+        screens.SetStartCommand.Execute(null);
+        Assert.Contains("Page page = ABOUT;", document.Document.Text, StringComparison.Ordinal);
+        Assert.Equal("ABOUT", screens.Document!.Start);
+        screens.UndoEditCommand.Execute(null);
+
+        // A transition from any screen; and one taken away with its row.
+        int anywhere = screens.AnywhereRows.Count;
+        screens.AddAnywhereCommand.Execute(null);
+        Assert.Equal(anywhere + 1, screens.AnywhereRows.Count);
+        screens.RemoveTransitionCommand.Execute(screens.AnywhereRows.First(r => r.Transition.Trigger.Value == "1"));
+        Assert.Equal(anywhere, screens.AnywhereRows.Count);
+
+        // A screen nothing else needs goes with all that names it.
+        screens.SelectScreen("ABOUT");
+        Assert.True(screens.CanRemoveSelected);
+        screens.RemoveSelected();
+        Assert.DoesNotContain("ABOUT", document.Document.Text, StringComparison.Ordinal);
+        Assert.Null(screens.Document!.Find("ABOUT"));
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void A_bad_name_for_a_screen_is_refused() => OnSta(async () =>
+    {
+        MainViewModel vm = await Opened(NewViewModel(), Project(LcdScene, Handwritten));
+        ScreensViewModel screens = ShowScreens(vm);
+        screens.SelectScreen("INFO");
+        PropertyField name = vm.Properties!.Fields.Single(f => f.Name == "title");
+
+        name.Text = "1 bad";
+        name.Commit();
+
+        Assert.Equal(Handwritten, vm.Documents.First().Document.Text);
+        Assert.NotEmpty(screens.Notice);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void Elements_are_centered_duplicated_and_resized_in_a_generated_project() => OnSta(async () =>
+    {
+        MainViewModel vm = await Opened(NewViewModel(), Project(LcdScene, EmptySketch));
+        ScreensViewModel screens = ShowScreens(vm);
+        screens.CreateCommand.Execute(null);
+        screens.IsFace = true;
+
+        screens.AddElementAt(ElementKind.Text, 0, 1, "abcd");
+        Assert.True(screens.CanCenter);
+        screens.CenterSelectedCommand.Execute(null);
+        Assert.Equal(6, screens.SelectedElement!.X);
+
+        screens.DuplicateSelectedCommand.Execute(null);
+        Assert.Equal(("abcd", 1), (screens.SelectedElement!.Text, screens.SelectedElement.Y));
+
+        screens.SelectElement(null);
+        screens.DuplicateSelectedCommand.Execute(null);
+        Assert.Equal(2, screens.Rows.Count);
+        Assert.Empty(screens.SelectedScreen!.Transitions);
 
         await vm.DisposeAsync();
     });
@@ -279,8 +438,10 @@ public sealed class ScreensTabTests : IDisposable
 
         TransitionRow row = screens.TransitionRows.Single();
         Assert.True(row.CanEditTarget);
+        Assert.True(row.CanRemove);
+
+        // Its key is compared in an if around more than this one statement.
         Assert.False(row.CanEditTrigger);
-        Assert.False(row.CanRemove);
         row.SelectedTarget = row.Targets.Single(t => t.Value == "INFO");
 
         Assert.Contains("if (page == INFO) page = INFO;", vm.Documents.First().Document.Text, StringComparison.Ordinal);

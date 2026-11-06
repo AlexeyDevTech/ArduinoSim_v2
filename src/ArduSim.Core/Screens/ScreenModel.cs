@@ -70,6 +70,52 @@ public sealed record SourceSpan(string File, int Offset, int Length, string Expe
 /// <summary>Where something is in the source, for going to it.</summary>
 public sealed record SourceLocation(string File, int Line);
 
+/// <summary>A place in the source where new code can go.</summary>
+/// <param name="Offset">Characters from the start of the file.</param>
+/// <param name="Indent">What a new line starts with.</param>
+/// <param name="Inline">The place is inside a line: what goes there stays on it.</param>
+public sealed record SourceInsert(string File, int Offset, string Indent, bool Inline);
+
+/// <summary>
+/// How a sketch keeps its screens, as far as a scan could tell (ADR-019): what the constructor needs to
+/// add a screen or a transition in the sketch's own style. What is missing is what cannot be added.
+/// </summary>
+public sealed record ScreenCodeShape
+{
+    /// <summary>Where a new constant goes in the screens' enum.</summary>
+    public SourceInsert? NewConstant { get; init; }
+
+    /// <summary>How the constant is written there: <c>, {0}</c>, <c>{0}, </c>.</summary>
+    public string ConstantFormat { get; init; } = ", {0}";
+
+    /// <summary>Where a new <c>case</c> goes in the switch that draws.</summary>
+    public SourceInsert? NewDrawCase { get; init; }
+
+    /// <summary>The object drawn on, with its accessor: <c>lcd.</c></summary>
+    public string Receiver { get; init; } = "";
+
+    /// <summary>Where a new transition goes: the start of what handles a key.</summary>
+    public SourceInsert? NewTransition { get; init; }
+
+    /// <summary>The variable that holds the key there.</summary>
+    public string KeyVariable { get; init; } = "";
+
+    /// <summary>The screen variable as the code writes it.</summary>
+    public string StateExpression { get; init; } = "";
+
+    /// <summary>How the sketch goes to a screen: <c>enterScreen({0});</c></summary>
+    public string GotoFormat { get; init; } = "";
+
+    /// <summary>The handler returns nothing, so a new transition can end it.</summary>
+    public bool CanReturn { get; init; }
+
+    /// <summary>The constant that says which screen comes first.</summary>
+    public SourceSpan? StartSpan { get; init; }
+
+    /// <summary>Key characters the sketch has a name for.</summary>
+    public IReadOnlyDictionary<string, string> KeyNames { get; init; } = new Dictionary<string, string>();
+}
+
 /// <summary>One thing on a screen.</summary>
 public sealed record ScreenElement
 {
@@ -115,6 +161,22 @@ public sealed record ScreenElement
 
     [JsonIgnore]
     public SourceSpan? YSpan { get; init; }
+
+    /// <summary>A shape's width or a line's end X, as one number in code.</summary>
+    [JsonIgnore]
+    public SourceSpan? WidthSpan { get; init; }
+
+    /// <summary>A shape's height or a line's end Y, as one number in code.</summary>
+    [JsonIgnore]
+    public SourceSpan? HeightSpan { get; init; }
+
+    /// <summary>A value's expression, when it is written where it is printed.</summary>
+    [JsonIgnore]
+    public SourceSpan? ExpressionSpan { get; init; }
+
+    /// <summary>What takes it out of the code: its statements. Empty when that cannot be done on its own.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<SourceSpan> RemoveSpans { get; init; } = [];
 
     [JsonIgnore]
     public SourceLocation? Location { get; init; }
@@ -162,6 +224,14 @@ public sealed record ScreenTransition
 
     [JsonIgnore]
     public SourceSpan? TargetSpan { get; init; }
+
+    /// <summary>The key it compares with, when that comparison is this transition's alone.</summary>
+    [JsonIgnore]
+    public SourceSpan? KeySpan { get; init; }
+
+    /// <summary>What takes it out of the code. Empty when that cannot be done on its own.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<SourceSpan> RemoveSpans { get; init; } = [];
 
     [JsonIgnore]
     public SourceLocation? Location { get; init; }
@@ -219,6 +289,22 @@ public sealed record ScreenNode
     /// <summary>Its drawing is code that was not read: an application that draws itself through something unknown.</summary>
     public bool DrawnElsewhere { get; init; }
 
+    /// <summary>Where a new element's code goes.</summary>
+    [JsonIgnore]
+    public SourceInsert? DrawInsert { get; init; }
+
+    /// <summary>The object it draws on there, with its accessor.</summary>
+    [JsonIgnore]
+    public string Receiver { get; init; } = "";
+
+    /// <summary>Every place its constant is written, for renaming it.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<SourceSpan> UseSpans { get; init; } = [];
+
+    /// <summary>What takes the screen out of the code. Empty when something else still uses it.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<SourceSpan> RemoveSpans { get; init; } = [];
+
     [JsonIgnore]
     public SourceLocation? Location { get; init; }
 }
@@ -250,6 +336,10 @@ public sealed record ScreenDocument
 
     /// <summary>Transitions that work from any screen.</summary>
     public IReadOnlyList<ScreenTransition> FromAnywhere { get; init; } = [];
+
+    /// <summary>In a project from code, how to add to it.</summary>
+    [JsonIgnore]
+    public ScreenCodeShape? Shape { get; init; }
 
     [JsonExtensionData]
     public IDictionary<string, JsonElement>? Unknown { get; init; }

@@ -169,6 +169,7 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
         }
 
         var diagnostics = DiagnosticParser.Parse(log.ToString()).Distinct().ToList();
+        diagnostics.AddRange(FreeSramWarnings(sketch));
         if (succeeded is false && compiled && log.ToString().Contains("permission denied", StringComparison.OrdinalIgnoreCase))
         {
             diagnostics.Add(new BuildDiagnostic(DiagnosticSeverity.Error, $"{dll} is in use; stop the running simulation and build again.", null, 0, 0));
@@ -184,6 +185,23 @@ public sealed class FirmwareBuilder(Toolchain toolchain, ObjectCache cache, Shim
             log.ToString(),
             resolution.Libraries.Select(l => l.Name).ToList(),
             statistics);
+    }
+
+    // The idiom links, but there is no AVR memory map behind it: the number must not be taken for the truth.
+    private static IEnumerable<BuildDiagnostic> FreeSramWarnings(Sketch sketch)
+    {
+        IEnumerable<string> own = sketch.InoFiles.Concat(sketch.SourceFiles)
+            .Concat(Directory.EnumerateFiles(sketch.Directory, "*.h", SearchOption.TopDirectoryOnly))
+            .Concat(Directory.Exists(Path.Combine(sketch.Directory, "src")) ? Directory.EnumerateFiles(Path.Combine(sketch.Directory, "src"), "*.h", SearchOption.AllDirectories) : []);
+        foreach (string file in own)
+        {
+            string[] lines = File.ReadAllLines(file);
+            int index = Array.FindIndex(lines, l => l.Contains("__brkval", StringComparison.Ordinal) || l.Contains("__heap_start", StringComparison.Ordinal));
+            if (index >= 0)
+            {
+                yield return new BuildDiagnostic(DiagnosticSeverity.Warning, "__heap_start and __brkval are not modelled: free SRAM worked out from them is not real.", file, index + 1, 1);
+            }
+        }
     }
 
     private async Task<(CacheEntry? Entry, bool Hit, string Output)> CompileAsync(

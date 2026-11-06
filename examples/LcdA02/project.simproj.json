@@ -8,10 +8,10 @@
       { "id": "lcd1", "type": "lcd", "x": 280, "y": 0, "rotation": 0, "flip": false, "properties": { "rom": "a02" } }
     ],
     "wires": [
-      { "id": "w1", "from": { "component": "board", "pin": "GND" }, "to": { "component": "lcd1", "pin": "GND" }, "waypoints": [[150, 100], [240, 100], [240, 50]], "color": "auto" },
-      { "id": "w2", "from": { "component": "board", "pin": "5V" }, "to": { "component": "lcd1", "pin": "VCC" }, "waypoints": [[130, 110], [250, 110], [250, 60]], "color": "auto" },
-      { "id": "w3", "from": { "component": "board", "pin": "A4" }, "to": { "component": "lcd1", "pin": "SDA" }, "waypoints": [[90, 120], [260, 120], [260, 70]], "color": "auto" },
-      { "id": "w4", "from": { "component": "board", "pin": "A5" }, "to": { "component": "lcd1", "pin": "SCL" }, "waypoints": [[100, 130], [270, 130], [270, 80]], "color": "auto" }
+      { "id": "w1", "from": { "component": "board", "pin": "GND" }, "to": { "component": "lcd1", "pin": "GND" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "board", "pin": "5V" }, "to": { "component": "lcd1", "pin": "VCC" }, "waypoints": [], "color": "auto" },
+      { "id": "w3", "from": { "component": "board", "pin": "A4" }, "to": { "component": "lcd1", "pin": "SDA" }, "waypoints": [], "color": "auto" },
+      { "id": "w4", "from": { "component": "board", "pin": "A5" }, "to": { "component": "lcd1", "pin": "SCL" }, "waypoints": [], "color": "auto" }
     ]
   },
   "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }

@@ -1357,8 +1357,9 @@ public partial class SchematicCanvas : UserControl
             }
 
             menu.Items.Add(colors);
-            bool bent = scene.Editor.Scene.FindWire(wire.Id) is { Waypoints.Count: > 0 };
-            Item("Menu_ResetRoute", "", () => scene.ResetRoute(wire.Id), editable && bent);
+            bool byHand = scene.Editor.Scene.FindWire(wire.Id) is { IsAuto: false };
+            Item("Menu_ResetRoute", "", () => scene.ResetRoute(wire.Id), editable && byHand);
+            Item("Menu_LayOutWires", "", scene.Editor.LayOutWires, editable);
             menu.Items.Add(new Separator());
             Item("Menu_Delete", "Del", scene.DeleteSelection, editable);
         }
@@ -1366,6 +1367,7 @@ public partial class SchematicCanvas : UserControl
         {
             Item("Menu_AddPart", "A", () => AddPartRequested?.Invoke(this, EventArgs.Empty), editable);
             Item("Menu_Paste", "Ctrl+V", () => PasteFromClipboard(scene, world), editable && Clipboard.ContainsText());
+            Item("Menu_LayOutWires", "", scene.Editor.LayOutWires, editable && scene.Editor.Scene.Wires.Count > 0);
             Item("Menu_Fit", "Ctrl+0", Fit);
             menu.Items.Add(new Separator());
             Item("Menu_Help", "F1", () => ShowHelpRequested?.Invoke(this, EventArgs.Empty));
@@ -1373,6 +1375,14 @@ public partial class SchematicCanvas : UserControl
 
         menu.PlacementTarget = this;
         menu.IsOpen = true;
+    }
+
+    private void OnLayOutWires(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is SceneViewModel { IsLocked: false } scene)
+        {
+            scene.Editor.LayOutWires();
+        }
     }
 
     private void OnZoomReset(object sender, RoutedEventArgs e)

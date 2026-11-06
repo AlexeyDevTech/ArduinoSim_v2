@@ -467,6 +467,13 @@ public sealed partial class SceneViewModel : ObservableObject
         if (PinAt(cursor, WireSnapRadius) is { } target)
         {
             end = target.Position;
+
+            // Over a pin the ghost is the wire it will be, when the route is the editor's to choose.
+            if (_corners.Count == 0 && !VerticalFirst && target.Pin != _wireStart)
+            {
+                Ghost = ToPoints(Editor.PreviewRoute(_wireStart, target.Pin));
+                return;
+            }
         }
 
         Ghost = ToPoints(SceneEditor.Route((start.X, start.Y), _corners, (end.X, end.Y), VerticalFirst));
@@ -486,20 +493,13 @@ public sealed partial class SceneViewModel : ObservableObject
             return false;
         }
 
+        // Corners set by hand, or the bend Tab asked for, are the user's; otherwise the editor lays it out.
         List<(double X, double Y)> corners = [.. _corners];
-        if (corners.Count == 0)
+        Point a = PinPoint(start);
+        Point b = PinPoint(pin);
+        if (corners.Count == 0 && VerticalFirst && a.X != b.X && a.Y != b.Y)
         {
-            Point a = PinPoint(start);
-            Point b = PinPoint(pin);
-            if (VerticalFirst && a.X != b.X && a.Y != b.Y)
-            {
-                corners.Add((a.X, b.Y));
-            }
-            else if (!VerticalFirst)
-            {
-                // The bend that does not run along other pins (Tab overrides it).
-                corners.AddRange(Editor.BestCorner(start, pin));
-            }
+            corners.Add((a.X, b.Y));
         }
 
         CancelWire();
@@ -561,14 +561,8 @@ public sealed partial class SceneViewModel : ObservableObject
         }
     }
 
-    /// <summary>Сбросить маршрут: back to the plain route between the two pins.</summary>
-    public void ResetRoute(string wireId)
-    {
-        if (Editor.Scene.FindWire(wireId) is { Waypoints.Count: > 0 } wire)
-        {
-            Editor.SetWaypoints(wireId, Editor.BestCorner(wire.From, wire.To));
-        }
-    }
+    /// <summary>Сбросить маршрут: back to the route the editor lays out.</summary>
+    public void ResetRoute(string wireId) => Editor.ResetRoute(wireId);
 
     // ---- wire editing ------------------------------------------------------------------------
 

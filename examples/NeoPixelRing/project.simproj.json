@@ -8,9 +8,9 @@
       { "id": "ring1", "type": "ws2812", "x": 320, "y": 60, "rotation": 0, "flip": false, "properties": { "layout": "ring", "count": 16 } }
     ],
     "wires": [
-      { "id": "w1", "from": { "component": "ring1", "pin": "DIN" }, "to": { "component": "board", "pin": "D6" }, "waypoints": [[410, 280], [180, 280]], "color": "auto" },
-      { "id": "w2", "from": { "component": "ring1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[390, 400], [250, 400]], "color": "auto" },
-      { "id": "w3", "from": { "component": "ring1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[400, 410], [230, 410]], "color": "auto" }
+      { "id": "w1", "from": { "component": "ring1", "pin": "DIN" }, "to": { "component": "board", "pin": "D6" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "ring1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [], "color": "auto" },
+      { "id": "w3", "from": { "component": "ring1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [], "color": "auto" }
     ]
   },
   "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }

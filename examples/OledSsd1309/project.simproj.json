@@ -8,13 +8,13 @@
       { "id": "disp1", "type": "oled", "x": 70, "y": 30, "rotation": 0, "flip": false, "properties": { "controller": "ssd1309", "interface": "spi" } }
     ],
     "wires": [
-      { "id": "w1", "from": { "component": "disp1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[160, 20], [380, 20], [380, 380], [250, 380]], "color": "auto" },
-      { "id": "w2", "from": { "component": "disp1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[170, 10], [370, 10], [370, 390], [230, 390]], "color": "auto" },
-      { "id": "w3", "from": { "component": "disp1", "pin": "D0" }, "to": { "component": "board", "pin": "D13" }, "waypoints": [[180, 0], [360, 0], [360, 400], [120, 400]], "color": "auto" },
-      { "id": "w4", "from": { "component": "disp1", "pin": "D1" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [[190, -10], [350, -10], [350, 260], [130, 260]], "color": "auto" },
-      { "id": "w5", "from": { "component": "disp1", "pin": "RES" }, "to": { "component": "board", "pin": "D8" }, "waypoints": [[200, -20], [340, -20], [340, 270], [160, 270]], "color": "auto" },
-      { "id": "w6", "from": { "component": "disp1", "pin": "DC" }, "to": { "component": "board", "pin": "D9" }, "waypoints": [[210, -30], [330, -30], [330, 280], [150, 280]], "color": "auto" },
-      { "id": "w7", "from": { "component": "disp1", "pin": "CS" }, "to": { "component": "board", "pin": "D10" }, "waypoints": [[220, -40], [320, -40], [320, 290], [140, 290]], "color": "auto" }
+      { "id": "w1", "from": { "component": "disp1", "pin": "GND" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "disp1", "pin": "VCC" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [], "color": "auto" },
+      { "id": "w3", "from": { "component": "disp1", "pin": "D0" }, "to": { "component": "board", "pin": "D13" }, "waypoints": [], "color": "auto" },
+      { "id": "w4", "from": { "component": "disp1", "pin": "D1" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [], "color": "auto" },
+      { "id": "w5", "from": { "component": "disp1", "pin": "RES" }, "to": { "component": "board", "pin": "D8" }, "waypoints": [], "color": "auto" },
+      { "id": "w6", "from": { "component": "disp1", "pin": "DC" }, "to": { "component": "board", "pin": "D9" }, "waypoints": [], "color": "auto" },
+      { "id": "w7", "from": { "component": "disp1", "pin": "CS" }, "to": { "component": "board", "pin": "D10" }, "waypoints": [], "color": "auto" }
     ]
   },
   "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }

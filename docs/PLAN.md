@@ -124,3 +124,5 @@ Kept for the record; each proposal below is now the decision in its ADR.
 **M12 — Electrical DC solver ✅ (2026-11-06).** Chosen by the owner on 2026-11-05: nodal analysis of voltages and currents on every change of the circuit, LEDs with forward voltage and brightness from current, dividers, pin overload above 40 mA, an LED without a resistor, currents on the schematic. No capacitors or transients; virtual time and sketch speed stay as they are. This narrows brief §4's "no SPICE" on the owner's decision (ADR-017).
 
 **Screens and transitions ✅ (2026-11-06).** The owner's request of 2026-11-06, outside the milestone list: the Экраны tab, screens read from a sketch's code and edited in place, generated code for a project without them (ADR-019).
+
+**Wire layout, the tree of file contents, the constructor in code ✅ (2026-11-06).** The owner's remarks on the screens release (ADR-020, ADR-019).

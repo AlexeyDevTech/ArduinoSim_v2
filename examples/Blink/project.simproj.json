@@ -9,9 +9,9 @@
       { "id": "led1", "type": "led", "x": 280, "y": 360, "rotation": 0, "flip": false, "properties": { "color": "red" } }
     ],
     "wires": [
-      { "id": "w1", "from": { "component": "board", "pin": "D13" }, "to": { "component": "r1", "pin": "1" }, "waypoints": [[120, 430]], "color": "auto" },
+      { "id": "w1", "from": { "component": "board", "pin": "D13" }, "to": { "component": "r1", "pin": "1" }, "waypoints": [], "color": "auto" },
       { "id": "w2", "from": { "component": "r1", "pin": "2" }, "to": { "component": "led1", "pin": "A" }, "waypoints": [], "color": "auto" },
-      { "id": "w3", "from": { "component": "led1", "pin": "C" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[310, 460], [250, 460]], "color": "auto" }
+      { "id": "w3", "from": { "component": "led1", "pin": "C" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [], "color": "auto" }
     ]
   },
   "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }

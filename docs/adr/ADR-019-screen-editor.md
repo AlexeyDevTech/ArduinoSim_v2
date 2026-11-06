@@ -13,7 +13,7 @@ Hand-written projects differ widely. NanoOS, the owner's example, has an `enum S
 
 ### Two kinds of project, one editor
 
-- **From code.** The sketch is scanned on every open and after every edit, and the code stays the source of truth. A screen map is derived from it and nothing else is stored but where the nodes lie on the map. What was recognised exactly (a string, a number in `setCursor`, the screen named in a transition) is edited **in the source**: exactly that token, as an undoable edit in the file's document, refused if the text there is no longer what the scan saw. What is computed at run time shows as a value and is not editable. New screens in such a project are added in code.
+- **From code.** The sketch is scanned on every open and after every edit, and the code stays the source of truth. A screen map is derived from it and nothing else is stored but where the nodes lie on the map. What was recognised exactly (a string, a number in `setCursor`, the expression printed, the screen named in a transition, the key compared with) is edited **in the source**: exactly that token, as an undoable edit in the file's document, refused if the text there is no longer what the scan saw. The same tab is a constructor for such a project too (see below): what it adds is new code in the sketch's own style.
 - **Generated.** A project with no screens in its code can start them here. A model in `screens.json`, next to the project file, is the source of truth, and `ui_screens.h` and `ui_screens.cpp` are generated from it before a build. They are plain, readable C++ and say at the top that they are overwritten. What the code must supply (a value to show, an action to run) goes in `ui_hooks.cpp`, which is created once and only ever appended to.
 
 ### Recognising code
@@ -25,7 +25,21 @@ A tolerant scanner in `Core/Screens`, not a compiler: it works on sketches that 
 - **From where and on what**: the conditions around that site, and around each call on the way to it. `case A:` or `screen == A` gives the source, and without one the transition is from any screen. `key == KEY_OK` or `case 'x':` gives the key, with `#define` values resolved. `case 1:` on a menu index gives the item.
 - **What a screen shows**: the drawing calls reached from its `case`, walked with a cursor and the constant arguments bound, through helpers such as `clearLine(row)`. A literal is text at a known place; anything else is a value. A `print` of an array element inside a loop makes it a menu with the array's strings. An application that draws itself is matched to its screen by name (`ALARM_APP`, `AlarmApp::render`).
 
-It is a heuristic and says so: what it could not place is marked, and each screen and transition links to its line. Nothing is ever edited that was not read as exactly one token.
+A class of the sketch's own with `setCursor(x, y)` draws for it, and its objects count as the display. Apart from what the screens show, the scan keeps what the constructor needs (`ScreenCodeShape`, the spans on elements, transitions and screens): where the screen's own drawing ends, where a `case` goes, how the sketch goes to a screen (`enterScreen({0});`), which function handles keys and with what variable.
+
+It is a heuristic and says so: what it could not place is marked, and each screen and transition links to its line. Nothing is ever replaced that was not read as exactly one token, and nothing removed that does not stand alone.
+
+### The constructor in code
+
+The owner's second word on this (2026-11-06): an editor that only shows and lets you look in the code is not a constructor. So a project from code can be built here as well, by adding code:
+
+- **An element**: `lcd.setCursor(2, 1); lcd.print(F("Text"));`, with the library's own calls for an OLED and its shapes, where the screen's own drawing ends: at the end of a function that only this screen calls, before what sends a buffer to the display, or before the `break` of its `case`.
+- **A screen**: a constant in the enum (before one that counts the others) and a `case` in the switch that draws.
+- **A transition**: `if (screen == A && key == '5') { enterScreen(B); return; }` first thing in the function that handles keys, where the key is known, using the sketch's own name for the key if it has one. At the top it cannot be swallowed by whatever else the function does with a key. Without a screen in it, it works from any screen.
+- **Removing**: an element's statements with their `setCursor`; a transition's statement with the `if` that is only for it; a screen with its constant, its cases and what leads to it, only if nothing else names it. What hangs on a condition, has an `else` or comes from a helper other screens use cannot go alone, and the tab says so.
+- **Renaming a screen** changes every place its constant is written. **The start screen** is the constant the variable starts with.
+
+A set of edits is applied at once, each file checked first, as one undo step. What the sketch's shape does not allow (no enum, no switch that draws, no key handler) is refused with the reason, and the buttons for it do not appear: nothing is written on a guess. Integration tests build and run what these edits produce.
 
 ### The generated code's shape
 
@@ -46,6 +60,6 @@ The preview's font is the HD44780 ROM's, on a character display and on an OLED a
 ## Consequences
 
 - A sketch that keeps its state in some unusual way shows fewer transitions or none, and a wrong guess is possible. It costs nothing, because recognising changes no code.
-- Editing in place cannot add a screen to a hand-written project. Doing that properly means editing an enum, a `switch` and a function in code whose shape is only guessed at.
+- New code in a hand-written project follows a recognised shape, and goes through the document with undo. A menu cannot be added there: it would mean writing a menu's logic into code whose shape is only guessed at.
 - The generated code holds only what the model says, so logic that does not fit (the calculator's arithmetic, say) belongs in hooks.
 - Not done: custom LCD characters, bitmaps, animated transitions, more than one display per project, and converting a hand-written project into a generated one.

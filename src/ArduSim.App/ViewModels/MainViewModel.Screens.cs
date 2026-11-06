@@ -213,16 +213,34 @@ public sealed partial class MainViewModel : IScreensHost
     private bool IsGeneratedScreenCode(string path) =>
         _projectDirectory is { } project && Path.GetFileName(path) is ScreenCodeGenerator.HeaderFile or ScreenCodeGenerator.SourceFile && File.Exists(Path.Combine(project, ScreenDocument.FileName));
 
-    bool IScreensHost.ApplySourceEdit(SourceEdit edit)
+    bool IScreensHost.ApplySourceEdits(IReadOnlyList<SourceEdit> edits)
     {
-        CodeDocumentViewModel document = Documents.FirstOrDefault(d => SamePath(d.Path, edit.Span.File)) ?? AddDocument(edit.Span.File);
-        if (document.IsReadOnly || !edit.Fits(document.Document.Text))
+        // All or nothing: every file is looked at before any of them changes.
+        var byFile = new List<(CodeDocumentViewModel Document, List<SourceEdit> Edits)>();
+        foreach (IGrouping<string, SourceEdit> file in edits.GroupBy(e => e.Span.File, StringComparer.OrdinalIgnoreCase))
         {
-            return false;
+            CodeDocumentViewModel document = Documents.FirstOrDefault(d => SamePath(d.Path, file.Key)) ?? AddDocument(file.Key);
+            string text = document.Document.Text;
+            if (document.IsReadOnly || !file.All(e => e.Fits(text)))
+            {
+                return false;
+            }
+
+            byFile.Add((document, [.. file]));
         }
 
         _applyingScreenEdit = true;
-        document.Document.Replace(edit.Span.Offset, edit.Span.Length, edit.NewText);
+        foreach ((CodeDocumentViewModel document, List<SourceEdit> list) in byFile)
+        {
+            using (document.Document.RunUpdate())
+            {
+                foreach (SourceEdit edit in list.OrderByDescending(e => e.Span.Offset))
+                {
+                    document.Document.Replace(edit.Span.Offset, edit.Span.Length, edit.NewText);
+                }
+            }
+        }
+
         _applyingScreenEdit = false;
         return true;
     }

@@ -53,35 +53,6 @@ public sealed class SceneEditorRoutingTests
         Assert.False(changed);
     }
 
-    [Fact]
-    public void A_new_wire_takes_the_bend_that_does_not_run_along_another_part_pin()
-    {
-        SceneEditor editor = NewEditor();
-        PartModel first = editor.AddPart("led", 200, 0);
-        PartModel second = editor.AddPart("led", 500, 200);
-
-        // From the cathode, the outer pin: going right from the anode would run over the part's own cathode.
-        var from = new PinReference(first.Id, "C");
-        var to = new PinReference(second.Id, "A");
-        (double X, double Y) a = editor.PinPosition(from)!.Value;
-        (double X, double Y) b = editor.PinPosition(to)!.Value;
-        Assert.Empty(editor.BestCorner(from, to));
-
-        // A third LED whose anode sits on the horizontal leg that goes first by default.
-        PartModel third = editor.AddPart("led", 0, 0);
-        (double X, double Y) pin = editor.PinPosition(new(third.Id, "A"))!.Value;
-        editor.MoveParts([third.Id], a.X + 100 - pin.X, a.Y - pin.Y);
-        Assert.Equal((a.X + 100, a.Y), editor.PinPosition(new(third.Id, "A")));
-
-        Assert.Equal([(a.X, b.Y)], editor.BestCorner(from, to));
-    }
-
-    [Fact]
-    public void An_aligned_wire_needs_no_corner()
-    {
-        SceneEditor editor = NewEditor();
-        Assert.Empty(editor.BestCorner(new("board", "D2"), new("board", "D3")));
-    }
 
     [Fact]
     public void A_free_spot_is_the_center_until_a_part_covers_it()
@@ -115,19 +86,6 @@ public sealed class SceneEditorRoutingTests
         Assert.False(double.IsNaN(outX) || double.IsNaN(outY));
     }
 
-    [Fact]
-    public void A_reconnected_wire_is_no_obstacle_to_itself()
-    {
-        SceneEditor editor = NewEditor();
-        PartModel first = editor.AddPart("led", 200, 0);
-        PartModel second = editor.AddPart("led", 500, 200);
-        WireModel wire = editor.AddWire(new("board", "D2"), new(second.Id, "A"), [])!;
-
-        Assert.True(editor.ReconnectWire(wire.Id, fromEnd: true, new(first.Id, "C")));
-
-        // Nothing lies on the default route, so the wire keeps the plain L with no corner.
-        Assert.Empty(wire.Waypoints);
-    }
 
     [Fact]
     public void A_cancelled_step_leaves_nothing_to_redo()

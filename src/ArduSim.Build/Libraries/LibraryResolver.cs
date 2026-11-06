@@ -36,7 +36,16 @@ public sealed class LibraryResolver(IReadOnlyList<string> searchRoots, IReadOnly
             {
                 string include = raw.Replace('\\', '/');
                 includes.Add(include);
-                if (File.Exists(Path.Combine(Path.GetDirectoryName(file)!, include)) || IsProvided(include, resolved))
+
+                // A header of the sketch's own is read too: what it includes is needed all the same.
+                string local = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(file)!, include));
+                if (File.Exists(local))
+                {
+                    queue.Enqueue(local);
+                    continue;
+                }
+
+                if (IsProvided(include, resolved))
                 {
                     continue;
                 }

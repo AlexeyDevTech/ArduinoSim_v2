@@ -12,7 +12,8 @@ public sealed record CompletionEntry(string Label, string InsertText, string Det
 
 public sealed record SignatureEntry(string Label, string Documentation);
 
-public sealed record SymbolEntry(string Name, string Detail, int Line, int Kind);
+/// <param name="Children">What it holds: a class's members.</param>
+public sealed record SymbolEntry(string Name, string Detail, int Line, int Kind, IReadOnlyList<SymbolEntry>? Children = null);
 
 public sealed record SourceLocationEntry(string Path, int Line, int Column);
 
@@ -217,7 +218,7 @@ public sealed partial class ClangdClient : IAsyncDisposable
         return new SourceLocationEntry(FromUri(Text(location, "uri")), start.GetProperty("line").GetInt32() + 1, start.GetProperty("character").GetInt32() + 1);
     }
 
-    /// <summary>The file's functions, types and variables, for the explorer's Структура group.</summary>
+    /// <summary>The file's functions, types and variables, as they nest, for the file's row in the explorer.</summary>
     public async Task<IReadOnlyList<SymbolEntry>> SymbolsAsync(string path)
     {
         JsonElement? result = await RequestAsync("textDocument/documentSymbol", new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = ToUri(path) } }, OutlineTimeout);
@@ -226,11 +227,17 @@ public sealed partial class ClangdClient : IAsyncDisposable
             return [];
         }
 
+        return ReadSymbols(answer);
+    }
+
+    private static List<SymbolEntry> ReadSymbols(JsonElement list)
+    {
         var symbols = new List<SymbolEntry>();
-        foreach (JsonElement symbol in answer.EnumerateArray())
+        foreach (JsonElement symbol in list.EnumerateArray())
         {
             int line = symbol.TryGetProperty("range", out JsonElement range) ? range.GetProperty("start").GetProperty("line").GetInt32() + 1 : 1;
-            symbols.Add(new SymbolEntry(Text(symbol, "name"), Text(symbol, "detail"), line, symbol.TryGetProperty("kind", out JsonElement kind) ? kind.GetInt32() : 0));
+            IReadOnlyList<SymbolEntry>? children = symbol.TryGetProperty("children", out JsonElement nested) && nested.ValueKind == JsonValueKind.Array ? ReadSymbols(nested) : null;
+            symbols.Add(new SymbolEntry(Text(symbol, "name"), Text(symbol, "detail"), line, symbol.TryGetProperty("kind", out JsonElement kind) ? kind.GetInt32() : 0, children));
         }
 
         return symbols;

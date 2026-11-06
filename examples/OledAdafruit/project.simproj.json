@@ -8,10 +8,10 @@
       { "id": "oled1", "type": "oled", "x": 260, "y": 120, "rotation": 0, "flip": false, "properties": { "address": "0x3D" } }
     ],
     "wires": [
-      { "id": "w1", "from": { "component": "board", "pin": "GND" }, "to": { "component": "oled1", "pin": "GND" }, "waypoints": [[150, 80], [300, 80]], "color": "auto" },
-      { "id": "w2", "from": { "component": "board", "pin": "5V" }, "to": { "component": "oled1", "pin": "VCC" }, "waypoints": [[130, 90], [310, 90]], "color": "auto" },
-      { "id": "w3", "from": { "component": "board", "pin": "A5" }, "to": { "component": "oled1", "pin": "SCL" }, "waypoints": [[100, 100], [320, 100]], "color": "auto" },
-      { "id": "w4", "from": { "component": "board", "pin": "A4" }, "to": { "component": "oled1", "pin": "SDA" }, "waypoints": [[90, 110], [330, 110]], "color": "auto" }
+      { "id": "w1", "from": { "component": "board", "pin": "GND" }, "to": { "component": "oled1", "pin": "GND" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "board", "pin": "5V" }, "to": { "component": "oled1", "pin": "VCC" }, "waypoints": [], "color": "auto" },
+      { "id": "w3", "from": { "component": "board", "pin": "A5" }, "to": { "component": "oled1", "pin": "SCL" }, "waypoints": [], "color": "auto" },
+      { "id": "w4", "from": { "component": "board", "pin": "A4" }, "to": { "component": "oled1", "pin": "SDA" }, "waypoints": [], "color": "auto" }
     ]
   },
   "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }

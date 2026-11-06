@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -180,7 +181,7 @@ public sealed class ScreenMapView : FrameworkElement
             dc.DrawText(note, new Point(image.X + 4, image.Y + 4));
         }
 
-        if (_model?.IsGenerated == true)
+        if (_model?.CanConnect == true)
         {
             dc.DrawEllipse(Token("Brush.Accent"), null, new Point(rect.Right, rect.Y + (rect.Height / 2)), HandleRadius, HandleRadius);
         }
@@ -304,7 +305,7 @@ public sealed class ScreenMapView : FrameworkElement
         base.OnMouseLeftButtonDown(e);
         Focus();
         Point world = ToWorld(e.GetPosition(this));
-        if (Document is { } document && _model?.IsGenerated == true)
+        if (Document is { } document && _model?.CanConnect == true)
         {
             foreach (ScreenNode screen in document.Screens)
             {
@@ -354,6 +355,12 @@ public sealed class ScreenMapView : FrameworkElement
             _dragMoved = false;
             _dragOffset = new Point(card.MapX, card.MapY) - world;
         }
+        else if (e.ClickCount == 2 && _model?.CanAddScreens == true)
+        {
+            _model.AddScreenAt(Math.Round(world.X / 10) * 10, Math.Round(world.Y / 10) * 10);
+            e.Handled = true;
+            return;
+        }
         else
         {
             _panning = true;
@@ -361,6 +368,49 @@ public sealed class ScreenMapView : FrameworkElement
         }
 
         CaptureMouse();
+        e.Handled = true;
+    }
+
+    protected override void OnMouseRightButtonUp(MouseButtonEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        base.OnMouseRightButtonUp(e);
+        if (_model is not { } model)
+        {
+            return;
+        }
+
+        Point world = ToWorld(e.GetPosition(this));
+        var menu = new ContextMenu { PlacementTarget = this };
+        void Item(string key, System.Windows.Input.ICommand command) =>
+            menu.Items.Add(new MenuItem { Header = Strings.Get(key), Command = command, Visibility = command.CanExecute(null) ? Visibility.Visible : Visibility.Collapsed });
+        void Do(string key, Action action, bool enabled = true)
+        {
+            var item = new MenuItem { Header = Strings.Get(key), Visibility = enabled ? Visibility.Visible : Visibility.Collapsed };
+            item.Click += (_, _) => action();
+            menu.Items.Add(item);
+        }
+
+        if (CardAt(world) is { } card)
+        {
+            model.SelectScreen(card.Id);
+            Do("Screens_MenuOpen", () => model.IsFace = true);
+            Item("Screens_GoToCode", model.GoToCodeCommand);
+            Item("Screens_SetStart", model.SetStartCommand);
+            Item("Screens_Duplicate", model.DuplicateSelectedCommand);
+            menu.Items.Add(new Separator());
+            Item("Screens_Remove", model.RemoveSelectedCommand);
+        }
+        else
+        {
+            double x = Math.Round(world.X / 10) * 10;
+            double y = Math.Round(world.Y / 10) * 10;
+            Do("Screens_MenuNew", () => model.AddScreenAt(x, y), model.CanAddScreens);
+            Do("Screens_MenuNewMenu", () => model.AddMenuScreenAt(x, y), model.IsGenerated);
+            Do("Screens_FitTip", Fit);
+        }
+
+        menu.IsOpen = true;
         e.Handled = true;
     }
 

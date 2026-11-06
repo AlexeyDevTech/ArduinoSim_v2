@@ -22,6 +22,14 @@
   <Color x:Key="Color.CloseHover">#FFC42B1C</Color>
 
   <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}" />
+  <SolidColorBrush x:Key="Brush.Badge.Sketch" Color="#FF0E7F6E" />
+  <SolidColorBrush x:Key="Brush.Badge.Cpp" Color="#FF2F6FCC" />
+  <SolidColorBrush x:Key="Brush.Badge.C" Color="#FF3F7A93" />
+  <SolidColorBrush x:Key="Brush.Badge.Header" Color="#FF8550C8" />
+  <SolidColorBrush x:Key="Brush.Badge.Other" Color="#FF5F6673" />
+  <SolidColorBrush x:Key="Brush.Badge.Function" Color="#FF9A6A12" />
+  <SolidColorBrush x:Key="Brush.Badge.Type" Color="#FF1F7F54" />
+  <SolidColorBrush x:Key="Brush.Badge.Variable" Color="#FF4A6FA5" />
   <SolidColorBrush x:Key="Brush.Canvas" Color="{StaticResource Color.Canvas}" />
   <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
   <SolidColorBrush x:Key="Brush.SurfaceRaised" Color="{StaticResource Color.SurfaceRaised}" />

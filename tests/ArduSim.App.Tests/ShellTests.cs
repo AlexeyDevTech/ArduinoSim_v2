@@ -336,12 +336,12 @@ public sealed class ShellTests : IDisposable
 
         string main = Rows(vm).First().Title;
         Assert.EndsWith(".ino", main, StringComparison.Ordinal);
-        Assert.Equal($"{main} lib/ -x.h src/ -app/ --alarm.cpp --alarm.h -Beta.cpp -config.h alpha.cpp zeta.h", Tree(vm));
+        Assert.Equal($"{main} lib/ -x.h src/ -app/ --alarm.cpp -Beta.cpp -config.h alpha.cpp zeta.h", Tree(vm));
 
         ExplorerEntry src = Rows(vm).Single(r => r.Title == "src");
         Assert.Equal("4", src.Detail);
         Assert.Equal(Path.Combine("src", "app", "alarm.cpp"), Rows(vm).Single(r => r.Title == "alarm.cpp").Tip);
-        Assert.Equal(new System.Windows.Thickness(42, 0, 0, 0), Rows(vm).Single(r => r.Title == "alarm.cpp").Indent);
+        Assert.Equal(new System.Windows.Thickness(28, 0, 0, 0), Rows(vm).Single(r => r.Title == "alarm.cpp").Indent);
 
         vm.OpenExplorerEntryCommand.Execute(Rows(vm).Single(r => r.Title == "app"));
         Assert.Equal($"{main} lib/ -x.h src/ -app/ -Beta.cpp -config.h alpha.cpp zeta.h", Tree(vm));
@@ -355,12 +355,98 @@ public sealed class ShellTests : IDisposable
         vm.SetAllFoldersExpanded(false);
         Assert.Equal($"{main} lib/ src/ alpha.cpp zeta.h", Tree(vm));
         vm.SetAllFoldersExpanded(true);
-        Assert.Equal($"{main} lib/ -x.h src/ -app/ --alarm.cpp --alarm.h -Beta.cpp -config.h alpha.cpp zeta.h", Tree(vm));
+        Assert.Equal($"{main} lib/ -x.h src/ -app/ --alarm.cpp -Beta.cpp -config.h alpha.cpp zeta.h", Tree(vm));
         await vm.DisposeAsync();
     });
 
     [Fact]
-    public void AFlatSketchLeavesNoRoomForAChevron() => OnSta(async () =>
+    public void AHeaderGoesUnderTheFileOfItsNameAndOpensWithIt() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        Assert.True(await vm.OpenAsync(NestedProject()));
+        vm.LeftTab = MainViewModel.ProjectPage;
+        ExplorerEntry source = Rows(vm).Single(r => r.Title == "alarm.cpp");
+        ExplorerEntry header = Rows(vm).Single(r => r.Title == "alarm.h");
+        Assert.Equal(source.Depth + 1, header.Depth);
+        Assert.True(source.CanFold);
+        Assert.False(header.IsShown);
+
+        // By the chevron, without opening the file.
+        vm.SetRowExpanded(source, expanded: true);
+        Assert.True(header.IsShown);
+        Assert.IsNotType<CodeDocumentViewModel>(vm.SelectedTab);
+        vm.SetRowExpanded(source, expanded: false);
+        Assert.False(header.IsShown);
+
+        // A header without a source of its name stays a row of its folder.
+        Assert.Equal(1, Rows(vm).Single(r => r.Title == "config.h").Depth);
+
+        // Alt+O goes between the two; the row of the file on screen shows what it holds.
+        vm.OpenExplorerEntryCommand.Execute(source);
+        Assert.True(Rows(vm).Single(r => r.Title == "alarm.cpp").IsExpanded);
+        Assert.True(Rows(vm).Single(r => r.Title == "alarm.h").IsShown);
+        vm.ToggleHeaderSourceCommand.Execute(null);
+        Assert.Equal("alarm.h", Assert.IsType<CodeDocumentViewModel>(vm.SelectedTab).Title);
+        Assert.True(Rows(vm).Single(r => r.Title == "alarm.cpp").IsExpanded);
+        vm.ToggleHeaderSourceCommand.Execute(null);
+        Assert.Equal("alarm.cpp", Assert.IsType<CodeDocumentViewModel>(vm.SelectedTab).Title);
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void FilesSayWhatTheyAre() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        Assert.True(await vm.OpenAsync(NestedProject()));
+        vm.LeftTab = MainViewModel.ProjectPage;
+
+        Assert.Equal(("ino", BadgeTone.Sketch), (Rows(vm).First().Badge, Rows(vm).First().Tone));
+        Assert.Equal(("c++", BadgeTone.Cpp), (Rows(vm).Single(r => r.Title == "alpha.cpp").Badge, Rows(vm).Single(r => r.Title == "alpha.cpp").Tone));
+        Assert.Equal(("h", BadgeTone.Header), (Rows(vm).Single(r => r.Title == "zeta.h").Badge, Rows(vm).Single(r => r.Title == "zeta.h").Tone));
+        Assert.False(Rows(vm).Single(r => r.Title == "src").HasBadge);
+        Assert.Equal("h", vm.OpenFile(Rows(vm).Single(r => r.Title == "zeta.h").Path!)!.Badge);
+        await vm.DisposeAsync();
+    });
+
+    [Theory]
+    [InlineData("a.ino", "ino")]
+    [InlineData("a.CPP", "c++")]
+    [InlineData("a.cc", "c++")]
+    [InlineData("a.c", "c")]
+    [InlineData("a.h", "h")]
+    [InlineData("a.hpp", "h")]
+    [InlineData("a.S", "s")]
+    public void ABadgeComesFromTheExtension(string file, string badge) => Assert.Equal(badge, FileKinds.BadgeOf(file).Text);
+
+    [Fact]
+    public void ThePartnerOfAFileIsInItsFolderFirst()
+    {
+        string[] files = [@"x\a.h", @"y\a.cpp", @"x\a.cpp", @"x\b.ino", @"x\b.h", @"z\c.h"];
+
+        Assert.Equal(@"x\a.cpp", FileKinds.Partner(@"x\a.h", files));
+        Assert.Equal(@"x\a.h", FileKinds.Partner(@"x\a.cpp", files));
+        Assert.Equal(@"x\a.h", FileKinds.Partner(@"y\a.cpp", files));
+        Assert.Equal(@"x\b.ino", FileKinds.Partner(@"x\b.h", files));
+        Assert.Null(FileKinds.Partner(@"z\c.h", files));
+    }
+
+    [Fact]
+    public void ANewFileStartsAsWhatItIs() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        Assert.True(await vm.OpenAsync(NewProject()));
+
+        Assert.Null(vm.CreateSketchFile("motor.h"));
+        Assert.StartsWith("#pragma once", Assert.IsType<CodeDocumentViewModel>(vm.SelectedTab).Document.Text, StringComparison.Ordinal);
+        Assert.Null(vm.CreateSketchFile("motor.cpp"));
+        Assert.StartsWith("#include \"motor.h\"", Assert.IsType<CodeDocumentViewModel>(vm.SelectedTab).Document.Text, StringComparison.Ordinal);
+        Assert.Null(vm.CreateSketchFile("other.cpp"));
+        Assert.Empty(Assert.IsType<CodeDocumentViewModel>(vm.SelectedTab).Document.Text);
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void TopLevelFilesAreNotIndented() => OnSta(async () =>
     {
         MainViewModel vm = NewViewModel();
         Assert.True(await vm.OpenAsync(NewProject()));

@@ -8,8 +8,8 @@
       { "id": "btn1", "type": "pushbutton", "x": 190, "y": 160, "rotation": 0, "flip": false, "properties": { "color": "blue", "key": "Space" } }
     ],
     "wires": [
-      { "id": "w1", "from": { "component": "btn1", "pin": "1" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [[200, 260], [220, 260]], "color": "auto" },
-      { "id": "w2", "from": { "component": "btn1", "pin": "2" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [[240, 250], [290, 250], [290, 420], [230, 420]], "color": "auto" }
+      { "id": "w1", "from": { "component": "btn1", "pin": "1" }, "to": { "component": "board", "pin": "D2" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "btn1", "pin": "2" }, "to": { "component": "board", "pin": "5V" }, "waypoints": [], "color": "auto" }
     ]
   },
   "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }

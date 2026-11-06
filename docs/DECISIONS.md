@@ -185,3 +185,12 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-06 — Screens: the Runner does not regenerate `ui_screens.*`, only the app does before a build. Headless runs take a project as it is on disk, and the files are there.
 - 2026-11-06 — Screens: in the Рядом mode the tab takes the schematic's place and code stays to its right, so that a link to a line does not leave the tab.
 - 2026-11-06 — Screens: Ctrl+Z on the tab is the window's command, which follows the tab in front. In a project from code its stack holds the tab's own edits; the editor's own Ctrl+Z works too, and an edit refused because the text moved says so.
+- 2026-11-06 — Wires: a route the editor lays out is not saved: `waypoints: []` means "the editor's", so the file format is unchanged and old versions read the file. A layout can differ a little after reopening; corners set by hand are what stays.
+- 2026-11-06 — Wires: corners off the 0.1" grid in a file, and the single bend the old editor added itself, are laid out on opening: nobody set them by hand. Other on-grid corners stay until Разложить or a move, since they may be somebody's.
+- 2026-11-06 — Wires: bundled examples lost their hand-written corners: they were drawn for the old L-shaped routes.
+- 2026-11-06 — Explorer: a header goes under the source of its name in the same folder, Visual Studio's way of showing what a file holds; alone it stays a row. The Структура group is gone: a file's symbols are under it.
+- 2026-11-06 — Explorer: a symbol's type is in its tip, not on its row: in 240 px the name comes first.
+- 2026-11-06 — Library scan: a sketch's own headers are read too, wherever they are: libraries reached only through a header under `src` were not found, so such a sketch did not build at all.
+- 2026-11-06 — `__heap_start` and `__brkval` exist on AVR boards so that the common free-SRAM idiom links, and the build warns on the line that names them: there is no AVR memory map behind them.
+- 2026-11-06 — Screens: a new transition in code goes first in the key handler with `return`, not inside its `switch`: it works whatever shape the handler has, and it is read back as what it is.
+- 2026-11-06 — Screens: a new key defaults to one not yet used on that screen; its row can change it. Keys offered are a keypad's sixteen and what the sketch names, whether or not a keypad is on the schematic: the sketch may read keys some other way.

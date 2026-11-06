@@ -8,8 +8,8 @@
       { "id": "bz1", "type": "buzzer", "x": 320, "y": 180, "rotation": 0, "flip": false }
     ],
     "wires": [
-      { "id": "w1", "from": { "component": "bz1", "pin": "1" }, "to": { "component": "board", "pin": "D8" }, "waypoints": [[335,270],[160,270]], "color": "auto" },
-      { "id": "w2", "from": { "component": "bz1", "pin": "2" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [[355,410],[250,410]], "color": "auto" }
+      { "id": "w1", "from": { "component": "bz1", "pin": "1" }, "to": { "component": "board", "pin": "D8" }, "waypoints": [], "color": "auto" },
+      { "id": "w2", "from": { "component": "bz1", "pin": "2" }, "to": { "component": "board", "pin": "GND" }, "waypoints": [], "color": "auto" }
     ]
   },
   "settings": { "speed": 1.0, "serial": { "baud": 9600, "lineEnding": "LF" }, "libraryPaths": [] }

@@ -52,7 +52,11 @@ internal abstract class BodyWalker(IReadOnlyList<CodeToken> tokens)
     }
 
     /// <summary>A <c>switch</c> whose body and labels are about to be walked.</summary>
-    protected virtual void SwitchSeen(string variable, IReadOnlyList<(IReadOnlyList<CodeToken> Labels, bool IsDefault, int Start, int End)> cases)
+    /// <param name="variable">Its last name.</param>
+    /// <param name="expression">As written in the parentheses.</param>
+    /// <param name="bodyEnd">The index of its closing brace.</param>
+    /// <param name="cases">The labels and statements.</param>
+    protected virtual void SwitchSeen(string variable, string expression, int bodyEnd, IReadOnlyList<(IReadOnlyList<CodeToken> Labels, bool IsDefault, int Start, int End)> cases)
     {
     }
 
@@ -190,7 +194,7 @@ internal abstract class BodyWalker(IReadOnlyList<CodeToken> tokens)
 
         int bodyEnd = Math.Min(SketchScanner.Matching(Tokens, close + 1, "{", "}"), end);
         var cases = Cases(close + 2, bodyEnd);
-        SwitchSeen(variable, cases);
+        SwitchSeen(variable, Text(open + 1, close), bodyEnd, cases);
         string[] labels = [.. cases.SelectMany(c => c.Labels).Select(l => l.Text)];
         foreach ((IReadOnlyList<CodeToken> caseLabels, bool isDefault, int start, int stop) in cases)
         {

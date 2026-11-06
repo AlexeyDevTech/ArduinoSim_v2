@@ -47,8 +47,30 @@ public sealed partial class ExplorerEntry(ExplorerKind kind, string title, strin
 
     public bool IsFolder => Kind == ExplorerKind.Folder;
 
-    /// <summary>The line of a function or variable in the open file.</summary>
+    /// <summary>What a file or a symbol is, as a small mark; other rows have an icon.</summary>
+    public string Badge { get; init; } = "";
+
+    public BadgeTone Tone { get; init; }
+
+    public bool HasBadge => Badge.Length > 0;
+
+    /// <summary>A row of the sketch's tree: the chevron has its column.</summary>
+    public bool InTree { get; init; }
+
+    /// <summary>A file or a class with something under it, or a file whose outline is not known yet.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanFold), nameof(ChevronVisibility))]
+    public partial bool HasChildren { get; set; }
+
+    public bool CanFold => IsFolder || HasChildren;
+
+    public Visibility ChevronVisibility => !InTree ? Visibility.Collapsed : CanFold ? Visibility.Visible : Visibility.Hidden;
+
+    /// <summary>The line of a function or variable in its file.</summary>
     public int Line { get; init; }
+
+    /// <summary>A symbol's name in its file, for remembering that it is folded.</summary>
+    public string SymbolKey { get; init; } = "";
 
     /// <summary>A file or folder, relative to the sketch; empty for other rows.</summary>
     public string Relative { get; init; } = "";
@@ -98,8 +120,10 @@ public sealed partial class MainViewModel
     private string? _explorerSignature;
     private HashSet<string> _foldedFolders = new(StringComparer.OrdinalIgnoreCase);
     private string? _foldedOf;
-    private IReadOnlyList<SymbolEntry> _outline = [];
-    private string? _outlineOf;
+    private readonly Dictionary<string, IReadOnlyList<SymbolEntry>> _symbols = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _openedFiles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _closedFiles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _foldedSymbols = new(StringComparer.Ordinal);
 
     public ObservableCollection<ExplorerGroup> ExplorerGroups { get; } = [];
 
@@ -156,7 +180,7 @@ public sealed partial class MainViewModel
         List<PartViewModel> parts = Scene is { } scene ? [.. scene.Parts] : [];
         List<string> libraryFolders = LibraryFoldersToList();
         string signature = string.Join('|', files) + "#" + string.Join('|', parts.Select(p => p.Id + ":" + p.DisplayName)) + "#" + string.Join('|', libraryFolders)
-            + "#" + _outlineOf + ":" + string.Join('|', _outline.Select(s => s.Name + s.Line.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            + "#" + (Clangd is null ? "" : "clangd") + string.Join('|', _symbols.Select(s => s.Key + ":" + SymbolsSignature(s.Value)));
         if (signature == _explorerSignature)
         {
             return;
@@ -182,13 +206,7 @@ public sealed partial class MainViewModel
             libraries.Items.Add(new ExplorerEntry(ExplorerKind.Note, Strings.Get("Explorer_LibrariesHint"), ""));
         }
 
-        var outline = new ExplorerGroup("outline", Strings.Format("Explorer_Outline", Path.GetFileName(_outlineOf ?? "")));
-        foreach (SymbolEntry symbol in _outline)
-        {
-            outline.Items.Add(new ExplorerEntry(ExplorerKind.Symbol, symbol.Name, symbol.Detail, _outlineOf) { Line = symbol.Line });
-        }
-
-        foreach (ExplorerGroup group in _outline.Count > 0 ? new[] { sketch, outline, scheme, libraries } : [sketch, scheme, libraries])
+        foreach (ExplorerGroup group in new[] { sketch, scheme, libraries })
         {
             group.IsExpanded = !expanded.TryGetValue(group.Key, out bool open) || open;
             ExplorerGroups.Add(group);
@@ -198,30 +216,85 @@ public sealed partial class MainViewModel
         UpdateExplorerCurrent();
     }
 
+    private static string SymbolsSignature(IReadOnlyList<SymbolEntry> symbols) =>
+        string.Join(',', symbols.Select(s => s.Name + s.Line.ToString(System.Globalization.CultureInfo.InvariantCulture) + (s.Children is { Count: > 0 } children ? "(" + SymbolsSignature(children) + ")" : "")));
+
     // The folders as a tree, in the order of a file manager, except that a folder's .ino files come
-    // first: they are where a sketch starts, and a long src must not push them out of sight.
+    // first: they are where a sketch starts, and a long src must not push them out of sight. As in Visual
+    // Studio a file holds what is in it: a header with its name, and its classes and functions.
     private void AddSketchRows(ExplorerGroup group, string root, List<string> files)
     {
         HashSet<string> folded = FoldedFolders();
         var items = files.Select(f => (Full: f, Parts: Path.GetRelativePath(root, f).Split(Path.DirectorySeparatorChar))).ToList();
 
-        // Files leave room for the chevron only where there are folders to line up with.
-        double chevron = items.Any(i => i.Parts.Length > 1) ? TreeStep : 0;
-
-        void AddFile(string full, string[] parts) => group.Items.Add(new ExplorerEntry(ExplorerKind.File, parts[^1], "", full, isMain: IsMainFile(full))
+        void AddSymbols(IReadOnlyList<SymbolEntry> symbols, string path, int depth)
         {
-            Relative = Path.Combine(parts),
-            Depth = parts.Length - 1,
-            Indent = new Thickness(((parts.Length - 1) * TreeStep) + chevron, 0, 0, 0),
-        });
+            foreach (SymbolEntry symbol in symbols)
+            {
+                (string badge, BadgeTone tone) = FileKinds.BadgeOfSymbol(symbol.Kind);
+                string key = path + "#" + symbol.Name;
+                group.Items.Add(new ExplorerEntry(ExplorerKind.Symbol, symbol.Name, "", path)
+                {
+                    Line = symbol.Line,
+                    TipText = symbol.Detail.Length > 0 ? symbol.Name + "  " + symbol.Detail : symbol.Name,
+                    Badge = badge,
+                    Tone = tone,
+                    InTree = true,
+                    Depth = depth,
+                    SymbolKey = key,
+                    IsExpanded = !_foldedSymbols.Contains(key),
+                    Indent = new Thickness(depth * TreeStep, 0, 0, 0),
+                });
+                AddSymbols(symbol.Children ?? [], path, depth + 1);
+            }
+        }
+
+        void AddFile(string full, string[] parts, int depth, string? header)
+        {
+            (string badge, BadgeTone tone) = FileKinds.BadgeOf(full);
+            bool known = _symbols.TryGetValue(full, out IReadOnlyList<SymbolEntry>? symbols);
+            group.Items.Add(new ExplorerEntry(ExplorerKind.File, parts[^1], "", full, isMain: IsMainFile(full))
+            {
+                Relative = Path.Combine(parts),
+                Depth = depth,
+                Badge = badge,
+                Tone = tone,
+                InTree = true,
+                IsExpanded = IsFileOpenInTree(full),
+                Indent = new Thickness(depth * TreeStep, 0, 0, 0),
+
+                // Until clangd has answered, there may be something to unfold.
+                HasChildren = header is not null || (known ? symbols!.Count > 0 : Clangd is not null),
+            });
+            if (header is not null)
+            {
+                AddFile(header, Path.GetRelativePath(root, header).Split(Path.DirectorySeparatorChar), depth + 1, null);
+            }
+
+            if (known)
+            {
+                AddSymbols(symbols!, full, depth + 1);
+            }
+        }
 
         void AddLevel(List<(string Full, string[] Parts)> level, int depth)
         {
             var here = level.Where(i => i.Parts.Length == depth + 1).OrderBy(i => i.Parts[depth], StringComparer.OrdinalIgnoreCase).ToList();
             static bool IsSketch((string Full, string[] Parts) item) => Path.GetExtension(item.Full).Equals(".ino", StringComparison.OrdinalIgnoreCase);
+
+            // A header goes under the file with its name in this folder; alone it stays a row of the folder.
+            var nested = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach ((string full, string[] _) in here.Where(i => FileKinds.IsHeader(i.Full)))
+            {
+                if (FileKinds.Partner(full, [.. here.Select(i => i.Full)]) is { } owner)
+                {
+                    nested[owner] = full;
+                }
+            }
+
             foreach ((string full, string[] parts) in here.Where(IsSketch))
             {
-                AddFile(full, parts);
+                AddFile(full, parts, depth, nested.GetValueOrDefault(full));
             }
 
             foreach (IGrouping<string, (string Full, string[] Parts)> folder in level.Where(i => i.Parts.Length > depth + 1)
@@ -239,14 +312,87 @@ public sealed partial class MainViewModel
                 AddLevel([.. folder], depth + 1);
             }
 
-            foreach ((string full, string[] parts) in here.Where(i => !IsSketch(i)))
+            foreach ((string full, string[] parts) in here.Where(i => !IsSketch(i) && !nested.ContainsValue(i.Full)))
             {
-                AddFile(full, parts);
+                AddFile(full, parts, depth, nested.GetValueOrDefault(full));
             }
         }
 
         AddLevel(items, 0);
+        for (int i = 0; i + 1 < group.Items.Count; i++)
+        {
+            ExplorerEntry row = group.Items[i];
+            if (group.Items[i + 1].Depth > row.Depth)
+            {
+                row.HasChildren = true;
+            }
+        }
     }
+
+    // What the file on screen holds is open, unless it was folded by hand; another file only if it was opened by hand.
+    private bool IsFileOpenInTree(string path) =>
+        !_closedFiles.Contains(path) && (_openedFiles.Contains(path) || (VisibleDocument is { } shown && SamePath(shown.Path, path)) || HoldsShownHeader(path));
+
+    private bool HoldsShownHeader(string path) =>
+        VisibleDocument is { } shown && FileKinds.IsHeader(shown.Path) && FileKinds.Partner(shown.Path, SketchFiles()) is { } owner && SamePath(owner, path);
+
+    private void UpdateFileFolding()
+    {
+        foreach (ExplorerEntry row in SketchRows.Where(r => r.Kind == ExplorerKind.File && r.Path is not null))
+        {
+            row.IsExpanded = IsFileOpenInTree(row.Path!);
+        }
+
+        ApplyFolding();
+    }
+
+    /// <summary>A file's or a class's row folded or unfolded by hand; unfolding asks for the file's outline.</summary>
+    public void SetRowExpanded(ExplorerEntry row, bool expanded)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        if (row.IsFolder)
+        {
+            SetFolderExpanded(row, expanded);
+        }
+        else if (row is { Kind: ExplorerKind.File, Path: { } path })
+        {
+            (expanded ? _openedFiles : _closedFiles).Add(path);
+            (expanded ? _closedFiles : _openedFiles).Remove(path);
+            row.IsExpanded = expanded;
+            ApplyFolding();
+            if (expanded && !_symbols.ContainsKey(path))
+            {
+                _ = LoadSymbolsAsync(path);
+            }
+        }
+        else if (row.CanFold)
+        {
+            row.IsExpanded = expanded;
+            if (expanded)
+            {
+                _foldedSymbols.Remove(row.SymbolKey);
+            }
+            else
+            {
+                _foldedSymbols.Add(row.SymbolKey);
+            }
+
+            ApplyFolding();
+        }
+    }
+
+    /// <summary>The header of this source, or the source of this header (Alt+O).</summary>
+    [RelayCommand]
+    private void ToggleHeaderSource()
+    {
+        if (VisibleDocument is { } document && FileKinds.Partner(document.Path, SketchFiles()) is { } partner)
+        {
+            OpenFile(partner);
+        }
+    }
+
+    /// <summary>The other half of a file, for its menu.</summary>
+    public string? PartnerOf(string path) => FileKinds.Partner(path, SketchFiles());
 
     private HashSet<string> FoldedFolders()
     {
@@ -273,7 +419,7 @@ public sealed partial class MainViewModel
                 continue;
             }
 
-            hiddenBelow = row.IsFolder && !row.IsExpanded ? row.Depth : int.MaxValue;
+            hiddenBelow = row.CanFold && !row.IsExpanded ? row.Depth : int.MaxValue;
             row.IsShown = true;
         }
     }
@@ -337,6 +483,7 @@ public sealed partial class MainViewModel
             return;
         }
 
+        _closedFiles.Remove(path);
         string relative = Path.GetRelativePath(_project.SketchDirectory(_projectDirectory), path);
         bool changed = false;
         for (string? folder = Path.GetDirectoryName(relative); !string.IsNullOrEmpty(folder); folder = Path.GetDirectoryName(folder))
@@ -485,20 +632,40 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(ShowProjectActions));
     }
 
-    /// <summary>Asks clangd for the shown file's functions and variables, for the Структура group.</summary>
+    /// <summary>Asks clangd what the files open in the tree hold.</summary>
     public async Task RefreshOutlineAsync()
     {
-        if (Clangd is not { } clangd || LeftTab != ProjectPage || VisibleDocument is not { } document)
+        UpdateFileFolding();
+        if (Clangd is null || LeftTab != ProjectPage)
         {
             return;
         }
 
-        await clangd.UpdateAsync(document.Path, document.Document.Text);
-        IReadOnlyList<SymbolEntry> symbols = await clangd.SymbolsAsync(document.Path);
-        if (VisibleDocument == document)
+        if (VisibleDocument is { } document)
         {
-            _outline = symbols;
-            _outlineOf = document.Path;
+            await LoadSymbolsAsync(document.Path);
+        }
+
+        foreach (string path in _openedFiles.ToList())
+        {
+            await LoadSymbolsAsync(path);
+        }
+    }
+
+    // What a file holds, from clangd, with an open tab's text.
+    private async Task LoadSymbolsAsync(string path)
+    {
+        if (Clangd is not { } clangd || !File.Exists(path))
+        {
+            return;
+        }
+
+        string text = Documents.FirstOrDefault(d => SamePath(d.Path, path)) is { } open ? open.Document.Text : CodeDocumentViewModel.ReadFile(path);
+        await clangd.UpdateAsync(path, text);
+        IReadOnlyList<SymbolEntry> symbols = await clangd.SymbolsAsync(path);
+        if (Clangd == clangd)
+        {
+            _symbols[path] = symbols;
             RefreshExplorer();
         }
     }
@@ -594,7 +761,11 @@ public sealed partial class MainViewModel
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, "");
+
+            // A header guards itself, and a source starts by including the header of its name.
+            File.WriteAllText(path, FileKinds.IsHeader(path) ? "#pragma once\n\n"
+                : FileKinds.IsSource(path) && FileKinds.Partner(path, SketchFiles()) is { } header ? "#include \"" + Path.GetRelativePath(Path.GetDirectoryName(path)!, header).Replace('\\', '/') + "\"\n\n"
+                : "");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
