@@ -367,6 +367,28 @@ public partial class MainWindow
             return;
         }
 
+        if (sender is FrameworkElement { DataContext: ExplorerEntry { Kind: ExplorerKind.Library } library } libraryRow)
+        {
+            var libraryMenu = new ContextMenu { PlacementTarget = libraryRow };
+            var openHeader = new MenuItem { Header = Strings.Get("Explorer_Open") };
+            openHeader.Click += (_, _) => _viewModel.OpenExplorerEntryCommand.Execute(library);
+            var revealLibrary = new MenuItem { Header = Strings.Get("Explorer_Reveal") };
+            revealLibrary.Click += (_, _) => MainViewModel.RevealFile(library);
+            libraryMenu.Items.Add(openHeader);
+            libraryMenu.Items.Add(revealLibrary);
+            if (library.CanRemove)
+            {
+                var removeLibrary = new MenuItem { Header = Strings.Get("Explorer_LibraryRemove") };
+                removeLibrary.Click += (_, _) => _viewModel.RemoveLibraryCommand.Execute(library);
+                libraryMenu.Items.Add(new Separator());
+                libraryMenu.Items.Add(removeLibrary);
+            }
+
+            libraryMenu.IsOpen = true;
+            e.Handled = true;
+            return;
+        }
+
         if (sender is not FrameworkElement { DataContext: ExplorerEntry { Kind: ExplorerKind.File } entry } row)
         {
             return;

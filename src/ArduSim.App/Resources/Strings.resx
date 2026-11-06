@@ -155,7 +155,6 @@
   <data name="Option_backlight_green" xml:space="preserve"><value>Зелёная</value></data>
   <data name="Option_backlight_none" xml:space="preserve"><value>Нет</value></data>
   <data name="Property_baud" xml:space="preserve"><value>Скорость порта по умолчанию, бод</value></data>
-  <data name="Property_libraryPaths" xml:space="preserve"><value>Папки библиотек (через ;)</value></data>
   <data name="Option_position_0" xml:space="preserve"><value>Слева</value></data>
   <data name="Option_position_1" xml:space="preserve"><value>Справа</value></data>
   <data name="Option_common_cathode" xml:space="preserve"><value>Катод</value></data>
@@ -386,6 +385,8 @@
   <data name="Property_humidity" xml:space="preserve"><value>Влажность</value></data>
   <data name="Property_distance" xml:space="preserve"><value>Расстояние</value></data>
   <data name="Unit_cm" xml:space="preserve"><value>см</value></data>
+  <data name="Unit_KiB" xml:space="preserve"><value>КБ</value></data>
+  <data name="Unit_MiB" xml:space="preserve"><value>МБ</value></data>
   <data name="Unit_V" xml:space="preserve"><value>В</value></data>
   <data name="Unit_mA" xml:space="preserve"><value>мА</value></data>
   <data name="Unit_uA" xml:space="preserve"><value>мкА</value></data>
@@ -573,6 +574,57 @@
   <data name="Explorer_Scene" xml:space="preserve"><value>Схема: деталей {0}</value></data>
   <data name="Explorer_Libraries" xml:space="preserve"><value>Библиотеки</value></data>
   <data name="Explorer_LibrariesHint" xml:space="preserve"><value>Появятся после сборки</value></data>
+  <data name="Explorer_AddLibrary" xml:space="preserve"><value>Добавить…</value></data>
+  <data name="Explorer_AddLibraryTip" xml:space="preserve"><value>Найти в каталоге Arduino или добавить из папки либо ZIP</value></data>
+  <data name="Explorer_LibraryRemove" xml:space="preserve"><value>Убрать из проекта</value></data>
+  <data name="Explorer_LibraryRemoveTip" xml:space="preserve"><value>Убрать из проекта: папка уйдёт в корзину</value></data>
+  <data name="Explorer_Origin_Project" xml:space="preserve"><value>в проекте</value></data>
+  <data name="Explorer_Origin_BuiltIn" xml:space="preserve"><value>встроенная</value></data>
+  <data name="Explorer_Origin_Documents" xml:space="preserve"><value>Документы</value></data>
+  <data name="Explorer_Origin_Folder" xml:space="preserve"><value>папка</value></data>
+  <data name="Toast_LibraryRemoved" xml:space="preserve"><value>Библиотека {0} перемещена в корзину</value></data>
+  <data name="Library_Title" xml:space="preserve"><value>Библиотеки</value></data>
+  <data name="Library_Search" xml:space="preserve"><value>Имя, заголовок (Foo.h) или слово из описания</value></data>
+  <data name="Library_Loading" xml:space="preserve"><value>Загружается каталог…</value></data>
+  <data name="Library_LoadingProgress" xml:space="preserve"><value>Загружается каталог: {0} из {1}</value></data>
+  <data name="Library_Summary" xml:space="preserve"><value>Каталог Arduino: библиотек {0}, обновлён {1}</value></data>
+  <data name="Library_SummaryStale" xml:space="preserve"><value>Каталог не обновился, нет связи. Показан сохранённый от {1}: библиотек {0}</value></data>
+  <data name="Library_Refresh" xml:space="preserve"><value>Обновить каталог</value></data>
+  <data name="Library_Cancel" xml:space="preserve"><value>Отмена</value></data>
+  <data name="Library_NoMatches" xml:space="preserve"><value>Ничего не найдено. Попробуйте другое слово или добавьте библиотеку из папки или ZIP.</value></data>
+  <data name="Library_More" xml:space="preserve"><value>Показаны первые {0} из {1}: уточните запрос</value></data>
+  <data name="Library_Install" xml:space="preserve"><value>Установить</value></data>
+  <data name="Library_Update" xml:space="preserve"><value>Обновить</value></data>
+  <data name="Library_Replace" xml:space="preserve"><value>Заменить</value></data>
+  <data name="Library_Installed" xml:space="preserve"><value>Установлена</value></data>
+  <data name="Library_RemoveTip" xml:space="preserve"><value>Убрать из проекта: папка уйдёт в корзину</value></data>
+  <data name="Library_VersionTip" xml:space="preserve"><value>Версия</value></data>
+  <data name="Library_StatusBuiltIn" xml:space="preserve"><value>Встроена и проверена с симулятором, устанавливать не нужно</value></data>
+  <data name="Library_StatusProject" xml:space="preserve"><value>В проекте: версия {0}</value></data>
+  <data name="Library_StatusDocuments" xml:space="preserve"><value>Уже есть на компьютере: версия {0}. Установка положит копию в проект</value></data>
+  <data name="Library_Arch" xml:space="preserve"><value>Рассчитана на: {0}. На этой плате может не собраться.</value></data>
+  <data name="Library_Depends" xml:space="preserve"><value>Установит также: {0}.</value></data>
+  <data name="Library_DependsMissing" xml:space="preserve"><value>Требует, но в каталоге нет: {0}.</value></data>
+  <data name="Library_Downloading" xml:space="preserve"><value>{0}: {1} из {2}</value></data>
+  <data name="Library_Copying" xml:space="preserve"><value>Копируется…</value></data>
+  <data name="Library_Done" xml:space="preserve"><value>В проекте: {0}. Соберите заново: F5</value></data>
+  <data name="Library_Removed" xml:space="preserve"><value>{0} перемещена в корзину</value></data>
+  <data name="Library_Cancelled" xml:space="preserve"><value>Отменено, проект не изменён</value></data>
+  <data name="Library_AddFolder" xml:space="preserve"><value>Из папки…</value></data>
+  <data name="Library_AddFolderTip" xml:space="preserve"><value>Папка библиотеки или папка с несколькими библиотеками: копия ляжет в проект</value></data>
+  <data name="Library_AddFolderTitle" xml:space="preserve"><value>Папка библиотеки</value></data>
+  <data name="Library_AddZip" xml:space="preserve"><value>Из ZIP…</value></data>
+  <data name="Library_AddZipTip" xml:space="preserve"><value>Архив библиотеки, например скачанный с GitHub: содержимое ляжет в проект</value></data>
+  <data name="Library_AddZipTitle" xml:space="preserve"><value>Архив библиотеки</value></data>
+  <data name="Library_AddZipFilter" xml:space="preserve"><value>Архивы ZIP|*.zip</value></data>
+  <data name="Library_Note" xml:space="preserve"><value>Код библиотеки собирается в прошивку и работает на этом компьютере с вашими правами. Симулируются только устройства из палитры: библиотека для другого устройства соберётся, но ответа от него не получит.</value></data>
+  <data name="Library_FailCatalog" xml:space="preserve"><value>Каталог не загрузился: нет связи с downloads.arduino.cc. Библиотеку можно добавить из папки или ZIP. Повторить: кнопка обновления справа.</value></data>
+  <data name="Library_FailDownload" xml:space="preserve"><value>Не удалось скачать, проект не изменён: {0}</value></data>
+  <data name="Library_FailChecksum" xml:space="preserve"><value>Скачанный файл не совпал с контрольной суммой каталога и удалён, проект не изменён.</value></data>
+  <data name="Library_FailArchive" xml:space="preserve"><value>С архивом что-то не так, проект не изменён: {0}</value></data>
+  <data name="Library_FailNotALibrary" xml:space="preserve"><value>Библиотеки здесь нет: нужен файл library.properties или заголовки .h в корне либо в src.</value></data>
+  <data name="Library_FailInProject" xml:space="preserve"><value>Эта папка уже в проекте.</value></data>
+  <data name="Library_FailDisk" xml:space="preserve"><value>Не удалось записать: {0}</value></data>
   <data name="Explorer_NewFile" xml:space="preserve"><value>Новый файл…</value></data>
   <data name="Explorer_NewFileTip" xml:space="preserve"><value>Добавить файл в папку скетча</value></data>
   <data name="Explorer_NewFilePrompt" xml:space="preserve"><value>Имя файла, можно с папкой: src/app.cpp</value></data>
@@ -655,7 +707,7 @@
   <data name="Hint_UndeclaredSuggest" xml:space="preserve"><value>Имя {0} не объявлено. Возможно, имелось в виду {1}</value></data>
   <data name="Hint_Undeclared" xml:space="preserve"><value>Имя {0} нигде не объявлено: проверьте написание и регистр или объявите его выше</value></data>
   <data name="Hint_UnknownType" xml:space="preserve"><value>Тип {0} не объявлен: опечатка или забыт #include</value></data>
-  <data name="Hint_FileNotFound" xml:space="preserve"><value>Файла {0} нет среди встроенных библиотек. Положите папку библиотеки в «Документы\Arduino\libraries» или укажите её в «Папки библиотек» (свойства проекта)</value></data>
+  <data name="Hint_FileNotFound" xml:space="preserve"><value>Файла {0} нет ни среди встроенных библиотек, ни среди библиотек проекта</value></data>
   <data name="Hint_MissingBrace" xml:space="preserve"><value>Не хватает закрывающей скобки }</value></data>
   <data name="Hint_MissingParen" xml:space="preserve"><value>Не хватает закрывающей скобки )</value></data>
   <data name="Hint_ExpectedExpression" xml:space="preserve"><value>Здесь должно быть выражение: значение, переменная или вызов функции</value></data>
@@ -665,6 +717,7 @@
   <data name="Hint_NoSetupLoop" xml:space="preserve"><value>В скетче нет функции {0}(): в Arduino нужны и setup(), и loop()</value></data>
   <data name="Hint_Redefinition" xml:space="preserve"><value>{0} объявлено дважды: оставьте одно объявление</value></data>
   <data name="Fix_InsertSemicolon" xml:space="preserve"><value>Вставить ;</value></data>
+  <data name="Fix_FindLibrary" xml:space="preserve"><value>Найти библиотеку…</value></data>
   <data name="Fix_ReplaceWith" xml:space="preserve"><value>Заменить на {0}</value></data>
   <data name="Shortcuts_Title" xml:space="preserve"><value>Клавиши и жесты</value></data>
   <data name="Shortcuts_Filter" xml:space="preserve"><value>Поиск: «провод», «масштаб», F5…</value></data>

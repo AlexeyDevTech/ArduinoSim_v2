@@ -172,3 +172,7 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-06 — Pin rows in Свойства put level, voltage and current on a second line while running: on one line they squeezed the connection down to a dot.
 - 2026-11-06 — Electrical readings travel as the state of the reserved component id `~circuit`, not as a new field of `Snapshot`: no IPC change, and the same delta rules as parts.
 - 2026-11-06 — Explorer tree: flat rows with an indent, not a WPF TreeView. Rows only hide when a folder folds, so the keyboard focus survives, and every row keeps the look and the menu it has elsewhere. Folders themselves cannot be renamed or deleted here yet: their open tabs would have to follow.
+- 2026-11-06 — The library dialog is modal (760 × 600), not a page of the left panel: a search with descriptions, versions and buttons does not fit 240 px. A bundled library has no install button, since the ones in `libraries/compat` were fitted to that version; a folder or ZIP can still override it.
+- 2026-11-06 — A library's click opens its main header (read-only unless it is in the project), the header named after its folder or else the first one.
+- 2026-11-06 — The dialog shows the first 100 matches and says how many there are: the list exists to be narrowed, and 10 000 rows with version lists would be slow for nothing.
+- 2026-11-06 — ShellTests and LibraryDialogTests share an xUnit collection: two MainViewModels on separate threads at once trip a static collection, which one app with one window never does.

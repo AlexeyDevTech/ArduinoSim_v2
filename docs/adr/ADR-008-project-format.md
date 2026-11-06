@@ -45,6 +45,7 @@ MyProject/
 }
 ```
 
+- `libraryPaths` is optional: the project's `libs` folder always counts (ADR-018), and the App no longer asks for paths.
 - `sketchPath`: relative to the project folder (default `sketch`) or absolute for an external sketch folder. The main `.ino` is the one named after the folder, as in Arduino.
 - Coordinates are canvas units of 0.01 inch; the grid and pin pitch are 10 units (0.1 inch). Rotation is 0/90/180/270; `flip` mirrors horizontally before rotation.
 - `board` selects the board profile (compiler macros, timing table); the scene holds exactly one component of that type, which is where the board sits on the canvas.

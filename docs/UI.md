@@ -173,7 +173,7 @@ New project: a name and a click on a board's tile create `Документы\Ard
 
 - **Banner** (top of the canvas, or of the start view, max 720 px, dismissible, also by Esc): run outcomes that need a decision — crash (exception, `file:line`, last API calls, Перезапустить / Открыть строку; the details stay in Журнал), firmware busy (Остановить; it hides itself when the sketch comes back), Runner exited (exit code, stderr in an expandable block), toolchain needed or failed (progress bar and Отмена while downloading; Скачать), a folder without a project (Создать проект здесь).
 - **Toast** (bottom-right, 3 s, no action required): "Проект сохранён", "Файл перезагружен с диска".
-- **Modal dialogs** only for: file and folder pickers, unsaved-changes on close, Settings, "О точности симуляции" (a side sheet listing the fidelity limits of brief §3.1).
+- **Modal dialogs** only for: file and folder pickers, unsaved-changes on close, Settings, the library dialog (§2.9), "О точности симуляции" (a side sheet listing the fidelity limits of brief §3.1).
 - **Part badges**: an amber ⚠ on a part with an active warning (floating input, short); hover shows the message, click → the log entry. Cleared on the next run.
 
 ### 2.9 Project explorer
@@ -183,7 +183,9 @@ The Проект page of the left panel (Ctrl+Shift+E). Groups, each foldable:
 - **Скетч**: the sketch's files as a tree of its folders. In each folder its .ino files come first, then its subfolders, then the other files, by name. A folder shows how many files it holds; a click or ← → folds it, and each project remembers what is folded. A file coming to the front (a tab, go to definition) unfolds its folders and scrolls into view. A file's menu has Открыть, Новый файл здесь…, Переименовать, Удалить в корзину (no question: it can be brought back) and Показать в проводнике; a folder's has Новый файл здесь…, Свернуть все папки, Развернуть все папки and Показать в проводнике. The main file, named after the project, cannot be renamed or deleted here. Новый файл… is at the top and in the + of the tab strip, and its name may include a folder (src/app.cpp), but stays inside the sketch.
 - **Структура: file**: the functions, types and variables of the file on screen, from clangd; a click goes to the line.
 - **Схема**: the parts by id and kind; a click selects one and brings it into view. The row of the open file or the selected part is marked.
-- **Библиотеки**: what the last build used.
+- **Библиотеки**: what is in the project's `libs` folder and what the last build used, each saying where it comes from (в проекте, встроенная, Документы, папка). A click opens its main header; the ✕ on a project's library moves it to the Recycle Bin. **Добавить…** on the group's header opens the library dialog.
+
+The library dialog (ADR-018) searches the Arduino catalog by name, header or a word of the description. A row has the name, what it does, its size and author, a version list and Установить, which also brings the libraries it needs, as the row says. A bundled library says it is built in and cannot be installed; one in the project offers Обновить or Заменить, and removal; one for other boards says so and can still be installed. Из папки… and Из ZIP… stay at the bottom, for when there is no network or the library is not in the catalog. A library goes into the project's `libs` folder. A download shows its progress and can be cancelled; nothing changes in the project until it has arrived, been checked and unpacked. The compiler's "file not found" has a Найти библиотеку… button that opens this dialog with the header searched.
 
 ## 3. Visual language
 

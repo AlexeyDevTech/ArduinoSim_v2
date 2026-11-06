@@ -46,6 +46,7 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
         viewModel.AskToSave = name => UnsavedDialog.Ask(this, name);
+        viewModel.ShowLibraries = dialog => LibraryDialog.Open(this, dialog);
         viewModel.PickFolder = title =>
         {
             var dialog = new Microsoft.Win32.OpenFolderDialog { Title = title };

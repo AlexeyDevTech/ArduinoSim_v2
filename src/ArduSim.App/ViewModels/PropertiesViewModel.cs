@@ -498,12 +498,6 @@ public sealed partial class PropertiesViewModel : ObservableObject
         Mode = PropertiesMode.Project;
         Title = Strings.Get("Properties_Project");
         Subtitle = _scene.Board.DisplayName;
-        ProjectSettings settings = _settings();
-        Fields.Add(new PropertyField("libraryPaths", Strings.Get("Property_libraryPaths"), PropertyKind.Text, string.Join("; ", settings.LibraryPaths), null, [],
-            (f, v) => _updateSettings(_settings() with { LibraryPaths = [.. v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)] }))
-        {
-            IsEnabled = !_scene.IsLocked,
-        });
     }
 
     /// <summary>Several parts: the properties they all have, "—" where the values differ; one edit changes all of them in one undo step (docs/UI.md §2.4).</summary>

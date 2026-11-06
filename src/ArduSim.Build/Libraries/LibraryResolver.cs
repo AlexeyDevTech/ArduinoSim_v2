@@ -88,6 +88,12 @@ public sealed class LibraryResolver(IReadOnlyList<string> searchRoots, IReadOnly
 
             foreach (string directory in Directory.EnumerateDirectories(roots[root]))
             {
+                // A library being installed sits in a .staging folder until it is complete (ADR-018).
+                if (Path.GetFileName(directory).StartsWith('.'))
+                {
+                    continue;
+                }
+
                 ArduinoLibrary library = ArduinoLibrary.FromDirectory(directory);
                 var headers = new HashSet<string>(library.PublicHeaders(), StringComparer.OrdinalIgnoreCase);
                 if (headers.Count > 0)

@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Threading;
 using ArduSim.App.Localization;
 using ArduSim.App.Services;
+using ArduSim.Build.Libraries;
+using ArduSim.Core.Projects;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -35,7 +37,13 @@ public sealed partial class ExplorerEntry(ExplorerKind kind, string title, strin
     /// <summary>The sketch's main file: named after the project, so it cannot be renamed or deleted here.</summary>
     public bool IsMain { get; } = isMain;
 
-    public bool CanOpen => Kind is ExplorerKind.File or ExplorerKind.Folder or ExplorerKind.Part or ExplorerKind.Symbol;
+    public bool CanOpen => Kind is ExplorerKind.File or ExplorerKind.Folder or ExplorerKind.Part or ExplorerKind.Symbol or ExplorerKind.Library;
+
+    /// <summary>A library of the project: its row has a ✕.</summary>
+    public bool CanRemove { get; init; }
+
+    /// <summary>What the hover tip says, when it is not the title or the path.</summary>
+    public string? TipText { get; init; }
 
     public bool IsFolder => Kind == ExplorerKind.Folder;
 
@@ -52,7 +60,7 @@ public sealed partial class ExplorerEntry(ExplorerKind kind, string title, strin
     public Thickness Indent { get; init; }
 
     /// <summary>The whole path below the sketch for files and folders, whose title is only their own name.</summary>
-    public string Tip => Relative.Length > 0 ? Relative : Title;
+    public string Tip => TipText ?? (Relative.Length > 0 ? Relative : Title);
 
     /// <summary>The open tab or the selected part.</summary>
     [ObservableProperty]
@@ -74,6 +82,9 @@ public sealed partial class ExplorerGroup(string key, string name) : ObservableO
     public string Name { get; } = name;
 
     public ObservableCollection<ExplorerEntry> Items { get; } = [];
+
+    /// <summary>The Библиотеки group has its button on the header.</summary>
+    public bool CanAddLibrary => Key == "libraries";
 
     [ObservableProperty]
     public partial bool IsExpanded { get; set; } = true;
@@ -101,9 +112,13 @@ public sealed partial class MainViewModel
         }
 
         string root = _project.SketchDirectory(_projectDirectory);
+
+        // A sketch that lives in the project's own folder must not list the project's libraries as its files.
+        string libraries = Path.GetFullPath(Path.Combine(_projectDirectory, ProjectFile.LibrariesFolder)) + Path.DirectorySeparatorChar;
         return [.. Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
             .Where(f => SourceExtensions.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
             .Where(f => !Path.GetRelativePath(root, f).Split(Path.DirectorySeparatorChar).SkipLast(1).Any(d => IgnoredFolders.Contains(d, StringComparer.OrdinalIgnoreCase)))
+            .Where(f => !f.StartsWith(libraries, StringComparison.OrdinalIgnoreCase))
             .OrderBy(f => Path.GetExtension(f).Equals(".ino", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
             .ThenBy(f => f, StringComparer.OrdinalIgnoreCase)];
     }
@@ -139,7 +154,8 @@ public sealed partial class MainViewModel
         string root = _project.SketchDirectory(_projectDirectory);
         List<string> files = SketchFiles();
         List<PartViewModel> parts = Scene is { } scene ? [.. scene.Parts] : [];
-        string signature = string.Join('|', files) + "#" + string.Join('|', parts.Select(p => p.Id + ":" + p.DisplayName)) + "#" + string.Join('|', _buildLibraries)
+        List<string> libraryFolders = LibraryFoldersToList();
+        string signature = string.Join('|', files) + "#" + string.Join('|', parts.Select(p => p.Id + ":" + p.DisplayName)) + "#" + string.Join('|', libraryFolders)
             + "#" + _outlineOf + ":" + string.Join('|', _outline.Select(s => s.Name + s.Line.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         if (signature == _explorerSignature)
         {
@@ -160,11 +176,7 @@ public sealed partial class MainViewModel
         }
 
         var libraries = new ExplorerGroup("libraries", Strings.Get("Explorer_Libraries"));
-        foreach (string library in _buildLibraries)
-        {
-            libraries.Items.Add(new ExplorerEntry(ExplorerKind.Library, Path.GetFileName(library), ""));
-        }
-
+        AddLibraryRows(libraries, libraryFolders);
         if (libraries.Items.Count == 0)
         {
             libraries.Items.Add(new ExplorerEntry(ExplorerKind.Note, Strings.Get("Explorer_LibrariesHint"), ""));
@@ -344,6 +356,114 @@ public sealed partial class MainViewModel
         }
     }
 
+    // What is in the project's libs, added or not used yet, and what the last build took from anywhere.
+    private List<string> LibraryFoldersToList()
+    {
+        var folders = new List<string>();
+        if (_projectDirectory is not null)
+        {
+            string libs = Path.Combine(_projectDirectory, ProjectFile.LibrariesFolder);
+            if (Directory.Exists(libs))
+            {
+                folders.AddRange(Directory.EnumerateDirectories(libs).Where(d => !Path.GetFileName(d).StartsWith('.')));
+            }
+        }
+
+        folders.AddRange(_buildLibraries.Where(Directory.Exists));
+        return [.. folders.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private void AddLibraryRows(ExplorerGroup group, List<string> folders)
+    {
+        if (_project is null || _projectDirectory is null || _board is null || folders.Count == 0)
+        {
+            return;
+        }
+
+        LibraryInventory inventory = LibrariesService().Inventory();
+        var rows = folders.Select(folder => (Info: LibraryFolders.Read(folder), Origin: inventory.OriginOf(folder)))
+            .OrderBy(r => r.Origin == LibraryOrigin.Project ? 0 : 1)
+            .ThenBy(r => r.Info.Name, StringComparer.OrdinalIgnoreCase);
+        foreach ((LibraryInfo info, LibraryOrigin origin) in rows)
+        {
+            string where = Strings.Get("Explorer_Origin_" + origin);
+            group.Items.Add(new ExplorerEntry(ExplorerKind.Library, info.Name, where, info.Directory)
+            {
+                CanRemove = origin == LibraryOrigin.Project,
+                TipText = $"{info.Name} {info.Version}\n{info.Directory}".Replace(" \n", "\n", StringComparison.Ordinal),
+            });
+        }
+    }
+
+    private LibraryService LibrariesService() => _builds.LibrariesFor(_projectDirectory!, _project!, _board!, RecycleFolder);
+
+    /// <summary>How a library leaves a project: to the Recycle Bin, so nothing is lost and no question is needed.</summary>
+    public Action<string> RecycleFolder { get; set; } = path =>
+        Microsoft.VisualBasic.FileIO.FileSystem.DeleteDirectory(path, Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs, Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+
+    /// <summary>Opens the library dialog; set by the window.</summary>
+    public Action<LibraryDialogViewModel>? ShowLibraries { get; set; }
+
+    /// <summary>Добавить… on the Библиотеки group, and Найти библиотеку… on a compiler message.</summary>
+    [RelayCommand]
+    private void AddLibrary(string? query)
+    {
+        if (_project is not null && _projectDirectory is not null && _board is not null)
+        {
+            ShowLibraries?.Invoke(new LibraryDialogViewModel(LibrariesService(), OnLibrariesChanged, query));
+        }
+    }
+
+    [RelayCommand]
+    private void RemoveLibrary(ExplorerEntry? entry)
+    {
+        if (entry is not { CanRemove: true, Path: { } folder })
+        {
+            return;
+        }
+
+        try
+        {
+            RecycleFolder(folder);
+            ShowToast(Strings.Format("Toast_LibraryRemoved", entry.Title));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or OperationCanceledException)
+        {
+            ShowBanner(BannerKind.Info, Strings.Get("Banner_DeleteFailed"), e.Message, "");
+        }
+
+        OnLibrariesChanged();
+    }
+
+    private void OnLibrariesChanged()
+    {
+        _explorerSignature = null;
+        RefreshExplorer();
+        _ = StartClangdAsync(); // its include paths list every library folder
+        if (IsRunning)
+        {
+            IsRunStale = true;
+        }
+    }
+
+    // A library's row opens the header it is included by.
+    private void OpenLibrary(ExplorerEntry entry)
+    {
+        if (entry.Path is not { } folder || !Directory.Exists(folder))
+        {
+            return;
+        }
+
+        ArduinoLibrary library = ArduinoLibrary.FromDirectory(folder);
+        string[] headers = [.. library.PublicHeaders()];
+        string stem = Path.GetFileName(folder);
+        string? main = headers.FirstOrDefault(h => Path.GetFileNameWithoutExtension(h).Equals(stem, StringComparison.OrdinalIgnoreCase)) ?? headers.FirstOrDefault();
+        if (main is not null)
+        {
+            OpenFile(Path.Combine(library.IncludeDirectory, main));
+        }
+    }
+
     private void UpdateExplorerCurrent()
     {
         foreach (ExplorerEntry entry in ExplorerGroups.SelectMany(g => g.Items))
@@ -390,6 +510,10 @@ public sealed partial class MainViewModel
         if (entry is { IsFolder: true })
         {
             SetFolderExpanded(entry, !entry.IsExpanded);
+        }
+        else if (entry is { Kind: ExplorerKind.Library })
+        {
+            OpenLibrary(entry);
         }
         else if (entry?.Path is { } path && entry.Kind == ExplorerKind.File)
         {

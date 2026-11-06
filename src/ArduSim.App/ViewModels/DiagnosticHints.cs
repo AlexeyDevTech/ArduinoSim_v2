@@ -5,7 +5,11 @@ using ArduSim.Build.Compilation;
 namespace ArduSim.App.ViewModels;
 
 /// <summary>An edit that repairs a compiler message: at (line, column), <paramref name="Remove"/> characters give way to <paramref name="Insert"/>.</summary>
-public sealed record DiagnosticFix(string Label, int Remove, string Insert);
+public sealed record DiagnosticFix(string Label, int Remove, string Insert)
+{
+    /// <summary>Not an edit: the library dialog opens, searching for this.</summary>
+    public string? FindLibrary { get; init; }
+}
 
 /// <summary>
 /// Plain Russian beside the common clang messages, and the fix where clang names one. A message
@@ -52,6 +56,11 @@ public static partial class DiagnosticHints
         if (diagnostic.File is null || diagnostic.Line < 1 || diagnostic.Column < 1)
         {
             return null;
+        }
+
+        if (FileNotFound().Match(diagnostic.Message) is { Success: true } missing)
+        {
+            return new DiagnosticFix(Strings.Get("Fix_FindLibrary"), 0, "") { FindLibrary = missing.Groups[1].Value };
         }
 
         if (Semicolon().IsMatch(diagnostic.Message))

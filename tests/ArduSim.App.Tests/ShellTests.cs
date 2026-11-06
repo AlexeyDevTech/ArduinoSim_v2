@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace ArduSim.App.Tests;
 
 /// <summary>The window's shell without a window: commands, tips, search, the explorer and the language server.</summary>
+[Collection("Main view model")]
 public sealed class ShellTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ardusim-shell-" + Guid.NewGuid().ToString("N")[..8]);

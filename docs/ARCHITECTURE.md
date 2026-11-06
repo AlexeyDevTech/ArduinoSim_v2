@@ -31,7 +31,7 @@ ArduSim compiles an Arduino sketch with a host C++ compiler against our own Ardu
 | --- | --- | --- |
 | `ArduSim.Core` | virtual clock, scheduler, circuit (nets), parts (definitions and behaviors), MCU model, project file, display controllers (M4+) | nothing of ours |
 | `ArduSim.Boards` | board profiles, pin maps, timing tables, compiler macros | Core |
-| `ArduSim.Build` | toolchain manager, `.ino` preprocessor, library resolver, compiler driver, object cache, diagnostics parser, PDB symbolization | nothing of ours |
+| `ArduSim.Build` | toolchain manager, `.ino` preprocessor, library resolver, library catalog and installer (ADR-018), compiler driver, object cache, diagnostics parser, PDB symbolization | nothing of ours |
 | `ArduSim.Ipc` | message records, framing, `ISimulationSession`, `PipeSimulationSession`, crash block | nothing of ours |
 | `ArduSim.Runner` | firmware loader, `SimHostApi` callbacks, `SimulationHost` (pause/step, watchdog), `SessionServer`, pipe server, in-process session, headless CLI | Core, Boards, Build, Ipc |
 | `ArduSim.App` | WPF views, view models, rendering, editor, canvas | Core (scene data, part definitions), Boards, Build, Ipc, Runner (in-process session only) |
@@ -43,7 +43,7 @@ No UI assembly is referenced below the App, and Core never sees IPC or native in
 1. **Toolchain**: resolve the pinned llvm-mingw (ADR-002) under `%LOCALAPPDATA%\ArduSim\toolchain\<version>`; download with progress and SHA-256 check if missing; run a smoke compile once after install. A user-configured clang/MSVC/MinGW path replaces it.
 2. **Sketch**: concatenate the folder's `.ino` files (main first, the rest alphabetically), insert `#include <Arduino.h>`, generate prototypes for functions defined in the `.ino` files, emit `#line` directives mapping back to the original files. `.h/.cpp/.c` next to the sketch compile as-is.
    A folder with no `.ino` is a plain C++ project (a PlatformIO `src`): every source under it compiles as-is (ADR-015).
-3. **Libraries**: scan `#include` directives transitively; search sketch folder → project library paths → `Documents\Arduino\libraries` → bundled `libraries/`; `library.properties` with `src/` or flat layout and `utility/`; `architectures` ignored. Per-library fixes from `libraries/compat/` are layered on top, never patched into vendored sources; the scan reads a replacement's `#include` lines in place of the vendored file's (ADR-012).
+3. **Libraries**: scan `#include` directives transitively; search sketch folder → the project's `libs` folder and the paths its file names → `Documents\Arduino\libraries` → bundled `libraries/`; `library.properties` with `src/` or flat layout and `utility/`; `architectures` ignored. Per-library fixes from `libraries/compat/` are layered on top, never patched into vendored sources; the scan reads a replacement's `#include` lines in place of the vendored file's (ADR-012).
 4. **Compile**: one process per translation unit, in parallel, flags from ADR-002 plus the board's macros. Objects cached in `%LOCALAPPDATA%\ArduSim\cache` keyed by a hash of source content, all included headers, flags, toolchain version and shim version.
 5. **Link** `firmware.dll` + `firmware.pdb` into the project's build folder.
 6. **Diagnostics**: raw compiler output is kept; errors and warnings are parsed into (file, line, column, severity, message) for the Build panel and editor markers.
@@ -126,6 +126,8 @@ firmware/shim/
 | Object cache | `%LOCALAPPDATA%\ArduSim\cache` |
 | Logs | `%LOCALAPPDATA%\ArduSim\logs` |
 | Recent projects, panel layout, theme | `%LOCALAPPDATA%\ArduSim\ui-state.json` |
+| The Arduino library catalog's saved copy and its ETag | `%LOCALAPPDATA%\ArduSim\library-index` |
+| Libraries added to a project | `<project>\libs`, with the project (ADR-018) |
 | Project | its folder: `project.simproj.json`, `sketch/`, `eeprom.bin` (ADR-008), `preferences.json` (ESP32), an SD card's folder (`sd/`, ADR-012) |
 
 ## Testing

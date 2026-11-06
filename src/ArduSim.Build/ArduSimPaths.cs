@@ -16,8 +16,15 @@ public sealed class ArduSimPaths(string root)
 
     public string Logs => Path.Combine(Root, "logs");
 
+    /// <summary>The saved copy of the Arduino library catalog (ADR-018).</summary>
+    public string LibraryIndex => Path.Combine(Root, "library-index");
+
     /// <summary>Folder that ships with the executables: <c>firmware/shim</c> and <c>libraries/</c>.</summary>
     public static string BundledContentRoot => AppContext.BaseDirectory;
+
+    public static string BundledLibraries => Path.Combine(BundledContentRoot, "libraries");
+
+    public static string DocumentsLibraries => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Arduino", "libraries");
 
     /// <summary>Per-project build output, outside the project folder: <c>builds\&lt;name&gt;-&lt;hash&gt;</c>.</summary>
     public string BuildDirectoryFor(string projectDirectory)
@@ -31,13 +38,12 @@ public sealed class ArduSimPaths(string root)
     public static IReadOnlyList<string> LibraryRoots(IEnumerable<string> projectLibraryDirectories)
     {
         var roots = new List<string>(projectLibraryDirectories);
-        string documents = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Arduino", "libraries");
-        if (Directory.Exists(documents))
+        if (Directory.Exists(DocumentsLibraries))
         {
-            roots.Add(documents);
+            roots.Add(DocumentsLibraries);
         }
 
-        roots.Add(Path.Combine(BundledContentRoot, "libraries"));
+        roots.Add(BundledLibraries);
         return roots;
     }
 }

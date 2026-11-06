@@ -39,6 +39,30 @@ public sealed class ToolsRunTests
         Assert.Contains("warning: led3 carries 97 mA", result.Stdout, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task A_library_in_the_projects_libs_folder_needs_no_setting()
+    {
+        string project = RunnerProcess.CopyProject("examples/Blink");
+        string library = Path.Combine(project, "libs", "Greeter", "src");
+        Directory.CreateDirectory(library);
+        await File.WriteAllTextAsync(Path.Combine(project, "libs", "Greeter", "library.properties"), "name=Greeter\nversion=1.0\n", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(library, "Greeter.h"), "#pragma once\nconst char* greeting();\n", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(library, "Greeter.cpp"), "#include \"Greeter.h\"\nconst char* greeting() { return \"hello from libs\"; }\n", TestContext.Current.CancellationToken);
+
+        // A half-installed library is not a library.
+        Directory.CreateDirectory(Path.Combine(project, "libs", ".staging-1"));
+        await File.WriteAllTextAsync(Path.Combine(project, "libs", ".staging-1", "Greeter.h"), "#error this one must not be found\n", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(
+            Path.Combine(project, "sketch", "Blink.ino"),
+            "#include <Greeter.h>\nvoid setup() { Serial.begin(9600); Serial.println(greeting()); }\nvoid loop() {}\n",
+            TestContext.Current.CancellationToken);
+
+        RunResult result = await RunnerProcess.RunProjectAsync(project, "--run-for", "50");
+
+        Assert.True(result.ExitCode == 0, result.ToString());
+        Assert.Equal(["hello from libs"], result.SerialLines);
+    }
+
     // Reported while the scene is built, before the Runner listens: it used to be lost.
     [Fact]
     public async Task An_led_across_the_rails_warns_from_the_very_start()

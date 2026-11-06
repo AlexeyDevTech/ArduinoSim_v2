@@ -1,5 +1,17 @@
 # Changelog
 
+## Libraries are added, not configured (2026-11-06)
+
+The owner's request: the text field «Папки библиотек (через ;)» asked for paths nobody could guess, and a wrong one said nothing (ADR-018).
+
+- The field is gone. A project's `libs` folder is always searched, without any setting. `settings.libraryPaths` in the project file still works, so PlatformIO imports and old projects build as before.
+- The Библиотеки group of the Проект page lists what is in `libs` and what the last build used, with where each comes from. A click opens its header, the ✕ moves a project's library to the Recycle Bin, and Добавить… opens the new dialog.
+- The dialog searches the Arduino catalog (about 10 400 libraries) by name, header or a word from the description, and installs into the project: a chosen version, with what it depends on. A download shows progress, can be cancelled and is checked against the catalog's SHA-256; the project changes only when everything is ready. The catalog is saved and fetched at most once a day; without a network the saved copy is used and says so.
+- Из папки… and Из ZIP… take a library, a folder of libraries or a GitHub archive.
+- A bundled library says so and is not installed over; a library for other boards says so and can still be tried.
+- The compiler's "file not found" has a Найти библиотеку… button, which opens the dialog with that header searched.
+
+How to try it: write `#include <Bounce2.h>` in a sketch and press Собрать; then Найти библиотеку… beside the error, Установить, and Собрать again.
 ## Project explorer as a tree (2026-11-06)
 
 The owner's request: the Скетч group listed every file flat, with `src\` in each name.

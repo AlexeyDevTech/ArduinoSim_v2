@@ -1192,6 +1192,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [RelayCommand]
     private void ApplyFix(DiagnosticItem? item)
     {
+        if (item?.Fix?.FindLibrary is { } missing)
+        {
+            AddLibrary(missing);
+            return;
+        }
+
         if (item is { Fix: { } fix, Diagnostic: { File: { } file } diagnostic } && OpenFile(file) is { } document)
         {
             document.Apply(diagnostic, fix);

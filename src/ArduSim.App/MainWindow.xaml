@@ -402,7 +402,17 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:ExplorerGroup}">
                       <StackPanel>
-                        <ToggleButton Style="{StaticResource ToggleButton.Group}" Content="{Binding Name}" IsChecked="{Binding IsExpanded}" />
+                        <Grid>
+                          <ToggleButton Style="{StaticResource ToggleButton.Group}" Content="{Binding Name}" IsChecked="{Binding IsExpanded}" />
+                          <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" Padding="8,0" MinHeight="22" Height="22" ToolTip="{l:Loc Explorer_AddLibraryTip}"
+                                  Command="{Binding DataContext.AddLibraryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  Visibility="{Binding CanAddLibrary, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Orientation="Horizontal">
+                              <TextBlock Style="{StaticResource Icon}" FontSize="10" Text="&#xE710;" Margin="0,0,4,0" />
+                              <TextBlock Text="{l:Loc Explorer_AddLibrary}" FontSize="{DynamicResource FontSize.Small}" />
+                            </StackPanel>
+                          </Button>
+                        </Grid>
                         <ItemsControl ItemsSource="{Binding Items}" IsTabStop="False" Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibility}}">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:ExplorerEntry}">
@@ -432,6 +442,9 @@
                                       </Binding>
                                     </TextBlock.Text>
                                   </TextBlock>
+                                  <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Width="20" Height="20" MinHeight="20" FontSize="9" Content="&#xE711;" Margin="4,0,-4,0" ToolTip="{l:Loc Explorer_LibraryRemoveTip}"
+                                          Command="{Binding DataContext.RemoveLibraryCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"
+                                          Visibility="{Binding CanRemove, Converter={StaticResource BoolToVisibility}}" />
                                   <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" Style="{StaticResource Caption}" Margin="8,0,0,0" MaxWidth="110" TextTrimming="CharacterEllipsis" />
                                   <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding Tip}" />
                                 </DockPanel>

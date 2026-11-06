@@ -28,6 +28,10 @@ public sealed class FirmwareBuildService : IDisposable
     public Task<Toolchain> InstallToolchainAsync(IProgress<ToolchainProgress> progress, CancellationToken cancellationToken) =>
         _toolchains.EnsureInstalledAsync(progress, cancellationToken);
 
+    /// <summary>What the library dialog works with, for one project.</summary>
+    public LibraryService LibrariesFor(string projectDirectory, ProjectFile project, BoardProfile board, Action<string> recycle) =>
+        new(_http, ArduSimPaths.Default.LibraryIndex, projectDirectory, project, board, recycle);
+
     public static Task<BuildResult> BuildAsync(Toolchain toolchain, string projectDirectory, ProjectFile project, BoardProfile board, IProgress<BuildProgress>? progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(project);

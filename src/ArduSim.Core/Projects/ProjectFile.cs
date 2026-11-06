@@ -89,10 +89,14 @@ public sealed record ProjectFile
         File.Move(temp, path, overwrite: true);
     }
 
+    /// <summary>Where a project keeps the libraries added to it, relative to its folder.</summary>
+    public const string LibrariesFolder = "libs";
+
     public string SketchDirectory(string projectDirectory) => Path.GetFullPath(Path.Combine(projectDirectory, SketchPath));
 
+    /// <summary>The project's <see cref="LibrariesFolder"/>, which needs no setting (ADR-018), then what the file names.</summary>
     public IEnumerable<string> LibraryDirectories(string projectDirectory) =>
-        Settings.LibraryPaths.Select(p => Path.GetFullPath(Path.Combine(projectDirectory, p)));
+        new[] { LibrariesFolder }.Concat(Settings.LibraryPaths).Select(p => Path.GetFullPath(Path.Combine(projectDirectory, p))).Distinct(StringComparer.OrdinalIgnoreCase);
 
     public IEnumerable<string> IncludeDirectories(string projectDirectory) =>
         (Settings.IncludePaths ?? []).Select(p => Path.GetFullPath(Path.Combine(projectDirectory, p)));
