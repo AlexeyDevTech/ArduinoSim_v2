@@ -44,6 +44,7 @@ public sealed class ScreenMapView : FrameworkElement
         Focusable = true;
         FocusVisualStyle = null;
         ClipToBounds = true;
+        AllowDrop = true;
         RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.NearestNeighbor);
         DataContextChanged += (_, e) =>
         {
@@ -316,6 +317,32 @@ public sealed class ScreenMapView : FrameworkElement
         }
 
         return document.Screens.Reverse().FirstOrDefault(s => CardRect(s, document.Display).Contains(world));
+    }
+
+
+    // An element from the palette goes on the card it is dropped on.
+    private (string Screen, ElementKind Kind)? DropTarget(DragEventArgs e) =>
+        e.Data.GetData(ScreenFaceView.ElementFormat) is string kind && Enum.TryParse(kind, out ElementKind parsed)
+            && CardAt(ToWorld(e.GetPosition(this))) is { } card && _model?.CanPlaceOn(card.Id, parsed) == true
+            ? (card.Id, parsed) : null;
+
+    protected override void OnDragOver(DragEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        base.OnDragOver(e);
+        e.Effects = DropTarget(e) is not null ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    protected override void OnDrop(DragEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        base.OnDrop(e);
+        if (DropTarget(e) is { } target)
+        {
+            _model?.PlaceOn(target.Screen, target.Kind);
+            e.Handled = true;
+        }
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)

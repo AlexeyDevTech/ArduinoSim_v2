@@ -1203,10 +1203,10 @@
   <data name="Screens_FaceTip" xml:space="preserve"><value>Выбранный экран: текст перетаскивается по символам или пикселям</value></data>
   <data name="Screens_AddText" xml:space="preserve"><value>Текст</value></data>
   <data name="Screens_AddValue" xml:space="preserve"><value>Значение</value></data>
-  <data name="Screens_AddValueTip" xml:space="preserve"><value>Поле, которое заполняет ваша функция в ui_hooks.cpp</value></data>
+  <data name="Screens_AddValueTip" xml:space="preserve"><value>Число, время, дата или слово: переменная, выражение или ваша функция в ui_hooks.cpp. Щелчок добавляет на экран, перетаскивание ставит куда нужно</value></data>
   <data name="Screens_AddLine" xml:space="preserve"><value>Линия</value></data>
   <data name="Screens_AddFrame" xml:space="preserve"><value>Рамка</value></data>
-  <data name="Screens_AddBox" xml:space="preserve"><value>Прямоугольник</value></data>
+  <data name="Screens_AddBox" xml:space="preserve"><value>Заливка</value></data>
   <data name="Screens_RefreshTip" xml:space="preserve"><value>Прочитать код заново</value></data>
   <data name="Screens_ShowCode" xml:space="preserve"><value>Показать код</value></data>
   <data name="Screens_ShowCodeTip" xml:space="preserve"><value>Открывает ui_hooks.cpp: здесь пишутся значения и действия. Рядом лежит ui_screens.cpp, он создаётся заново при сборке</value></data>
@@ -1254,8 +1254,8 @@
   <data name="Screens_CenterTip" xml:space="preserve"><value>Поставить в середину строки</value></data>
   <data name="Screens_Duplicate" xml:space="preserve"><value>Дублировать</value></data>
   <data name="Screens_DuplicateTip" xml:space="preserve"><value>Копия ниже или рядом (Ctrl+D)</value></data>
-  <data name="Screens_FaceHint" xml:space="preserve"><value>Перетащите элемент с панели на экран. Двойной щелчок правит текст, стрелки двигают, Ctrl+D дублирует, Delete удаляет</value></data>
-  <data name="Screens_MapHint" xml:space="preserve"><value>Двойной щелчок по карточке открывает экран, по пустому месту создаёт новый. Потяните за кружок справа к другой карточке, чтобы связать их</value></data>
+  <data name="Screens_FaceHint" xml:space="preserve"><value>Перетащите элемент из палитры слева на экран. Двойной щелчок правит текст, стрелки двигают, Ctrl+D дублирует, Delete удаляет</value></data>
+  <data name="Screens_MapHint" xml:space="preserve"><value>Двойной щелчок по карточке открывает экран, по пустому месту создаёт новый. Потяните за кружок справа к другой карточке, чтобы связать их. Элемент из палитры слева можно бросить на карточку</value></data>
   <data name="Screens_MenuOpen" xml:space="preserve"><value>Открыть экран</value></data>
   <data name="Screens_MenuNew" xml:space="preserve"><value>Новый экран здесь</value></data>
   <data name="Screens_MenuNewMenu" xml:space="preserve"><value>Новое меню здесь</value></data>
@@ -1263,15 +1263,15 @@
   <data name="Explorer_GoToSource" xml:space="preserve"><value>Перейти к реализации</value></data>
   <data name="Screens_RowTransitionsTip" xml:space="preserve"><value>Переходов с этого экрана</value></data>
   <data name="Screens_AddBig" xml:space="preserve"><value>Крупные цифры</value></data>
-  <data name="Screens_AddBigTip" xml:space="preserve"><value>Число или время высотой в две строки на LCD, крупным шрифтом на OLED</value></data>
+  <data name="Screens_AddBigTip" xml:space="preserve"><value>Число или время высотой в две строки на LCD, крупным шрифтом на OLED. Щелчок добавляет на экран, перетаскивание ставит куда нужно</value></data>
   <data name="Screens_AddBar" xml:space="preserve"><value>Полоса</value></data>
-  <data name="Screens_AddBarTip" xml:space="preserve"><value>Полоса заполнения: значение из максимума</value></data>
+  <data name="Screens_AddBarTip" xml:space="preserve"><value>Полоса заполнения: значение из максимума. Щелчок добавляет на экран, перетаскивание ставит куда нужно</value></data>
   <data name="Screens_AddSymbol" xml:space="preserve"><value>Символ</value></data>
-  <data name="Screens_AddSymbolTip" xml:space="preserve"><value>Один символ из раздела «Символы». В тексте символ пишется как {имя}</value></data>
+  <data name="Screens_AddSymbolTip" xml:space="preserve"><value>Один символ: выбранный в разделе «Символы», иначе колокольчик. В тексте символ пишется как {имя}. Щелчок добавляет на экран, перетаскивание ставит куда нужно</value></data>
   <data name="Screens_AddInput" xml:space="preserve"><value>Поле ввода</value></data>
-  <data name="Screens_AddInputTip" xml:space="preserve"><value>Цифры с клавиатуры 4×4 для переменной: число, время или дата</value></data>
+  <data name="Screens_AddInputTip" xml:space="preserve"><value>Цифры с клавиатуры 4×4 для переменной: число, время или дата. Щелчок добавляет на экран, перетаскивание ставит куда нужно</value></data>
   <data name="Screens_AddDrawn" xml:space="preserve"><value>Свой код</value></data>
-  <data name="Screens_AddDrawnTip" xml:space="preserve"><value>Участок экрана, который рисует ваша функция в ui_hooks.cpp</value></data>
+  <data name="Screens_AddDrawnTip" xml:space="preserve"><value>Участок экрана, который рисует ваша функция в ui_hooks.cpp. Щелчок добавляет на экран, перетаскивание ставит куда нужно</value></data>
   <data name="Screens_Element_BigNumber" xml:space="preserve"><value>Крупные цифры</value></data>
   <data name="Screens_Element_Bar" xml:space="preserve"><value>Полоса</value></data>
   <data name="Screens_Element_Symbol" xml:space="preserve"><value>Символ</value></data>
@@ -1394,4 +1394,15 @@
   <data name="Screens_Problem_NoInput" xml:space="preserve"><value>действие записывает ввод, а поля ввода на экране нет</value></data>
   <data name="Screens_Problem_NoPart" xml:space="preserve"><value>детали {0} нет на схеме или она не подключена</value></data>
   <data name="Screens_ElementsTitle" xml:space="preserve"><value>На этом экране</value></data>
+  <data name="Screens_ToolsTitle" xml:space="preserve"><value>Элементы экрана</value></data>
+  <data name="Screens_ToolsFromCode" xml:space="preserve"><value>В проекте из кода доступно то, что можно записать в скетч. Остальное есть в проекте, созданном на этой вкладке.</value></data>
+  <data name="Screens_ToolsNoPlace" xml:space="preserve"><value>На выбранный экран элемент не добавить: в коде не найдено, где заканчивается его отрисовка.</value></data>
+  <data name="Screens_ToolOnlyGenerated" xml:space="preserve"><value>Только в проекте, созданном на этой вкладке: этому элементу нужны её данные.</value></data>
+  <data name="Screens_GroupScreens" xml:space="preserve"><value>Экраны ({0})</value></data>
+  <data name="Screens_GroupData" xml:space="preserve"><value>Данные ({0})</value></data>
+  <data name="Screens_GroupSymbols" xml:space="preserve"><value>Символы ({0})</value></data>
+  <data name="Screens_AddTextTip" xml:space="preserve"><value>Надпись. Щелчок добавляет на экран, перетаскивание ставит куда нужно</value></data>
+  <data name="Screens_AddLineTip" xml:space="preserve"><value>Линия на OLED. Щелчок добавляет на экран, перетаскивание ставит куда нужно</value></data>
+  <data name="Screens_AddFrameTip" xml:space="preserve"><value>Контур прямоугольника на OLED. Щелчок добавляет на экран, перетаскивание ставит куда нужно</value></data>
+  <data name="Screens_AddBoxTip" xml:space="preserve"><value>Закрашенный прямоугольник на OLED. Щелчок добавляет на экран, перетаскивание ставит куда нужно</value></data>
 </root>

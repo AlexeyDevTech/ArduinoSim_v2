@@ -292,6 +292,8 @@ public sealed partial class MainViewModel : IScreensHost
 
     void IScreensHost.OpenSketchFile(string path) => OpenFile(path);
 
+    void IScreensHost.ShowScreens() => SelectedTab = ScreensTab.Instance;
+
     void IScreensHost.ShowProperties(object key, string title, string subtitle, IReadOnlyList<PropertyField> fields)
     {
         if (IsScreensTab)

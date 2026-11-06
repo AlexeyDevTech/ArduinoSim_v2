@@ -442,6 +442,23 @@ public partial class MainWindow : Window
         }
     }
 
+    // A tile of the screen elements' palette: a click adds it, which is its command; a drag puts it where it is dropped.
+    private void OnElementToolMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed || _dragStart is not { } start || sender is not FrameworkElement { DataContext: ElementTool tool } tile)
+        {
+            return;
+        }
+
+        Vector moved = e.GetPosition(this) - start;
+        if (Math.Abs(moved.X) >= SystemParameters.MinimumHorizontalDragDistance || Math.Abs(moved.Y) >= SystemParameters.MinimumVerticalDragDistance)
+        {
+            _dragStart = null;
+            _viewModel.SelectedTab = ScreensTab.Instance;
+            DragDrop.DoDragDrop(tile, new DataObject(ScreenFaceView.ElementFormat, tool.Kind.ToString()), DragDropEffects.Copy);
+        }
+    }
+
     private void OnPaletteDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (PaletteItemAt(e.OriginalSource) is { } item)

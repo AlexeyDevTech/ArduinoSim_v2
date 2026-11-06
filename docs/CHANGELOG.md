@@ -1,5 +1,16 @@
 # Changelog
 
+## Screens: a palette of elements (2026-11-06)
+
+The owner did not find what to build a screen from: the buttons for it were on the tab's toolbar, there only with a screen open.
+
+- **Элементы экрана** on the left panel's Экраны page: tiles for everything that can go on a screen, always in view, on the map too. A click puts one on the selected screen and shows it; a drag puts it where it is dropped, and a drop on a card of the map opens that screen with the element on it. The toolbar's buttons are gone: they said the same.
+- In a project from code, what needs the tab's data stays in the palette, dimmed, and says why.
+- The page's other lists are now groups that fold, as in Детали, in one list that scrolls. Variables past the sixth and elements past the fifth were cut off with no way to reach them.
+- **Fixed: expression fields could not be used.** «Показывает», «Показывать, если» and «Полная при» were blank and took no typing, because the app's list control had no text field for an editable list. They were checked through the view model only, which is why the tests passed.
+
+How to try it: open any project with a display, go to Экраны and click Крупные цифры, or drag it onto a card of the map.
+
 ## Screens: a whole device from the tab (2026-11-06)
 
 The tab could draw screens and link them, and the rest of a device was C++. The owner asked for the mechanisms to make a system like NanoOS, with NanoOS only an example: no template and no button that makes one. A generated project now has them, each usable without the others (ADR-019).

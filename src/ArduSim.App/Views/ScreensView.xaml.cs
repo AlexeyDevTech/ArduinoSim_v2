@@ -9,7 +9,6 @@ namespace ArduSim.App.Views;
 /// <summary>The Экраны tab (docs/UI.md, ADR-019): the map and the screen. Undo is the window's Ctrl+Z, which follows this tab.</summary>
 public partial class ScreensView : UserControl
 {
-    private Point? _pressedAt;
     private string? _editing;
 
     public ScreensView()
@@ -20,23 +19,6 @@ public partial class ScreensView : UserControl
 
     private void OnFit(object sender, RoutedEventArgs e) => Map.Fit();
 
-    // The toolbar's element buttons: a click adds at the next free place, a drag where it is dropped.
-    private void OnPalettePress(object sender, MouseButtonEventArgs e) => _pressedAt = e.GetPosition(this);
-
-    private void OnPaletteMove(object sender, MouseEventArgs e)
-    {
-        if (e.LeftButton != MouseButtonState.Pressed || _pressedAt is not { } start || sender is not FrameworkElement { Tag: string kind } button)
-        {
-            return;
-        }
-
-        Vector moved = e.GetPosition(this) - start;
-        if (Math.Abs(moved.X) >= SystemParameters.MinimumHorizontalDragDistance || Math.Abs(moved.Y) >= SystemParameters.MinimumVerticalDragDistance)
-        {
-            _pressedAt = null;
-            DragDrop.DoDragDrop(button, new DataObject(ScreenFaceView.ElementFormat, kind), DragDropEffects.Copy);
-        }
-    }
 
     // Text is edited where it is: a box over the element, at the display's own scale.
     private void OnEditText(ScreenElement element, Rect at)

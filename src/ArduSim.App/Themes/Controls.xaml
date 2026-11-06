@@ -170,6 +170,14 @@
     </Setter>
   </Style>
 
+  <!-- A tile of the screen elements' palette: an icon over its name, in a grid of equal cells. -->
+  <Style x:Key="Button.Tile" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Margin" Value="2" />
+    <Setter Property="Padding" Value="2,6,2,4" />
+    <Setter Property="MinHeight" Value="54" />
+    <Setter Property="ToolTipService.Placement" Value="Right" />
+  </Style>
+
   <!-- Flat button for toolbars and panels: no fill until hovered. -->
   <Style x:Key="Button.Flat" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="Background" Value="Transparent" />
@@ -760,9 +768,11 @@
                 </ControlTemplate>
               </ToggleButton.Template>
             </ToggleButton>
-            <ContentPresenter Margin="{TemplateBinding Padding}" IsHitTestVisible="False" VerticalAlignment="Center" HorizontalAlignment="Left"
+            <ContentPresenter x:Name="Shown" Margin="{TemplateBinding Padding}" IsHitTestVisible="False" VerticalAlignment="Center" HorizontalAlignment="Left"
                               Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                               ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" />
+            <!-- An editable list is a text field with the arrow beside it. -->
+            <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed" Margin="0,0,26,0" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}" IsReadOnly="{TemplateBinding IsReadOnly}" />
             <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
               <Border Margin="0,4,8,8" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="{TemplateBinding MaxDropDownHeight}"
                       Background="{DynamicResource Brush.SurfaceRaised}" BorderBrush="{DynamicResource Brush.BorderInput}" BorderThickness="1"
@@ -774,6 +784,10 @@
             </Popup>
           </Grid>
           <ControlTemplate.Triggers>
+            <Trigger Property="IsEditable" Value="True">
+              <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+              <Setter TargetName="Shown" Property="Visibility" Value="Collapsed" />
+            </Trigger>
             <Trigger Property="IsEnabled" Value="False">
               <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Disabled}" />
             </Trigger>

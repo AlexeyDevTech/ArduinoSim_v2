@@ -473,54 +473,92 @@
                   </StackPanel>
                 </Button>
               </WrapPanel>
-              <!-- A generated project's symbols and data, under its screens. -->
-              <StackPanel DockPanel.Dock="Bottom" Margin="8,0,8,8" Visibility="{Binding IsGenerated, Converter={StaticResource BoolToVisibility}}">
-                <DockPanel Margin="4,0,0,4">
-                  <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Width="24" Height="24" FontSize="12" Content="&#xE710;" Command="{Binding AddGlyphCommand}" ToolTip="{l:Loc Screens_AddGlyphTip}" />
-                  <TextBlock Text="{l:Loc Screens_SymbolsTitle}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                </DockPanel>
-                <ListBox ItemsSource="{Binding GlyphRows}" SelectedItem="{Binding SelectedGlyphRow}" MaxHeight="96" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Background="Transparent" BorderThickness="0">
-                  <ListBox.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <WrapPanel />
-                    </ItemsPanelTemplate>
-                  </ListBox.ItemsPanel>
-                  <ListBox.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:GlyphRow}">
-                      <v:GlyphView Rows="{Binding Rows}" Width="20" Height="32" ToolTip="{Binding Name}" />
-                    </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
+              <!-- The palette of what goes on a screen: always in view, whichever way the tab is showing. -->
+              <StackPanel DockPanel.Dock="Top" Margin="8,0,8,6" Visibility="{Binding HasDocument, Converter={StaticResource BoolToVisibility}}">
+                <ToggleButton Style="{StaticResource ToggleButton.Group}" Content="{l:Loc Screens_ToolsTitle}" IsChecked="{Binding ToolsExpanded}" />
+                <StackPanel Visibility="{Binding ToolsExpanded, Converter={StaticResource BoolToVisibility}}">
+                  <ItemsControl ItemsSource="{Binding ElementTools}" IsTabStop="False">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <UniformGrid Columns="3" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:ElementTool}">
+                        <Button Style="{StaticResource Button.Tile}" ToolTip="{Binding Tip}" IsEnabled="{Binding IsAvailable}"
+                                Command="{Binding DataContext.PlaceElementCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                PreviewMouseLeftButtonDown="OnPaletteMouseDown" PreviewMouseMove="OnElementToolMove">
+                          <StackPanel>
+                            <TextBlock Style="{StaticResource Icon}" FontSize="16" Text="{Binding Glyph}" Margin="0,0,0,3" />
+                            <TextBlock Text="{Binding Title}" FontSize="{DynamicResource FontSize.Small}" TextAlignment="Center" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Text="{Binding ToolsNote}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="4,4,4,0" Visibility="{Binding ToolsNote, Converter={StaticResource NullToVisibility}}" />
+                </StackPanel>
               </StackPanel>
-              <StackPanel DockPanel.Dock="Bottom" Margin="8,0,8,8" Visibility="{Binding IsGenerated, Converter={StaticResource BoolToVisibility}}">
-                <DockPanel Margin="4,0,0,4">
-                  <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Width="24" Height="24" FontSize="12" Content="&#xE710;" Command="{Binding AddVariableCommand}" ToolTip="{l:Loc Screens_AddVariableTip}" />
-                  <TextBlock Text="{l:Loc Screens_DataTitle}" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                </DockPanel>
-                <ListBox Style="{StaticResource ListBox.Palette}" ItemsSource="{Binding VariableRows}" SelectedItem="{Binding SelectedVariableRow}" MaxHeight="180">
-                  <ListBox.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:VariableRow}">
-                      <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding KindText}" Style="{StaticResource Caption}" Margin="8,0,0,0" />
-                        <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" FontSize="12" Text="&#xE74E;" Margin="0,0,6,0" ToolTip="{l:Loc Screens_FieldSaved}" Visibility="{Binding Saved, Converter={StaticResource BoolToVisibility}}" />
-                        <TextBlock Text="{Binding Name}" FontFamily="{DynamicResource Font.Mono}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                      </DockPanel>
-                    </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
-              </StackPanel>
-              <ListBox Style="{StaticResource ListBox.Palette}" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" MouseDoubleClick="OnScreenRowDoubleClick" Margin="8,0,8,8">
-                <ListBox.ItemTemplate>
-                  <DataTemplate DataType="{x:Type vm:ScreenRow}">
+              <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8">
+                <StackPanel>
+                  <ToggleButton Style="{StaticResource ToggleButton.Group}" Content="{Binding ScreensHeader}" IsChecked="{Binding ScreensExpanded}" />
+                  <ListBox Style="{StaticResource ListBox.Palette}" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" MouseDoubleClick="OnScreenRowDoubleClick"
+                           Visibility="{Binding ScreensExpanded, Converter={StaticResource BoolToVisibility}}">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:ScreenRow}">
+                        <DockPanel>
+                          <TextBlock DockPanel.Dock="Right" Text="{Binding Transitions}" Style="{StaticResource Caption}" Margin="8,0,0,0" ToolTip="{l:Loc Screens_RowTransitionsTip}" />
+                          <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" FontSize="12" Text="&#xE768;" Margin="0,0,6,0" Foreground="{DynamicResource Brush.Accent}" ToolTip="{l:Loc Screens_IsStart}"
+                                     Visibility="{Binding IsStart, Converter={StaticResource BoolToVisibility}}" />
+                          <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        </DockPanel>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+
+                  <!-- A generated project's data and symbols. -->
+                  <StackPanel Visibility="{Binding IsGenerated, Converter={StaticResource BoolToVisibility}}">
                     <DockPanel>
-                      <TextBlock DockPanel.Dock="Right" Text="{Binding Transitions}" Style="{StaticResource Caption}" Margin="8,0,0,0" ToolTip="{l:Loc Screens_RowTransitionsTip}" />
-                      <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" FontSize="12" Text="&#xE768;" Margin="0,0,6,0" Foreground="{DynamicResource Brush.Accent}" ToolTip="{l:Loc Screens_IsStart}"
-                                 Visibility="{Binding IsStart, Converter={StaticResource BoolToVisibility}}" />
-                      <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Width="24" Height="24" FontSize="12" Content="&#xE710;" Command="{Binding AddVariableCommand}" ToolTip="{l:Loc Screens_AddVariableTip}" />
+                      <ToggleButton Style="{StaticResource ToggleButton.Group}" Content="{Binding DataHeader}" IsChecked="{Binding DataExpanded}" />
                     </DockPanel>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
+                    <ListBox Style="{StaticResource ListBox.Palette}" ItemsSource="{Binding VariableRows}" SelectedItem="{Binding SelectedVariableRow}"
+                             Visibility="{Binding DataExpanded, Converter={StaticResource BoolToVisibility}}">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:VariableRow}">
+                          <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding KindText}" Style="{StaticResource Caption}" Margin="8,0,0,0" />
+                            <TextBlock DockPanel.Dock="Left" Style="{StaticResource Icon}" FontSize="12" Text="&#xE74E;" Margin="0,0,6,0" ToolTip="{l:Loc Screens_FieldSaved}" Visibility="{Binding Saved, Converter={StaticResource BoolToVisibility}}" />
+                            <TextBlock Text="{Binding Name}" FontFamily="{DynamicResource Font.Mono}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                          </DockPanel>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                    <DockPanel>
+                      <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Width="24" Height="24" FontSize="12" Content="&#xE710;" Command="{Binding AddGlyphCommand}" ToolTip="{l:Loc Screens_AddGlyphTip}" />
+                      <ToggleButton Style="{StaticResource ToggleButton.Group}" Content="{Binding SymbolsHeader}" IsChecked="{Binding SymbolsExpanded}" />
+                    </DockPanel>
+                    <ListBox ItemsSource="{Binding GlyphRows}" SelectedItem="{Binding SelectedGlyphRow}" Background="Transparent" BorderThickness="0"
+                             Visibility="{Binding SymbolsExpanded, Converter={StaticResource BoolToVisibility}}">
+                      <ListBox.Template>
+                        <ControlTemplate TargetType="ListBox">
+                          <ItemsPresenter />
+                        </ControlTemplate>
+                      </ListBox.Template>
+                      <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel />
+                        </ItemsPanelTemplate>
+                      </ListBox.ItemsPanel>
+                      <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:GlyphRow}">
+                          <v:GlyphView Rows="{Binding Rows}" Width="20" Height="32" ToolTip="{Binding Name}" />
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </StackPanel>
+                </StackPanel>
+              </ScrollViewer>
             </DockPanel>
 
             <!-- Project explorer -->
@@ -863,7 +901,7 @@
                   <!-- What is on the screen, for reaching what hides under another -->
                   <StackPanel Visibility="{Binding ShowsElementList, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,12">
                     <TextBlock Text="{l:Loc Screens_ElementsTitle}" Style="{StaticResource Caption}" FontWeight="SemiBold" Margin="0,0,0,4" />
-                    <ListBox Style="{StaticResource ListBox.Palette}" ItemsSource="{Binding ElementRows}" SelectedItem="{Binding SelectedElementRow}" MaxHeight="170">
+                    <ListBox Style="{StaticResource ListBox.Palette}" ItemsSource="{Binding ElementRows}" SelectedItem="{Binding SelectedElementRow}">
                       <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:ElementRow}">
                           <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />

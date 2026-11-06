@@ -156,6 +156,182 @@ public sealed class ScreensTabTests : IDisposable
 
     private static PropertyField Field(MainViewModel vm, string name) => vm.Properties!.Fields.First(f => f.Name == name);
 
+    private static ElementTool Tool(ScreensViewModel screens, ElementKind kind) => screens.ElementTools.First(t => t.Kind == kind);
+
+    private const string OledScene = """{ "components": [ { "id": "board", "type": "arduino-nano-v3", "x": 0, "y": 0, "rotation": 0, "flip": false }, { "id": "oled1", "type": "oled", "x": 260, "y": 120, "rotation": 0, "flip": false } ], "wires": [] }""";
+
+    [Fact]
+    public void The_palette_is_there_on_the_map_too_and_a_click_opens_the_screen_with_the_element_on_it() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        Assert.False(screens.IsFace);
+        Assert.All(screens.ElementTools, t => Assert.True(t.IsAvailable, t.Kind.ToString()));
+        int before = screens.SelectedScreen!.Elements.Count;
+
+        screens.PlaceElementCommand.Execute(Tool(screens, ElementKind.BigNumber));
+
+        Assert.True(screens.IsFace);
+        Assert.Equal(before + 1, screens.SelectedScreen!.Elements.Count);
+        Assert.Equal(ElementKind.BigNumber, screens.SelectedElement!.Kind);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void A_tile_used_with_another_tab_in_front_brings_the_screens_back() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        ElementTool tool = Tool(screens, ElementKind.Text);
+        vm.SelectedTab = SceneTab.Instance;
+
+        screens.PlaceElementCommand.Execute(tool);
+
+        Assert.Same(ScreensTab.Instance, vm.SelectedTab);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void A_click_on_a_tile_does_not_replace_the_tiles_under_it() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        IReadOnlyList<ElementTool> tools = screens.ElementTools;
+
+        screens.PlaceElementCommand.Execute(Tool(screens, ElementKind.Text));
+
+        Assert.Same(tools, screens.ElementTools);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void A_symbol_from_the_palette_is_the_one_selected_in_the_list() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        screens.SelectGlyph("heart");
+
+        screens.PlaceElementCommand.Execute(Tool(screens, ElementKind.Symbol));
+
+        Assert.Equal("heart", screens.SelectedElement!.Text);
+        Assert.Null(screens.SelectedGlyphName);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void An_element_dropped_on_a_card_goes_on_that_screen() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        screens.AddScreenCommand.Execute(null);
+        string other = screens.SelectedScreenId!;
+        screens.SelectScreen("home");
+
+        Assert.True(screens.CanPlaceOn(other, ElementKind.Bar));
+        Assert.False(screens.CanPlaceOn(other, ElementKind.Line));
+        Assert.False(screens.CanPlaceOn("nothing", ElementKind.Bar));
+        screens.PlaceOn(other, ElementKind.Bar);
+
+        Assert.Equal(other, screens.SelectedScreenId);
+        Assert.True(screens.IsFace);
+        Assert.Contains(screens.Document!.Find(other)!.Elements, e => e.Kind == ElementKind.Bar);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void An_oled_s_palette_has_shapes_too() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(OledScene, EmptySketch));
+
+        Assert.True(Tool(screens, ElementKind.Line).IsAvailable);
+        Assert.True(Tool(screens, ElementKind.Frame).IsAvailable);
+        Assert.True(Tool(screens, ElementKind.Box).IsAvailable);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void In_a_project_from_code_what_needs_the_tab_s_data_stays_in_the_palette_and_says_why() => OnSta(async () =>
+    {
+        MainViewModel vm = await Opened(NewViewModel(), Project(LcdScene, Handwritten));
+        ScreensViewModel screens = ShowScreens(vm);
+
+        Assert.True(Tool(screens, ElementKind.Text).IsAvailable);
+        Assert.True(Tool(screens, ElementKind.Value).IsAvailable);
+        ElementTool big = Tool(screens, ElementKind.BigNumber);
+        Assert.False(big.IsAvailable);
+        Assert.Contains("Только в проекте", big.Tip, StringComparison.Ordinal);
+        Assert.NotEmpty(screens.ToolsNote);
+
+        // A click on what cannot be placed writes nothing.
+        string before = File.ReadAllText(Path.Combine(vm.ProjectDirectory!, "sketch", "sketch.ino"));
+        int elements = screens.SelectedScreen!.Elements.Count;
+        screens.PlaceElementCommand.Execute(big);
+        Assert.Equal(elements, screens.SelectedScreen!.Elements.Count);
+        Assert.Equal(before, File.ReadAllText(Path.Combine(vm.ProjectDirectory!, "sketch", "sketch.ino")));
+
+        // And what can be placed goes into the code.
+        screens.PlaceElementCommand.Execute(Tool(screens, ElementKind.Text));
+        Assert.Equal(elements + 1, screens.SelectedScreen!.Elements.Count);
+
+        await vm.DisposeAsync();
+    });
+
+    // An expression's field is an editable list, and a template without this part shows nothing and takes no typing.
+    [Fact]
+    public void The_app_s_list_control_has_a_text_field_for_an_editable_list()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (!File.Exists(Path.Combine(directory!.FullName, "ArduSim.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        string controls = File.ReadAllText(Path.Combine(directory.FullName, "src", "ArduSim.App", "Themes", "Controls.xaml"));
+
+        Assert.Contains("x:Name=\"PART_EditableTextBox\"", controls, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void With_a_variable_or_a_symbol_selected_the_panel_has_nothing_about_the_screen() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        screens.AddScreenCommand.Execute(null);
+        Assert.True(screens.CanSetStart);
+
+        screens.AddVariableCommand.Execute(null);
+        Assert.False(screens.CanSetStart);
+        Assert.False(screens.CanDuplicate);
+        Assert.False(screens.ShowsElementList);
+
+        screens.SelectGlyph("bell");
+        Assert.False(screens.CanSetStart);
+        Assert.False(screens.CanRemoveSelected);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void The_page_counts_what_is_in_its_groups() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        screens.AddVariableCommand.Execute(null);
+
+        Assert.Contains("(1)", screens.ScreensHeader, StringComparison.Ordinal);
+        Assert.Contains("(1)", screens.DataHeader, StringComparison.Ordinal);
+        Assert.Contains("(" + screens.GlyphRows.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")", screens.SymbolsHeader, StringComparison.Ordinal);
+
+        await vm.DisposeAsync();
+    });
+
     [Fact]
     public void Data_is_made_chosen_and_changed_from_the_panels_and_undoes() => OnSta(async () =>
     {
@@ -241,11 +417,10 @@ public sealed class ScreensTabTests : IDisposable
         screens.SelectScreen("home");
         screens.IsFace = true;
 
-        foreach (string kind in (string[])["BigNumber", "Bar", "Symbol", "Input", "Drawn"])
+        foreach (ElementKind kind in (ElementKind[])[ElementKind.BigNumber, ElementKind.Bar, ElementKind.Symbol, ElementKind.Input, ElementKind.Drawn])
         {
-            Assert.True(screens.AddElementCommand.CanExecute(kind), kind);
-            screens.AddElementCommand.Execute(kind);
-            Assert.Equal(kind, screens.SelectedElement!.Kind.ToString());
+            screens.PlaceElementCommand.Execute(Tool(screens, kind));
+            Assert.Equal(kind, screens.SelectedElement!.Kind);
             Assert.Contains(vm.Properties!.Fields, f => f.Name == "when");
         }
 
@@ -821,7 +996,7 @@ public sealed class ScreensTabTests : IDisposable
         screens.RemoveTransitionCommand.Execute(screens.AnywhereRows[0]);
         Assert.Empty(screens.AnywhereRows);
         screens.IsFace = true;
-        screens.AddElementCommand.Execute("Text");
+        screens.PlaceElementCommand.Execute(Tool(screens, ElementKind.Text));
         string added = screens.SelectedElementId!;
         PropertyField x = vm.Properties.Fields.Single(f => f.Name == "x");
         Assert.True(x.Step(1));
@@ -831,8 +1006,8 @@ public sealed class ScreensTabTests : IDisposable
         Assert.DoesNotContain(screens.SelectedScreen!.Elements, e => e.Id == added);
 
         // A line has no business on a character display.
-        Assert.False(screens.AddElementCommand.CanExecute("Line"));
-        Assert.True(screens.AddElementCommand.CanExecute("Text"));
+        Assert.DoesNotContain(screens.ElementTools, t => t.Kind == ElementKind.Line);
+        Assert.True(Tool(screens, ElementKind.Text).IsAvailable);
 
         await vm.DisposeAsync();
     });
@@ -845,7 +1020,7 @@ public sealed class ScreensTabTests : IDisposable
         ScreensViewModel screens = ShowScreens(vm);
         screens.CreateCommand.Execute(null);
         screens.IsFace = true;
-        screens.AddElementCommand.Execute("Value");
+        screens.PlaceElementCommand.Execute(Tool(screens, ElementKind.Value));
         screens.Generate();
         string hooks = Path.Combine(project, "sketch", ScreenCodeGenerator.HooksFile);
         string source = Path.Combine(project, "sketch", ScreenCodeGenerator.SourceFile);

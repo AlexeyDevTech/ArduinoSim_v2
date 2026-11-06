@@ -8,6 +8,10 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace ArduSim.App.ViewModels;
 
+/// <summary>A kind of element in the left panel's palette. What cannot go on the selected screen is there all the same, and says why.</summary>
+/// <param name="Glyph">Its icon, from the icon font.</param>
+public sealed record ElementTool(ElementKind Kind, string Title, string Tip, string Glyph, bool IsAvailable);
+
 /// <summary>A variable in the left panel's list.</summary>
 public sealed record VariableRow(string Name, string KindText, bool Saved);
 
@@ -180,6 +184,120 @@ public sealed partial class ScreensViewModel
     private const string AnyKeyKey = "anykey";
 
     private ActionList? _enterActions;
+    private IReadOnlyList<ElementTool> _tools = [];
+    private (bool Generated, bool Oled, bool CanPlace, bool Has) _toolsFor;
+
+    /// <summary>The palette: what can go on a screen of this display, in this kind of project.</summary>
+    public IReadOnlyList<ElementTool> ElementTools
+    {
+        get
+        {
+            // The same list while nothing about it changed: a tile must not be replaced under a click.
+            (bool, bool, bool, bool) key = (IsGenerated, IsOled, CanPlaceElements, HasDocument);
+            if (key != _toolsFor)
+            {
+                _toolsFor = key;
+                _tools = BuildTools();
+            }
+
+            return _tools;
+        }
+    }
+
+    /// <summary>An element can go on the selected screen: in the model, or as code where its drawing ends.</summary>
+    public bool CanPlaceElements => SelectedScreen is { } screen && (IsGenerated || screen.DrawInsert is not null);
+
+    /// <summary>What the palette cannot do in this project, in one line.</summary>
+    public string ToolsNote =>
+        Document is null ? ""
+        : !CanPlaceElements ? Strings.Get("Screens_ToolsNoPlace")
+        : IsFromCode ? Strings.Get("Screens_ToolsFromCode")
+        : "";
+
+    [ObservableProperty]
+    public partial bool ToolsExpanded { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool ScreensExpanded { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool DataExpanded { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool SymbolsExpanded { get; set; } = true;
+
+    public string ScreensHeader => Strings.Format("Screens_GroupScreens", Rows.Count);
+
+    public string DataHeader => Strings.Format("Screens_GroupData", VariableRows.Count);
+
+    public string SymbolsHeader => Strings.Format("Screens_GroupSymbols", GlyphRows.Count);
+
+    private List<ElementTool> BuildTools()
+    {
+        var tools = new List<ElementTool>();
+        void Add(ElementKind kind, string glyph, string name)
+        {
+            bool allowed = IsKindAllowed(kind);
+            string why = !allowed ? "\n" + Strings.Get("Screens_ToolOnlyGenerated") : !CanPlaceElements ? "\n" + Strings.Get("Screens_ToolsNoPlace") : "";
+            tools.Add(new ElementTool(kind, Strings.Get("Screens_Add" + name), Strings.Get("Screens_Add" + name + "Tip") + why, glyph, allowed && CanPlaceElements));
+        }
+
+        if (Document is null)
+        {
+            return tools;
+        }
+
+        Add(ElementKind.Text, "\uE8D2", "Text");
+        Add(ElementKind.Value, "\uE8EF", "Value");
+        Add(ElementKind.BigNumber, "\uE8E9", "Big");
+        Add(ElementKind.Bar, "\uE9D2", "Bar");
+        Add(ElementKind.Symbol, "\uE734", "Symbol");
+        Add(ElementKind.Input, "\uE765", "Input");
+        Add(ElementKind.Drawn, "\uE943", "Drawn");
+        if (IsOled)
+        {
+            Add(ElementKind.Line, "\uE738", "Line");
+            Add(ElementKind.Frame, "\uE739", "Frame");
+            Add(ElementKind.Box, "\uE73B", "Box");
+        }
+
+        return tools;
+    }
+
+    // What this kind of project can hold. A shape needs pixels; the rest of the new kinds need the model's data, which code that was read does not have.
+    private bool IsKindAllowed(ElementKind kind) => kind switch
+    {
+        ElementKind.Text or ElementKind.Value => true,
+        ElementKind.Line or ElementKind.Frame or ElementKind.Box => IsOled,
+        _ => IsGenerated,
+    };
+
+    /// <summary>A click on a tile: on the selected screen, at the next free place, with the screen in view to see it.</summary>
+    [RelayCommand]
+    private void PlaceElement(ElementTool? tool)
+    {
+        if (tool is { IsAvailable: true } && SelectedScreen is { } screen)
+        {
+            _host.ShowScreens();
+            IsFace = true;
+            AddElementAt(tool.Kind, 0, NextFree(screen));
+        }
+    }
+
+    /// <summary>Whether a dragged element can be dropped on a card of the map.</summary>
+    public bool CanPlaceOn(string screen, ElementKind kind) =>
+        IsKindAllowed(kind) && Document?.Find(screen) is { } node && (IsGenerated || node.DrawInsert is not null);
+
+    /// <summary>A tile dropped on a card of the map: that screen opens, with the element at its next free place.</summary>
+    public void PlaceOn(string screen, ElementKind kind)
+    {
+        if (CanPlaceOn(screen, kind))
+        {
+            SelectScreen(screen);
+            IsFace = true;
+            AddElementAt(kind, 0, NextFree(SelectedScreen!));
+        }
+    }
 
     public ObservableCollection<VariableRow> VariableRows { get; } = [];
 
@@ -443,7 +561,7 @@ public sealed partial class ScreensViewModel
         ExpressionCheck check = ScreenExpression.Check(document, text);
         return check.Fault switch
         {
-            ExpressionFault.Syntax => Strings.Format("Screens_ExpressionBad", check.Name),
+            ExpressionFault.Syntax => Strings.Format("Screens_ExpressionBad", check.Name.Length > 0 ? check.Name : text.Trim()),
             ExpressionFault.UnknownName => Strings.Format("Screens_ExpressionUnknown", check.Name),
             _ => "",
         };

@@ -47,6 +47,9 @@ public interface IScreensHost
     /// <summary>Opens a file of the sketch in the code tabs.</summary>
     void OpenSketchFile(string path);
 
+    /// <summary>Brings the Экраны tab to the front: the left panel's page can be open with another tab showing.</summary>
+    void ShowScreens();
+
     /// <summary>Puts the selection's fields in the right panel; the same <paramref name="key"/> and fields update in place, so that the focus stays.</summary>
     void ShowProperties(object key, string title, string subtitle, IReadOnlyList<PropertyField> fields);
 }
@@ -390,7 +393,7 @@ public sealed partial class ScreensViewModel : ObservableObject
         : SelectedTransition is { } picked ? TransitionAt(picked)?.RemoveSpans.Count > 0
         : SelectedScreen?.RemoveSpans.Count > 0;
 
-    public bool CanSetStart => (IsGenerated || Document?.Shape?.StartSpan is not null) && SelectedScreen is { } screen && Document?.Start != screen.Id;
+    public bool CanSetStart => IsAboutScreen && (IsGenerated || Document?.Shape?.StartSpan is not null) && SelectedScreen is { } screen && Document?.Start != screen.Id;
 
     /// <summary>A transition can be made: in the model, or in code that handles keys in a way that was recognised.</summary>
     public bool CanConnect => IsGenerated || Document?.Shape is { NewTransition: not null, KeyVariable.Length: > 0, GotoFormat.Length: > 0 };
@@ -642,7 +645,6 @@ public sealed partial class ScreensViewModel : ObservableObject
         AddTransitionCommand.NotifyCanExecuteChanged();
         AddAnywhereCommand.NotifyCanExecuteChanged();
         AddMenuItemCommand.NotifyCanExecuteChanged();
-        AddElementCommand.NotifyCanExecuteChanged();
         AddVariableCommand.NotifyCanExecuteChanged();
         AddGlyphCommand.NotifyCanExecuteChanged();
         DuplicateSelectedCommand.NotifyCanExecuteChanged();
@@ -1703,20 +1705,6 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     private double NextY() => ((Document?.Screens.Count ?? 0) / 4) * ScreenMapLayout.RowStep;
 
-    private bool CanAddElementNow(string? kind) => CanAddElements
-        && (kind is nameof(ElementKind.Text) or nameof(ElementKind.Value)
-            || (kind is nameof(ElementKind.Line) or nameof(ElementKind.Frame) or nameof(ElementKind.Box) && IsOled)
-            || (kind is nameof(ElementKind.BigNumber) or nameof(ElementKind.Bar) or nameof(ElementKind.Symbol) or nameof(ElementKind.Input) or nameof(ElementKind.Drawn) && IsGenerated));
-
-    /// <summary>Adds an element to the screen on view: at the first free row of a character display, or below the last one on an OLED.</summary>
-    [RelayCommand(CanExecute = nameof(CanAddElementNow))]
-    private void AddElement(string? kind)
-    {
-        if (SelectedScreen is { } screen && Enum.TryParse(kind, out ElementKind parsed))
-        {
-            AddElementAt(parsed, 0, NextFree(screen));
-        }
-    }
 
     /// <summary>A new element where it was dropped: in the model, or as code at the end of the screen's own drawing.</summary>
     public void AddElementAt(ElementKind kind, int x, int y, string? text = null, int size = 1)
@@ -1799,6 +1787,7 @@ public sealed partial class ScreensViewModel : ObservableObject
         };
     }
 
+    // At the first free row of a character display, or below the last element on an OLED.
     private int NextFree(ScreenNode screen)
     {
         ScreenDisplay display = Document!.Display;

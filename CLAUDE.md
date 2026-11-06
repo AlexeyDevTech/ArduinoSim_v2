@@ -95,7 +95,7 @@ docs/                  BRIEF (spec), ARCHITECTURE, UI, UI-BACKLOG, PLAN, DECISIO
 
 - The brief §7 acceptance pass on a clean Windows VM has not been done (everything was checked on the dev machine only).
 - Параметры holds the theme, the canvas hint switch, currents on the schematic and the wheel's meaning.
-- Canvas mouse gestures and palette drag and drop have no automated checks; the automated checks drive the view models and render the window offscreen. Canvas fps and App memory are measured by offscreen scenario runs, not in `dotnet test`.
+- Canvas mouse gestures and palette drag and drop (the screen elements' tiles too) have no automated checks; the automated checks drive the view models and render the window offscreen. Canvas fps and App memory are measured by offscreen scenario runs, not in `dotnet test`.
 - I2C and SPI are master-only; I2C is hardware-only (no bit-banged I2C, no slave mode). SPI modes 1 and 2 warn (device models sample on the rising edge).
 - HD44780: no 5x10 font (drawn as 5x8). LiquidCrystal_I2C has no license of its own (bundled on the owner's decision; see THIRD_PARTY.md).
 - Headless runs print only the shim's one-line crash notice and exit with the NTSTATUS; the symbolized report is the app's.
