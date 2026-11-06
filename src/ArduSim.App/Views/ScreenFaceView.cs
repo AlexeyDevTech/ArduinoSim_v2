@@ -274,9 +274,8 @@ public sealed class ScreenFaceView : FrameworkElement
         {
             int x = element.X + (int)Math.Round(moved.X / (scale * (lcd ? 6 : 1)));
             int y = element.Y + (int)Math.Round(moved.Y / (scale * (lcd ? 9 : 1)));
-            bool free = _model?.IsGenerated == true;
-            _dragX = element.XSpan is not null || free ? Math.Clamp(x, 0, display.Width - 1) : element.X;
-            _dragY = element.YSpan is not null || free ? Math.Clamp(y, 0, display.Height - 1) : element.Y;
+            _dragX = _model?.CanMoveAcross(element) == true ? Math.Clamp(x, 0, display.Width - 1) : element.X;
+            _dragY = _model?.CanMoveDown(element) == true ? Math.Clamp(y, 0, display.Height - 1) : element.Y;
             InvalidateVisual();
         }
         else if (_sizing is { } sized)

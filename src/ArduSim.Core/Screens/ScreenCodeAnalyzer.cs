@@ -5,8 +5,8 @@ namespace ArduSim.Core.Screens;
 
 /// <summary>
 /// Forms a project's screens and transitions from its own code (ADR-019). A heuristic, and safe to be
-/// wrong: it changes nothing, every result links to its line, and only a single token it read
-/// exactly can be edited through it.
+/// wrong: it changes nothing, every result links to its line, and only what it read exactly can be
+/// edited through it.
 /// </summary>
 public sealed partial class ScreenCodeAnalyzer
 {
@@ -16,6 +16,7 @@ public sealed partial class ScreenCodeAnalyzer
     private readonly SketchScanner _scan = new();
     private readonly Dictionary<CodeFunction, FunctionFacts> _facts = [];
     private readonly Dictionary<string, List<CodeFunction>> _byName = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (IReadOnlyList<CodeToken> Tokens, int Start, int End)> _constants = new(StringComparer.Ordinal);
     private readonly ScreenDisplay? _sceneDisplay;
     private ScreenDisplay _display = new(DisplayFamily.CharLcd, 16, 2, DisplayLibrary.LiquidCrystalI2c, "lcd");
     private HashSet<string> _displayNames = new(StringComparer.Ordinal);
@@ -105,6 +106,7 @@ public sealed partial class ScreenCodeAnalyzer
         _display = ReadDisplay(_scan.Displays[0]);
         _displayNames = new HashSet<string>(_scan.Displays.Select(d => d.Name), StringComparer.Ordinal);
         FindSurfaces();
+        FindConstants();
         foreach (CodeFunction function in _scan.Functions)
         {
             if (!_byName.TryGetValue(function.Name, out List<CodeFunction>? list))
@@ -138,6 +140,75 @@ public sealed partial class ScreenCodeAnalyzer
                 }
             }
         }
+    }
+
+    // const uint8_t COL = 5; constexpr int LAST = COLS - 1; enum { COLS = 20 };
+    private void FindConstants()
+    {
+        foreach (CodeFile file in _scan.Files)
+        {
+            List<CodeToken> t = file.Tokens;
+            for (int i = 0; i + 2 < t.Count; i++)
+            {
+                if (t[i].Is("const") || t[i].Is("constexpr"))
+                {
+                    int k = i + 1;
+                    while (k + 1 < t.Count && t[k].Kind == TokenKind.Identifier && !t[k + 1].Is("="))
+                    {
+                        k++;
+                    }
+
+                    if (k + 1 < t.Count && t[k].Kind == TokenKind.Identifier && t[k + 1].Is("="))
+                    {
+                        _constants[t[k].Text] = (t, k + 2, EndOfValue(t, k + 2));
+                    }
+                }
+                else if (t[i].Is("enum"))
+                {
+                    int open = i + 1;
+                    while (open < t.Count && open < i + 6 && !t[open].Is("{") && !t[open].Is(";"))
+                    {
+                        open++;
+                    }
+
+                    if (open < t.Count && t[open].Is("{"))
+                    {
+                        int close = SketchScanner.Matching(t, open, "{", "}");
+                        for (int m = open + 1; m + 1 < close; m++)
+                        {
+                            if (t[m].Kind == TokenKind.Identifier && t[m + 1].Is("="))
+                            {
+                                _constants[t[m].Text] = (t, m + 2, EndOfValue(t, m + 2));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Up to the comma, semicolon or closing brace that ends a value.
+    private static int EndOfValue(IReadOnlyList<CodeToken> t, int start)
+    {
+        int nested = 0;
+        int k = start;
+        for (; k < t.Count; k++)
+        {
+            if (t[k].Is("(") || t[k].Is("[") || t[k].Is("{"))
+            {
+                nested++;
+            }
+            else if (nested > 0 && (t[k].Is(")") || t[k].Is("]") || t[k].Is("}")))
+            {
+                nested--;
+            }
+            else if (nested == 0 && (t[k].Is(",") || t[k].Is(";") || t[k].Is("}") || t[k].Is(")")))
+            {
+                break;
+            }
+        }
+
+        return k;
     }
 
     private bool IsSurfaceParameter(CodeFunction function, string name) =>
@@ -1381,6 +1452,138 @@ public sealed partial class ScreenCodeAnalyzer
         return offset;
     }
 
+    // ---- local variables that place things -------------------------------------------------------------
+
+    /// <summary>A variable declared in a function's body.</summary>
+    /// <param name="InitStart">Where the value of its first assignment starts.</param>
+    /// <param name="Assignments">How many times anything gives it a value.</param>
+    /// <param name="Declaration">Its statement's first token and semicolon, if the statement is nothing but <c>type name = value;</c>.</param>
+    private sealed record LocalVariable(int InitStart, int InitEnd, int Assignments, bool IsLoopVariable, (int Start, int End)? Declaration);
+
+    private static readonly string[] NotTypes = ["return", "case", "else", "new", "delete", "sizeof", "throw"];
+
+    private static LocalVariable? LocalOf(CodeFunction function, string name)
+    {
+        IReadOnlyList<CodeToken> t = function.Tokens;
+        int declared = -1;
+        int assignments = 0;
+        int initStart = 0;
+        int initEnd = 0;
+        for (int k = Math.Max(1, function.BodyStart); k < function.BodyEnd && k + 1 < t.Count; k++)
+        {
+            if (!t[k].Is(name))
+            {
+                continue;
+            }
+
+            CodeToken before = t[k - 1];
+            CodeToken after = t[k + 1];
+            if (before.Is(".") || before.Is("->") || before.Is("::"))
+            {
+                continue;
+            }
+
+            if (declared < 0 && ((before.Kind == TokenKind.Identifier && !NotTypes.Contains(before.Text)) || before.Is("*")))
+            {
+                declared = k;
+            }
+
+            if (after.Is("="))
+            {
+                if (assignments++ == 0)
+                {
+                    initStart = k + 2;
+                    initEnd = EndOfValue(t, k + 2);
+                }
+            }
+            else if (after.Is("+=") || after.Is("-=") || after.Is("++") || after.Is("--") || before.Is("++") || before.Is("--") || (before.Is("&") && !(t[k - 2].Kind == TokenKind.Identifier)))
+            {
+                assignments++;
+            }
+        }
+
+        if (declared < 0)
+        {
+            return null;
+        }
+
+        int start = declared;
+        while (start > function.BodyStart && !(t[start - 1].Is(";") || t[start - 1].Is("{") || t[start - 1].Is("}") || t[start - 1].Is(":") || t[start - 1].Is("(")))
+        {
+            start--;
+        }
+
+        bool inLoopHeader = start >= 2 && t[start - 1].Is("(") && t[start - 2].Is("for");
+        bool plain = !t[start - 1].Is("(") && initStart == declared + 2 && initEnd < t.Count && t[initEnd].Is(";")
+            && Enumerable.Range(start, declared - start).All(k => t[k].Kind == TokenKind.Identifier || t[k].Is("*") || t[k].Is("&") || t[k].Is("::"));
+        return new LocalVariable(initStart, initEnd, assignments, inLoopHeader, plain ? (start, initEnd) : null);
+    }
+
+    // The declarations nothing else uses once this expression is gone: its locals, and the locals only they used.
+    private List<SourceSpan> DeadWith(CodeFunction function, IReadOnlyList<CodeToken> t, int start, int end)
+    {
+        var gone = new List<(int Start, int End)> { (start, end - 1) };
+        var dead = new List<(int Start, int End)>();
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            string[] names = [.. gone.SelectMany(g => Enumerable.Range(g.Start, g.End - g.Start + 1)).Where(k => t[k].Kind == TokenKind.Identifier).Select(k => t[k].Text).Distinct(StringComparer.Ordinal)];
+            foreach (string name in names)
+            {
+                if (LocalOf(function, name) is not { Assignments: 1, IsLoopVariable: false, Declaration: { } statement } local || dead.Contains(statement))
+                {
+                    continue;
+                }
+
+                bool used = Enumerable.Range(function.BodyStart, function.BodyEnd - function.BodyStart)
+                    .Any(k => t[k].Is(name) && !(t[k - 1].Is(".") || t[k - 1].Is("->") || t[k - 1].Is("::")) && !gone.Any(g => k >= g.Start && k <= g.End) && !(k >= statement.Start && k < local.InitStart));
+                var pure = new Painter.Reckoning(this, function, new(StringComparer.Ordinal), null);
+                pure.Of(t, local.InitStart, local.InitEnd);
+                if (!used && !pure.Changes)
+                {
+                    dead.Add(statement);
+                    gone.Add(statement);
+                    changed = true;
+                }
+            }
+        }
+
+        if (dead.Count == 0)
+        {
+            return [];
+        }
+
+        // Statements side by side go as one: a line they had to themselves goes with them.
+        CodeFile file = _scan.Files[t[start].File];
+        dead.Sort();
+        var spans = new List<SourceSpan>();
+        (int first, int last) = dead[0];
+        foreach ((int from, int to) in dead.Skip(1))
+        {
+            if (from == last + 1)
+            {
+                last = to;
+            }
+            else
+            {
+                spans.Add(StatementSpan(file, t[first].Offset, t[last].Offset + 1));
+                (first, last) = (from, to);
+            }
+        }
+
+        spans.Add(StatementSpan(file, t[first].Offset, t[last].Offset + 1));
+        return spans;
+    }
+
+    private SourceSpan SpanOver(IReadOnlyList<CodeToken> t, int start, int end)
+    {
+        CodeFile file = _scan.Files[t[start].File];
+        int from = t[start].Offset;
+        int to = t[end - 1].Offset + t[end - 1].Text.Length;
+        return new SourceSpan(file.Path, from, to - from, file.Text[from..to]);
+    }
+
     // ---- what each screen shows ---------------------------------------------------------------------
 
     private Dictionary<string, ScreenNode> DrawScreens(IReadOnlyList<CodeToken> constants, HashSet<string> variables)
@@ -1498,8 +1701,14 @@ public sealed partial class ScreenCodeAnalyzer
         private int _size = 1;
         private int _depth;
         private int _next;
+        private int _outerLoops;
+        private (SourceInsert Insert, CodeFunction Caller)? _callSite;
         private SourceSpan? _xSpan;
         private SourceSpan? _ySpan;
+        private CodeExpression? _xCode;
+        private CodeExpression? _yCode;
+        private Func<int, int?>? _xLater;
+        private Func<int, int?>? _yLater;
         private bool _placed = true;
         private int _titleY = -1;
         private bool _shared;
@@ -1532,7 +1741,273 @@ public sealed partial class ScreenCodeAnalyzer
         }
 
         /// <summary>A parameter's argument: tokens, in the caller's function, with the caller's bindings.</summary>
-        private sealed record Bound(IReadOnlyList<CodeToken> Tokens, int Start, int End, Dictionary<string, Bound> Bindings);
+        /// <param name="Shared">The call that gives it is in code other screens share.</param>
+        internal sealed record Bound(CodeFunction Function, IReadOnlyList<CodeToken> Tokens, int Start, int End, Dictionary<string, Bound> Bindings, bool Shared);
+
+        /// <summary>A coordinate as the code gives it.</summary>
+        /// <param name="Value">What it comes to, if that can be told.</param>
+        /// <param name="Span">What a number can replace.</param>
+        /// <param name="Code">What the code writes, if not a plain number.</param>
+        /// <param name="Later">What it comes to once the width of what is printed there is known: <c>(COLS - strlen(t)) / 2</c>.</param>
+        private readonly record struct Coordinate(int? Value, SourceSpan? Span, CodeExpression? Code, Func<int, int?>? Later);
+
+        /// <summary>
+        /// What an expression comes to, as far as can be told without running it: numbers, macros, constants, the
+        /// bound parameters of a helper and locals given a value once, in <c>+ - * / %</c> and parentheses. What the
+        /// sketch only knows at run time makes <see cref="Changes"/> true; <c>strlen</c> of what is printed does not,
+        /// since it depends on nothing but that.
+        /// </summary>
+        internal sealed class Reckoning(ScreenCodeAnalyzer owner, CodeFunction? function, Dictionary<string, Bound> scope, int? printed, int depth = 0)
+        {
+            private static readonly string[] IntegerTypes = ["int", "unsigned", "long", "short", "byte", "uint8_t", "int8_t", "uint16_t", "int16_t", "uint32_t", "int32_t", "size_t", "char"];
+            private IReadOnlyList<CodeToken> _t = [];
+            private int _at;
+            private int _end;
+
+            public bool Changes { get; private set; }
+
+            public bool NeedsPrinted { get; private set; }
+
+            public bool UsesLocals { get; private set; }
+
+            public int? Of(IReadOnlyList<CodeToken> t, int start, int end)
+            {
+                (_t, _at, _end) = (t, start, end);
+                int? value = Sum();
+                if (_at < _end)
+                {
+                    Changes = true;
+                    return null;
+                }
+
+                return value;
+            }
+
+            private bool Next(string text) => _at < _end && _t[_at].Is(text);
+
+            private int? Sum()
+            {
+                int? value = Product();
+                while (Next("+") || Next("-"))
+                {
+                    bool plus = _t[_at++].Is("+");
+                    int? right = Product();
+                    value = plus ? value + right : value - right;
+                }
+
+                return value;
+            }
+
+            private int? Product()
+            {
+                int? value = Unary();
+                while (Next("*") || Next("/") || Next("%"))
+                {
+                    string operation = _t[_at++].Text;
+                    int? right = Unary();
+                    value = operation == "*" ? value * right : right is null or 0 ? null : operation == "/" ? value / right : value % right;
+                }
+
+                return value;
+            }
+
+            private int? Unary()
+            {
+                if (Next("-"))
+                {
+                    _at++;
+                    return -Unary();
+                }
+
+                if (Next("+"))
+                {
+                    _at++;
+                }
+
+                return Primary();
+            }
+
+            private int? Primary()
+            {
+                if (_at >= _end)
+                {
+                    Changes = true;
+                    return null;
+                }
+
+                CodeToken token = _t[_at];
+                if (token.Is("("))
+                {
+                    return Parenthesized();
+                }
+
+                if (token.Kind == TokenKind.Number)
+                {
+                    _at++;
+                    return ParseInteger(token.Text);
+                }
+
+                if (token.Kind != TokenKind.Identifier)
+                {
+                    Changes = true;
+                    _at = _end;
+                    return null;
+                }
+
+                _at++;
+                while (Next("::") && _at + 1 < _end)
+                {
+                    token = _t[_at + 1];
+                    _at += 2;
+                }
+
+                if (Next("("))
+                {
+                    return Call(token.Text);
+                }
+
+                return Next(".") || Next("->") || Next("[") ? Access() : Named(token.Text);
+            }
+
+            private int? Parenthesized()
+            {
+                int close = Math.Min(SketchScanner.Matching(_t, _at, "(", ")"), _end);
+
+                // (uint8_t)x says the same as x here.
+                if (close == _at + 2 && IntegerTypes.Contains(_t[_at + 1].Text))
+                {
+                    _at = close + 1;
+                    return Unary();
+                }
+
+                int outer = _end;
+                _at++;
+                _end = close;
+                int? inner = Sum();
+                if (_at < _end)
+                {
+                    Changes = true;
+                    inner = null;
+                }
+
+                _end = outer;
+                _at = close + 1;
+                return inner;
+            }
+
+            // a.b, a->b(), a[i]: known at run time, unless it asks how wide the text is.
+            private int? Access()
+            {
+                string last = "";
+                while (Next(".") || Next("->") || Next("[") || Next("("))
+                {
+                    if (Next(".") || Next("->"))
+                    {
+                        last = _at + 1 < _end ? _t[_at + 1].Text : "";
+                        _at += 2;
+                    }
+                    else
+                    {
+                        string open = _t[_at].Text;
+                        _at = Math.Min(SketchScanner.Matching(_t, _at, open, open == "(" ? ")" : "]") + 1, _end);
+                    }
+                }
+
+                if (last is "getStrWidth" or "getUTF8Width")
+                {
+                    NeedsPrinted = true;
+                    return printed * 6;
+                }
+
+                Changes = true;
+                return null;
+            }
+
+            private int? Call(string name)
+            {
+                int close = Math.Min(SketchScanner.Matching(_t, _at, "(", ")"), _end);
+                List<(int Start, int End)> arguments = ArgumentRanges(_t, _at + 1, close);
+                _at = Math.Min(close + 1, _end);
+                switch (name)
+                {
+                    case "strlen" when arguments.Count == 1:
+                        if (arguments[0].End - arguments[0].Start == 1 && _t[arguments[0].Start].Kind == TokenKind.String)
+                        {
+                            return SketchScanner.Decode(_t[arguments[0].Start]).Length;
+                        }
+
+                        NeedsPrinted = true;
+                        return printed;
+                    case "min" or "max" when arguments.Count == 2:
+                        int? a = Child(function, scope, _t, arguments[0].Start, arguments[0].End);
+                        int? b = Child(function, scope, _t, arguments[1].Start, arguments[1].End);
+                        return a is null || b is null ? null : name == "min" ? Math.Min(a.Value, b.Value) : Math.Max(a.Value, b.Value);
+                    case "abs" when arguments.Count == 1:
+                        return Child(function, scope, _t, arguments[0].Start, arguments[0].End) is { } value ? Math.Abs(value) : null;
+                    case "sizeof":
+                        return null;
+                    default:
+                        Changes = true;
+                        return null;
+                }
+            }
+
+            private int? Named(string name)
+            {
+                if (depth >= 8)
+                {
+                    Changes = true;
+                    return null;
+                }
+
+                if (scope.TryGetValue(name, out Bound? bound))
+                {
+                    return Child(bound.Function, bound.Bindings, bound.Tokens, bound.Start, bound.End);
+                }
+
+                if (function is not null && function.Parameters.Any(p => p.Name == name))
+                {
+                    Changes = true;
+                    return null;
+                }
+
+                if (function is not null && LocalOf(function, name) is { } local)
+                {
+                    UsesLocals = true;
+                    if (local.Assignments != 1 || local.IsLoopVariable)
+                    {
+                        Changes = true;
+                        return null;
+                    }
+
+                    return Child(function, scope, function.Tokens, local.InitStart, local.InitEnd);
+                }
+
+                if (owner._scan.Macros.TryGetValue(name, out string? body))
+                {
+                    List<CodeToken> tokens = SketchScanner.TokensOf(body);
+                    return Child(null, [], tokens, 0, tokens.Count);
+                }
+
+                if (owner._constants.TryGetValue(name, out (IReadOnlyList<CodeToken> Tokens, int Start, int End) constant))
+                {
+                    return Child(null, [], constant.Tokens, constant.Start, constant.End);
+                }
+
+                Changes = true;
+                return null;
+            }
+
+            private int? Child(CodeFunction? where, Dictionary<string, Bound> names, IReadOnlyList<CodeToken> t, int start, int end)
+            {
+                var child = new Reckoning(owner, where, names, printed, depth + 1);
+                int? value = child.Of(t, start, end);
+                Changes |= child.Changes;
+                NeedsPrinted |= child.NeedsPrinted;
+                UsesLocals |= child.UsesLocals;
+                return value;
+            }
+        }
 
         private sealed class PaintWalker(Painter painter, CodeFunction function, Dictionary<string, Bound> bindings) : BodyWalker(function.Tokens)
         {
@@ -1595,10 +2070,19 @@ public sealed partial class ScreenCodeAnalyzer
                         var inner = new Dictionary<string, Bound>(StringComparer.Ordinal);
                         for (int i = 0; i < callee.Parameters.Count && i < arguments.Count; i++)
                         {
-                            inner[callee.Parameters[i].Name] = new Bound(Tokens, arguments[i].Start, arguments[i].End, bindings);
+                            inner[callee.Parameters[i].Name] = new Bound(function, Tokens, arguments[i].Start, arguments[i].End, bindings, painter._shared);
                         }
 
+                        (SourceInsert Insert, CodeFunction Caller)? outerSite = painter._callSite;
+                        if (!painter._shared)
+                        {
+                            painter._callSite = CallStatement(k, close);
+                        }
+
+                        painter._outerLoops += Loops;
                         painter.Enter(callee, callee.BodyStart, callee.BodyEnd, inner);
+                        painter._outerLoops -= Loops;
+                        painter._callSite = outerSite;
                         k = close + 1;
                     }
                     else if (receiver.Length > 0 && name is "render" or "draw" or "show" or "paint")
@@ -1661,13 +2145,15 @@ public sealed partial class ScreenCodeAnalyzer
             private void Display(string name, List<(int Start, int End)> a, int nameIndex, int close)
             {
                 _call = (nameIndex, close);
+                _takesCursor = false;
                 switch (name)
                 {
                     case "setCursor" or "setCursorXY" when a.Count >= 2:
                         SetCursor(a[0], a[1]);
                         painter._cursorTokens = OwnStatement(nameIndex, close);
                         break;
-                    case "print" or "println" or "write" or "drawUTF8" when a.Count >= 1:
+                    case "print" or "println" or "write" when a.Count >= 1:
+                        _takesCursor = true;
                         Print(a[0]);
                         if (name == "println")
                         {
@@ -1675,14 +2161,17 @@ public sealed partial class ScreenCodeAnalyzer
                         }
 
                         break;
-                    case "drawStr" when a.Count >= 3:
+                    case "drawStr" or "drawUTF8" when a.Count >= 3:
                         SetCursor(a[0], a[1]);
                         Print(a[2]);
                         break;
                     case "setTextSize" or "setScale" when a.Count >= 1:
-                        painter._size = Evaluate(a[0]) ?? painter._size;
+                        painter._size = Read(a[0]).Value ?? painter._size;
                         break;
                     case "home":
+                        painter.MoveTo(0, 0);
+                        break;
+                    case "clear" when Analyzer._display.Family == DisplayFamily.CharLcd:
                         painter.MoveTo(0, 0);
                         break;
                     case "drawLine" or "line" when a.Count >= 4:
@@ -1704,35 +2193,86 @@ public sealed partial class ScreenCodeAnalyzer
 
             private void Shape(ElementKind kind, List<(int Start, int End)> a, bool corners)
             {
-                int? x = Evaluate(a[0]);
-                int? y = Evaluate(a[1]);
-                int? c = Evaluate(a[2]);
-                int? d = Evaluate(a[3]);
-                if (x is null || y is null || c is null || d is null)
-                {
-                    return;
-                }
+                Coordinate x = Read(a[0]);
+                Coordinate y = Read(a[1]);
+                Coordinate c = Read(a[2]);
+                Coordinate d = Read(a[3]);
 
                 // A line and GyverOLED's rect name a second corner; the rest a width and height.
                 bool second = corners && kind != ElementKind.Line;
+                bool line = kind == ElementKind.Line;
+                int left = x.Value ?? 0;
+                int top = y.Value ?? 0;
                 painter.Add(new ScreenElement
                 {
                     Kind = kind,
-                    X = x.Value,
-                    Y = y.Value,
-                    Width = second ? c.Value - x.Value : c.Value,
-                    Height = second ? d.Value - y.Value : d.Value,
+                    X = left,
+                    Y = top,
+
+                    // What depends on the run still shows, at a size to find it by.
+                    Width = c.Value is { } across ? (second ? across - left : across) : line ? left + 16 : 16,
+                    Height = d.Value is { } down ? (second ? down - top : down) : line ? top : 8,
+                    IsPlaced = x.Value is not null && y.Value is not null && c.Value is not null && d.Value is not null,
                     IsConditional = _conditional > 0,
-                    XSpan = SpanOf(a[0]),
-                    YSpan = SpanOf(a[1]),
-                    WidthSpan = second ? null : SpanOf(a[2]),
-                    HeightSpan = second ? null : SpanOf(a[3]),
+                    XSpan = x.Span,
+                    YSpan = y.Span,
+                    XCode = x.Code,
+                    YCode = y.Code,
+                    WidthSpan = second ? null : c.Span,
+                    HeightSpan = second ? null : d.Span,
+                    WidthCode = second ? null : c.Code,
+                    HeightCode = second ? null : d.Code,
                     RemoveSpans = RemovalOwn(),
                     Location = LocationAt(a[0].Start),
                 }, Loops > 0);
             }
 
             private (int NameIndex, int Close) _call;
+            private bool _takesCursor;
+
+            private bool InLoop => Loops + painter._outerLoops > 0;
+
+            // A call to a helper that stands alone: before it is where a cursor can go, for what the helper prints first.
+            private (SourceInsert Insert, CodeFunction Caller)? CallStatement(int nameIndex, int close)
+            {
+                bool alone = close + 1 < Tokens.Count && Tokens[close + 1].Is(";") && nameIndex > 0
+                    && (Tokens[nameIndex - 1].Is(";") || Tokens[nameIndex - 1].Is("{") || Tokens[nameIndex - 1].Is("}") || Tokens[nameIndex - 1].Is(":"));
+                return alone && !InLoop ? (InsertBefore(Analyzer._scan.Files[Tokens[nameIndex].File], Tokens[nameIndex]), function) : null;
+            }
+
+            // Where a cursor of its own can go: before a print that stands alone, outside loops and shared code, at a place that is known.
+            // Inside a helper others use too, that is before the call to it, as long as the helper has not set a cursor itself.
+            private (SourceInsert? Insert, string Receiver) CursorSite()
+            {
+                if (!_takesCursor || InLoop || !painter._placed)
+                {
+                    return (null, "");
+                }
+
+                string receiver = ReceiverOf(Tokens, _call.NameIndex, 0);
+                if (painter._shared)
+                {
+                    (IReadOnlyList<CodeToken> t, int start, int end, Dictionary<string, Bound> _, CodeFunction _, bool _) = bindings.TryGetValue(receiver, out Bound? bound)
+                        ? (bound.Tokens, bound.Start, bound.End, bound.Bindings, bound.Function, bound.Shared)
+                        : (Tokens, 0, 0, bindings, function, false);
+                    string name = end - start == 1 ? t[start].Text : receiver;
+                    if (painter._callSite is not { } site || !(Analyzer._displayNames.Contains(name) || Analyzer.IsSurfaceParameter(site.Caller, name)))
+                    {
+                        return (null, "");
+                    }
+
+                    bool pointer = site.Caller.Parameters.Any(p => p.Name == name && p.Type.Contains('*', StringComparison.Ordinal));
+                    return (site.Insert, name + (pointer ? "->" : "."));
+                }
+
+                if (OwnStatement(_call.NameIndex, _call.Close) is not { } own)
+                {
+                    return (null, "");
+                }
+
+                CodeFile file = Analyzer._scan.Files[Tokens[own.Start].File];
+                return (InsertBefore(file, Tokens[own.Start]), receiver + (Tokens[_call.NameIndex - 1].Is("->") ? "->" : "."));
+            }
 
             // Conditional drawing, or a loop's, has more around it than its own statement.
             private IReadOnlyList<SourceSpan> RemovalOwn()
@@ -1744,13 +2284,18 @@ public sealed partial class ScreenCodeAnalyzer
 
             private void SetCursor((int Start, int End) x, (int Start, int End) y)
             {
-                int? column = Evaluate(x);
-                int? row = Evaluate(y);
-                painter._placed = column is not null && row is not null;
-                painter._x = column ?? painter._x;
-                painter._y = row ?? painter._y;
-                painter._xSpan = SpanOf(x);
-                painter._ySpan = SpanOf(y);
+                Coordinate column = Read(x);
+                Coordinate row = Read(y);
+                painter._placed = (column.Value is not null || column.Later is not null) && (row.Value is not null || row.Later is not null);
+                painter._x = column.Value ?? painter._x;
+                painter._y = row.Value ?? painter._y;
+                painter._xSpan = column.Span;
+                painter._ySpan = row.Span;
+                painter._xCode = column.Code;
+                painter._yCode = row.Code;
+                painter._xLater = column.Later;
+                painter._yLater = row.Later;
+                painter._callSite = null;
             }
 
             private SourceLocation LocationAt(int index)
@@ -1760,49 +2305,57 @@ public sealed partial class ScreenCodeAnalyzer
                 return new SourceLocation(file.Path, file.LineOf(token.Offset));
             }
 
-            // Exactly one token, here or at the call that bound it, is what an edit may replace.
-            private SourceSpan? SpanOf((int Start, int End) range)
+            // A coordinate where it is written: here, or at the call that bound it. A number is just that. Anything
+            // else shows as written; a number can take its place if all it does is place this, and nothing changes it.
+            private Coordinate Read((int Start, int End) range)
             {
-                (IReadOnlyList<CodeToken> tokens, int start, int end, Dictionary<string, Bound> _) = Resolve(range);
-                return end - start == 1 && tokens[start].Kind == TokenKind.Number ? Analyzer.Span(tokens[start]) : null;
+                (IReadOnlyList<CodeToken> t, int start, int end, Dictionary<string, Bound> scope, CodeFunction where, bool shared) = Resolve(range);
+                if (end <= start)
+                {
+                    return default;
+                }
+
+                if (end - start == 1 && t[start].Kind == TokenKind.Number)
+                {
+                    return new Coordinate(ParseInteger(t[start].Text), shared ? null : Analyzer.Span(t[start]), null, null);
+                }
+
+                var reckoning = new Reckoning(Analyzer, where, scope, null);
+                int? value = reckoning.Of(t, start, end);
+                bool changes = reckoning.Changes || (InLoop && reckoning.UsesLocals);
+
+                // A constant in code other screens share: nothing here can change it, and nothing here depends on it.
+                if (shared && value is not null && !changes)
+                {
+                    return new Coordinate(value, null, null, null);
+                }
+
+                SourceSpan whole = Analyzer.SpanOver(t, start, end);
+                bool placesOnly = !changes && !shared;
+                var code = new CodeExpression(whole.Expected, shared ? null : whole, !placesOnly, placesOnly ? Analyzer.DeadWith(where, t, start, end) : []);
+                Func<int, int?>? later = value is null && reckoning.NeedsPrinted && !changes ? printed => new Reckoning(Analyzer, where, scope, printed).Of(t, start, end) : null;
+                return new Coordinate(value, placesOnly ? whole : null, code, later);
             }
 
-            private (IReadOnlyList<CodeToken> Tokens, int Start, int End, Dictionary<string, Bound> Bindings) Resolve((int Start, int End) range)
+            private (IReadOnlyList<CodeToken> Tokens, int Start, int End, Dictionary<string, Bound> Bindings, CodeFunction Where, bool Shared) Resolve((int Start, int End) range)
             {
                 IReadOnlyList<CodeToken> tokens = Tokens;
                 int start = range.Start;
                 int end = range.End;
                 Dictionary<string, Bound> scope = bindings;
+                CodeFunction where = function;
+                bool shared = painter._shared;
                 for (int hops = 0; hops < CallDepth && end - start == 1 && tokens[start].Kind == TokenKind.Identifier && scope.TryGetValue(tokens[start].Text, out Bound? bound); hops++)
                 {
-                    (tokens, start, end, scope) = (bound.Tokens, bound.Start, bound.End, bound.Bindings);
+                    (tokens, start, end, scope, where, shared) = (bound.Tokens, bound.Start, bound.End, bound.Bindings, bound.Function, bound.Shared);
                 }
 
-                return (tokens, start, end, scope);
-            }
-
-            private int? Evaluate((int Start, int End) range)
-            {
-                (IReadOnlyList<CodeToken> tokens, int start, int end, Dictionary<string, Bound> scope) = Resolve(range);
-                if (end - start == 1)
-                {
-                    return Analyzer.Number(tokens[start].Text);
-                }
-
-                // a + b, a - b, with both sides constant.
-                if (end - start == 3 && tokens[start + 1].Text is "+" or "-")
-                {
-                    int? left = Analyzer.Number(tokens[start].Text);
-                    int? right = Analyzer.Number(tokens[start + 2].Text);
-                    return left is null || right is null ? null : tokens[start + 1].Text == "+" ? left + right : left - right;
-                }
-
-                return null;
+                return (tokens, start, end, scope, where, shared);
             }
 
             private void Print((int Start, int End) range)
             {
-                (IReadOnlyList<CodeToken> t, int start, int end, Dictionary<string, Bound> _) = Resolve(range);
+                (IReadOnlyList<CodeToken> t, int start, int end, Dictionary<string, Bound> _, CodeFunction _, bool _) = Resolve(range);
 
                 // F("..."), PSTR("..."), String("...") say the same as their argument.
                 while (end - start >= 4 && t[start].Kind == TokenKind.Identifier && t[start].Text is "F" or "PSTR" or "String" or "FPSTR" && t[start + 1].Is("(") && SketchScanner.Matching(t, start + 1, "(", ")") == end - 1)
@@ -1826,7 +2379,8 @@ public sealed partial class ScreenCodeAnalyzer
                     string text = SketchScanner.Decode(t[start]);
                     if (!(inLoop && string.IsNullOrWhiteSpace(text)))
                     {
-                        painter.AddText(text, Analyzer.Span(t[start]), _conditional > 0, inLoop, alternative || (_conditional > 0 && text.Length == 1), RemovalOwn());
+                        (SourceInsert? Insert, string Receiver) site = CursorSite();
+                        painter.AddText(text, Analyzer.Span(t[start]), _conditional > 0, inLoop, alternative || (_conditional > 0 && text.Length == 1), RemovalOwn(), site);
                     }
 
                     return;
@@ -1834,7 +2388,8 @@ public sealed partial class ScreenCodeAnalyzer
 
                 if (end - start == 1 && t[start].Kind == TokenKind.Number)
                 {
-                    painter.AddText(t[start].Text, null, _conditional > 0, inLoop, alternative, RemovalOwn());
+                    (SourceInsert? Insert, string Receiver) site = CursorSite();
+                    painter.AddText(t[start].Text, null, _conditional > 0, inLoop, alternative, RemovalOwn(), site);
                     return;
                 }
 
@@ -1861,7 +2416,8 @@ public sealed partial class ScreenCodeAnalyzer
                     written = new SourceSpan(file.Path, from, to - from, file.Text[from..to]);
                 }
 
-                painter.AddValue(expression, literals, _conditional > 0, inLoop, alternative, RemovalOwn(), written);
+                (SourceInsert? Insert, string Receiver) valueSite = CursorSite();
+                painter.AddValue(expression, literals, _conditional > 0, inLoop, alternative, RemovalOwn(), written, valueSite);
             }
 
             private (IReadOnlyList<CodeToken>, int, int, Dictionary<string, Bound>) ResolveName(string name) =>
@@ -1874,7 +2430,8 @@ public sealed partial class ScreenCodeAnalyzer
         {
             _x = x;
             _y = y;
-            _xSpan = _ySpan = null;
+            ForgetCursor();
+            _callSite = null;
             _placed = true;
         }
 
@@ -1892,24 +2449,61 @@ public sealed partial class ScreenCodeAnalyzer
 
         private int Advance(int characters) => display.Family == DisplayFamily.CharLcd ? characters : characters * 6 * _size;
 
-        private void AddText(string text, SourceSpan? span, bool conditional, bool fromLoop, bool alternative, IReadOnlyList<SourceSpan> removal)
+        private void ForgetCursor()
         {
+            _xSpan = _ySpan = null;
+            _xCode = _yCode = null;
+            _xLater = _yLater = null;
+        }
+
+        // A position that centers what is printed is known once the width is.
+        private void PlaceFor(int characters)
+        {
+            _x = _xLater?.Invoke(characters) ?? _x;
+            _y = _yLater?.Invoke(characters) ?? _y;
+        }
+
+        // With nothing to replace on an axis, it takes a cursor of its own.
+        private ScreenElement Placed(ScreenElement element, (SourceInsert? Insert, string Receiver) site)
+        {
+            bool needsOwn = (_xSpan is null && _xCode is null) || (_ySpan is null && _yCode is null);
+            return element with
+            {
+                X = _x,
+                Y = _y,
+                Size = _size,
+                XSpan = _xSpan,
+                YSpan = _ySpan,
+                XCode = _xCode,
+                YCode = _yCode,
+                IsPlaced = _placed,
+                CursorInsert = needsOwn ? site.Insert : null,
+                CursorReceiver = needsOwn ? site.Receiver : "",
+            };
+        }
+
+        private void AddText(string text, SourceSpan? span, bool conditional, bool fromLoop, bool alternative, IReadOnlyList<SourceSpan> removal, (SourceInsert? Insert, string Receiver) site)
+        {
+            PlaceFor(text.Length);
             if (Menu is null && !fromLoop)
             {
                 _titleY = Math.Max(_titleY, _y);
             }
 
-            Add(new ScreenElement { Kind = ElementKind.Text, X = _x, Y = _y, Text = text, Size = _size, TextSpan = span, XSpan = _xSpan, YSpan = _ySpan, IsConditional = conditional, IsAlternative = alternative, IsPlaced = _placed, RemoveSpans = removal, Location = span is null ? null : new SourceLocation(span.File, owner._scan.Files.First(f => f.Path == span.File).LineOf(span.Offset)) }, fromLoop);
+            Add(Placed(new ScreenElement { Kind = ElementKind.Text, Text = text, TextSpan = span, IsConditional = conditional, IsAlternative = alternative, RemoveSpans = removal, Location = span is null ? null : new SourceLocation(span.File, owner._scan.Files.First(f => f.Path == span.File).LineOf(span.Offset)) }, site), fromLoop);
             _x += Advance(text.Length);
-            _xSpan = _ySpan = null;
+            ForgetCursor();
+            _callSite = alternative ? _callSite : null;
         }
 
-        private void AddValue(string expression, string[] literals, bool conditional, bool fromLoop, bool alternative, IReadOnlyList<SourceSpan> removal, SourceSpan? written)
+        private void AddValue(string expression, string[] literals, bool conditional, bool fromLoop, bool alternative, IReadOnlyList<SourceSpan> removal, SourceSpan? written, (SourceInsert? Insert, string Receiver) site)
         {
             int width = literals.Length > 0 ? literals.Max(l => l.Length) : Math.Clamp(expression.Length, 2, 4);
-            Add(new ScreenElement { Kind = ElementKind.Value, X = _x, Y = _y, Text = expression, Width = width, Size = _size, Sample = literals.FirstOrDefault(), XSpan = _xSpan, YSpan = _ySpan, IsConditional = conditional, IsAlternative = alternative, IsPlaced = _placed, RemoveSpans = removal, ExpressionSpan = written, Location = written is null ? null : new SourceLocation(written.File, owner._scan.Files.First(f => f.Path == written.File).LineOf(written.Offset)) }, fromLoop);
+            PlaceFor(width);
+            Add(Placed(new ScreenElement { Kind = ElementKind.Value, Text = expression, Width = width, Sample = literals.FirstOrDefault(), IsConditional = conditional, IsAlternative = alternative, RemoveSpans = removal, ExpressionSpan = written, Location = written is null ? null : new SourceLocation(written.File, owner._scan.Files.First(f => f.Path == written.File).LineOf(written.Offset)) }, site), fromLoop);
             _x += Advance(width);
-            _xSpan = _ySpan = null;
+            ForgetCursor();
+            _callSite = alternative ? _callSite : null;
         }
 
         private void AddMenu(CodeStringArray items, ScreenCodeAnalyzer analyzer)

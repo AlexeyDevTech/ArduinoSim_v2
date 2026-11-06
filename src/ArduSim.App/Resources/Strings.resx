@@ -1212,6 +1212,12 @@
   <data name="Screens_DrawnElsewhere" xml:space="preserve"><value>Рисует себя сам</value></data>
   <data name="Screens_ComputedNote" xml:space="preserve"><value>Вычисляется при работе, поэтому показано как значение и здесь не правится</value></data>
   <data name="Screens_ConditionalNote" xml:space="preserve"><value>Рисуется только при условии в коде</value></data>
+  <data name="Screens_PositionWritten" xml:space="preserve"><value>{0} в коде: {1}. Если перетащить, вместо него запишется число</value></data>
+  <data name="Screens_PositionChanges" xml:space="preserve"><value>{0} в коде: {1}, и это меняется при работе программы. Перетаскивание его не двигает, но здесь можно вписать число или выражение</value></data>
+  <data name="Screens_PositionShared" xml:space="preserve"><value>{0} в коде: {1}. Это общая функция, она рисует и на других экранах, поэтому здесь не правится</value></data>
+  <data name="Screens_PositionFixed" xml:space="preserve"><value>{0} задан общей функцией или циклом, поэтому здесь не правится</value></data>
+  <data name="Screens_PositionReplaced" xml:space="preserve"><value>Вместо «{0}» в коде теперь {1}. Ctrl+Z вернёт</value></data>
+  <data name="Screens_PositionCursorAdded" xml:space="preserve"><value>Перед этим выводом в коде появился свой setCursor. То, что печатается следом, сдвинулось вместе с ним. Ctrl+Z вернёт</value></data>
   <data name="Screens_DrawnElsewhereNote" xml:space="preserve"><value>Этот экран рисует отдельный код, его содержимое здесь не разобрать</value></data>
   <data name="Screens_GoToCode" xml:space="preserve"><value>Показать в коде</value></data>
   <data name="Screens_SetStart" xml:space="preserve"><value>Сделать стартовым</value></data>

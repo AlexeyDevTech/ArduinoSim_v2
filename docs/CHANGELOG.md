@@ -1,5 +1,21 @@
 # Changelog
 
+## Screens: positions that are not plain numbers (2026-11-06)
+
+The owner could not move NanoOS's clock: `lcd.setCursor(start,1)` has a variable for its column, and the tab showed a greyed-out 0 and let the text go up and down only. Nearly anything but a plain number was like that (ADR-019).
+
+- **A local variable is worked out and shown as written.** `start = (LCD_COLUMNS - len) / 2` from `len = strlen(t)` now shows `start`, and the preview centers the text. A drag writes a number there and removes the declarations nothing else uses, with a line saying so; Ctrl+Z brings them all back.
+- **Names and expressions of constants** (`MARGIN`, `LCD_COLUMNS - 5`, `const`, `enum`) show their value, and a drag replaces them at that call only. They were frozen too.
+- **What the run changes stays put.** A loop's variable, a field or a call shows as written, and a drag leaves that axis alone, because a number would freeze it. A number or an expression can be typed in the panel.
+- **Text printed after other text** could not be moved at all. It now gets a `setCursor` of its own, and what follows it goes along, as on the display. So does what a shared helper such as `print2(dt.day)` prints first: the cursor goes before the call.
+- **Moving text after a shared helper changed every screen.** After `clearLine(1); lcd.print(...)` the column was the `0` inside `clearLine`, so moving that text moved all the others that use it. Nothing in code other screens call is edited from one screen now.
+- **Shapes with a variable size or place** were not on the screen at all. They now are, at a size to find them by.
+- `drawUTF8(x, y, text)` was read as printing its x. `lcd.clear()` now sends the cursor home, as it does on the display.
+
+Tested by building and running what the edits write. On a copy of NanoOS, the clock moved to column 4 runs there.
+
+How to try it: open NanoOS_v1, go to Экраны, HOME, and drag `t`; press Ctrl+Z. Then try the date line.
+
 ## Wires: old corners gone, bundles laid out together (2026-11-06)
 
 The owner's two pictures from NanoOS (ADR-020).

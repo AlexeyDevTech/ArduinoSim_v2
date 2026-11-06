@@ -155,6 +155,48 @@ public sealed partial class ScreenConstructorRunTests(ToolchainFixture toolchain
         Assert.True(info > backHome, joined);
     }
 
+    // The owner's NanoOS draws its clock like this: a column in local variables, text printed after other text.
+    [Fact]
+    public async Task Moving_what_is_not_placed_by_a_plain_number_builds_and_shows_there()
+    {
+        Assert.True(_toolchain.Toolchain.IsComplete);
+        string project = Project();
+        string text = Sketch.Replace(
+            """
+              lcd.setCursor(0, 0);
+              lcd.print("Home");
+            """,
+            """
+              char t[8];
+              strcpy(t, "ab");
+              uint8_t len = strlen(t); uint8_t start = (16 - len) / 2;
+              lcd.setCursor(start, 0); lcd.print(t);
+              lcd.setCursor(0, 1);
+              lcd.print("X");
+              lcd.print("Y");
+            """,
+            StringComparison.Ordinal);
+        Assert.Contains("uint8_t start", text, StringComparison.Ordinal);
+
+        ScreenDocument document = Read(text);
+        ScreenElement clock = document.Find("HOME")!.Elements.Single(e => e.Text == "t");
+        Assert.Equal(7, clock.X);
+        text = Edited(text, ScreenCodeEdits.Move(clock, document.Display, 3, clock.Y));
+        document = Read(text);
+        ScreenElement y = document.Find("HOME")!.Elements.Single(e => e.Text == "Y");
+        text = Edited(text, ScreenCodeEdits.Move(y, document.Display, 9, y.Y));
+        Assert.DoesNotContain("start", text, StringComparison.Ordinal);
+
+        File.WriteAllText(Path.Combine(project, "sketch", "sketch.ino"), text);
+        RunResult result = await RunnerProcess.RunProjectAsync(project, "--run-for", "1200", "--quiet");
+
+        Assert.True(result.ExitCode == 0, result.ToString());
+        string[] rows = [.. result.Timeline
+            .Where(e => e.Text.StartsWith("lcd1: \"", StringComparison.Ordinal))
+            .Select(e => string.Join('|', QuotedRow().Matches(e.Text).Select(m => m.Groups[1].Value.TrimEnd())))];
+        Assert.Contains("   ab|X        Y", rows);
+    }
+
     // The owner's NanoOS has this shape: libraries reached only through headers under src, and the free-SRAM idiom.
     [Fact]
     public async Task A_sketch_with_its_includes_in_headers_under_src_builds_and_is_told_about_free_sram()

@@ -371,11 +371,38 @@ public sealed partial class ScreensViewModel : ObservableObject
     public bool HasSourceLink => SelectedElement?.Location is not null || (SelectedElementId is null && SelectedScreen?.Location is not null);
 
     /// <summary>Why a selected thing cannot be edited here: what is computed at run time, a screen that draws itself.</summary>
-    public string ElementNote =>
-        SelectedElement is { Kind: ElementKind.Value, ExpressionSpan: null } && IsFromCode ? Strings.Get("Screens_ComputedNote")
-        : SelectedElement is { IsConditional: true } ? Strings.Get("Screens_ConditionalNote")
-        : SelectedElementId is null && SelectedScreen is { DrawnElsewhere: true } ? Strings.Get("Screens_DrawnElsewhereNote")
-        : "";
+    public string ElementNote
+    {
+        get
+        {
+            string general =
+                SelectedElement is { Kind: ElementKind.Value, ExpressionSpan: null } && IsFromCode ? Strings.Get("Screens_ComputedNote")
+                : SelectedElement is { IsConditional: true } ? Strings.Get("Screens_ConditionalNote")
+                : SelectedElementId is null && SelectedScreen is { DrawnElsewhere: true } ? Strings.Get("Screens_DrawnElsewhereNote")
+                : "";
+            if (SelectedElement is not { } element || !IsFromCode)
+            {
+                return general;
+            }
+
+            bool lcd = !IsOled;
+            string?[] notes =
+            [
+                general,
+                PositionNote(Strings.Get(lcd ? "Screens_FieldColumn" : "Screens_FieldX"), element.XSpan, element.XCode, element),
+                PositionNote(Strings.Get(lcd ? "Screens_FieldRow" : "Screens_FieldY"), element.YSpan, element.YCode, element),
+            ];
+            return string.Join("\n", notes.Where(n => !string.IsNullOrEmpty(n)));
+        }
+    }
+
+    // Why an axis is what it is: a name that a drag would replace, what the run changes, what others share.
+    private static string? PositionNote(string label, SourceSpan? span, CodeExpression? code, ScreenElement element) =>
+        code is { IsLocked: true, Span: null } ? Strings.Format("Screens_PositionShared", label, code.Text)
+        : code is { IsLocked: true } ? Strings.Format("Screens_PositionChanges", label, code.Text)
+        : code is not null ? Strings.Format("Screens_PositionWritten", label, code.Text)
+        : span is null && element.CursorInsert is null && element.Kind is ElementKind.Text or ElementKind.Value ? Strings.Format("Screens_PositionFixed", label)
+        : null;
 
     // ---- loading ---------------------------------------------------------------------------------
 
@@ -904,8 +931,8 @@ public sealed partial class ScreensViewModel : ObservableObject
             });
         }
 
-        fields.Add(Number("x", Strings.Get(lcd ? "Screens_FieldColumn" : "Screens_FieldX"), element.X, IsGenerated || element.XSpan is not null, v => MoveElement(id, v, SelectedElement?.Y ?? 0)));
-        fields.Add(Number("y", Strings.Get(lcd ? "Screens_FieldRow" : "Screens_FieldY"), element.Y, IsGenerated || element.YSpan is not null, v => MoveElement(id, SelectedElement?.X ?? 0, v)));
+        fields.Add(Coordinate("x", Strings.Get(lcd ? "Screens_FieldColumn" : "Screens_FieldX"), element.X, element.XCode, CanMoveAcross(element), v => MoveElement(id, v, SelectedElement?.Y ?? 0)));
+        fields.Add(Coordinate("y", Strings.Get(lcd ? "Screens_FieldRow" : "Screens_FieldY"), element.Y, element.YCode, CanMoveDown(element), v => MoveElement(id, SelectedElement?.X ?? 0, v)));
         if (IsGenerated && element.Kind == ElementKind.Value)
         {
             fields.Add(Number("width", Strings.Get("Screens_FieldFieldWidth"), element.Width, true, v => Edit(e => e with { Width = Math.Max(1, v) })));
@@ -914,14 +941,34 @@ public sealed partial class ScreensViewModel : ObservableObject
         if (element.Kind is ElementKind.Frame or ElementKind.Box or ElementKind.Line)
         {
             bool line = element.Kind == ElementKind.Line;
-            fields.Add(Number("width", Strings.Get(line ? "Screens_FieldEndX" : "Screens_FieldWidth"), element.Width, IsGenerated || element.WidthSpan is not null, v => ResizeElement(id, v, SelectedElement?.Height ?? 0, finished: true)));
-            fields.Add(Number("height", Strings.Get(line ? "Screens_FieldEndY" : "Screens_FieldHeight"), element.Height, IsGenerated || element.HeightSpan is not null, v => ResizeElement(id, SelectedElement?.Width ?? 0, v, finished: true)));
+            fields.Add(Coordinate("width", Strings.Get(line ? "Screens_FieldEndX" : "Screens_FieldWidth"), element.Width, element.WidthCode, IsGenerated || element.WidthSpan is not null, v => ResizeElement(id, v, SelectedElement?.Height ?? 0, finished: true)));
+            fields.Add(Coordinate("height", Strings.Get(line ? "Screens_FieldEndY" : "Screens_FieldHeight"), element.Height, element.HeightCode, IsGenerated || element.HeightSpan is not null, v => ResizeElement(id, SelectedElement?.Width ?? 0, v, finished: true)));
         }
 
         if (IsGenerated && IsOled && element.Kind is ElementKind.Text or ElementKind.Value)
         {
             fields.Add(Number("size", Strings.Get("Screens_FieldSize"), element.Size, true, v => Edit(e => e with { Size = Math.Clamp(v, 1, 4) })));
         }
+    }
+
+    // A number stays a number. What the code writes as a name or an expression shows as written, and what is typed over it replaces it.
+    private PropertyField Coordinate(string name, string label, int value, CodeExpression? code, bool enabled, Action<int> commit)
+    {
+        if (IsGenerated || code is null)
+        {
+            return Number(name, label, value, enabled, commit);
+        }
+
+        return new PropertyField(name, label, PropertyKind.Text, code.Text, null, [], (_, typed) =>
+        {
+            if (ScreenCodeEdits.SetExpression(code, typed) is { } edits)
+            {
+                ApplyToCode(edits);
+            }
+        })
+        {
+            IsEnabled = code.Span is not null,
+        };
     }
 
     private static PropertyField Number(string name, string label, int value, bool enabled, Action<int> commit) =>
@@ -1108,25 +1155,25 @@ public sealed partial class ScreensViewModel : ObservableObject
             return;
         }
 
-        // Moving in code is one or two tokens, whichever axis changed: one undo step.
-        var edits = new List<SourceEdit>();
-        if (x != element.X && ScreenCodeEdits.SetNumber(element.XSpan, x) is { } across)
+        // Moving in code is whatever the axes that changed need: one undo step.
+        if (x == element.X && y == element.Y)
         {
-            edits.Add(across);
+            return;
         }
 
-        if (y != element.Y && ScreenCodeEdits.SetNumber(element.YSpan, y) is { } down)
-        {
-            edits.Add(down);
-        }
-
-        if (edits.Count > 0)
-        {
-            ApplyToCode(edits);
-        }
-        else if (x != element.X || y != element.Y)
+        if (ScreenCodeEdits.Move(element, document.Display, x, y) is not { } edits)
         {
             Notice = Strings.Get("Screens_NotInCode");
+            return;
+        }
+
+        if (ApplyToCode(edits))
+        {
+            // Said out loud: what the code wrote there is gone.
+            Notice = x != element.X && element.XSpan is not null && element.XCode is { } column ? Strings.Format("Screens_PositionReplaced", column.Text, x)
+                : y != element.Y && element.YSpan is not null && element.YCode is { } row ? Strings.Format("Screens_PositionReplaced", row.Text, y)
+                : (x != element.X && element.XSpan is null) || (y != element.Y && element.YSpan is null) ? Strings.Get("Screens_PositionCursorAdded")
+                : "";
         }
     }
 
@@ -1134,7 +1181,21 @@ public sealed partial class ScreensViewModel : ObservableObject
     public bool CanMove(ScreenElement element)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return IsGenerated || element.XSpan is not null || element.YSpan is not null;
+        return CanMoveAcross(element) || CanMoveDown(element);
+    }
+
+    /// <summary>Whether a drag can change its column or X.</summary>
+    public bool CanMoveAcross(ScreenElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return IsGenerated || element.XSpan is not null || element.CursorInsert is not null;
+    }
+
+    /// <summary>Whether a drag can change its row or Y.</summary>
+    public bool CanMoveDown(ScreenElement element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return IsGenerated || element.YSpan is not null || element.CursorInsert is not null;
     }
 
     public void ChangeTransition(TransitionRow row)

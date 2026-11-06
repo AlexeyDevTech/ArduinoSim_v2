@@ -175,6 +175,63 @@ public static class ScreenCodeEdits
     public static SourceEdit? SetNumber(SourceSpan? span, int value) =>
         span is null ? null : new SourceEdit(span, value.ToString(CultureInfo.InvariantCulture));
 
+    /// <summary>
+    /// What puts an element somewhere else: a number where the code has one, or a name or expression that only
+    /// places it, with the declarations nothing else then uses. What has no such place of its own gets a cursor
+    /// of its own. Null if nothing can move it there.
+    /// </summary>
+    public static IReadOnlyList<SourceEdit>? Move(ScreenElement element, ScreenDisplay display, int x, int y)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        ArgumentNullException.ThrowIfNull(display);
+        var edits = new List<SourceEdit>();
+        void Replace(SourceSpan span, CodeExpression? code, int value)
+        {
+            edits.Add(new SourceEdit(span, value.ToString(CultureInfo.InvariantCulture)));
+            edits.AddRange((code?.Dead ?? []).Select(dead => new SourceEdit(dead, "")));
+        }
+
+        bool across = x != element.X;
+        bool down = y != element.Y;
+        if (across && element.XSpan is { } columnSpan)
+        {
+            Replace(columnSpan, element.XCode, x);
+        }
+
+        if (down && element.YSpan is { } rowSpan)
+        {
+            Replace(rowSpan, element.YCode, y);
+        }
+
+        if (((across && element.XSpan is null) || (down && element.YSpan is null)) && element.CursorInsert is { } place)
+        {
+            string move = display.Library == DisplayLibrary.GyverOled ? "setCursorXY" : "setCursor";
+            edits.Add(Put(place, Lines(place, string.Create(CultureInfo.InvariantCulture, $"{element.CursorReceiver}{move}({x}, {y});"))));
+        }
+
+        return edits.Count == 0 ? null : [.. edits.Distinct()];
+    }
+
+    /// <summary>A number or an expression typed over what the code wrote. A number leaves the declarations it used with nothing to do.</summary>
+    public static IReadOnlyList<SourceEdit>? SetExpression(CodeExpression code, string text)
+    {
+        ArgumentNullException.ThrowIfNull(code);
+        ArgumentNullException.ThrowIfNull(text);
+        text = text.Trim();
+        if (code.Span is not { } span || text.Length == 0 || text == code.Text)
+        {
+            return null;
+        }
+
+        var edits = new List<SourceEdit> { new(span, text) };
+        if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+        {
+            edits.AddRange(code.Dead.Select(dead => new SourceEdit(dead, "")));
+        }
+
+        return edits;
+    }
+
     /// <summary>A transition's new target: the constant it names, replaced by another.</summary>
     public static SourceEdit? SetTarget(ScreenTransition transition, string target)
     {

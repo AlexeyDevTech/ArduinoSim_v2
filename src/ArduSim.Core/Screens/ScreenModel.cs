@@ -62,10 +62,17 @@ public enum ElementKind
     Box,
 }
 
-/// <summary>Exactly one token of source that a scan read: what an in-place edit may replace.</summary>
+/// <summary>Characters of source that a scan read: what an in-place edit may replace.</summary>
 /// <param name="Offset">Characters from the start of the file.</param>
 /// <param name="Expected">The token's text as scanned; an edit is refused if the file no longer has it there.</param>
 public sealed record SourceSpan(string File, int Offset, int Length, string Expected);
+
+/// <summary>A number the code does not write as a plain number: a name, a local variable, an expression.</summary>
+/// <param name="Text">As written.</param>
+/// <param name="Span">Its characters, which typing can replace; null in code other screens share.</param>
+/// <param name="IsLocked">A drag must not replace it: it changes while the sketch runs (a loop's variable, a field, a call), or other screens share it. Only typing replaces it, if anything does.</param>
+/// <param name="Dead">The declarations nothing else uses once a number takes its place, which go with it.</param>
+public sealed record CodeExpression(string Text, SourceSpan? Span, bool IsLocked, IReadOnlyList<SourceSpan> Dead);
 
 /// <summary>Where something is in the source, for going to it.</summary>
 public sealed record SourceLocation(string File, int Line);
@@ -156,19 +163,42 @@ public sealed record ScreenElement
     [JsonIgnore]
     public SourceSpan? TextSpan { get; init; }
 
+    /// <summary>What a number can replace to move it across, whether the code writes a number there or not.</summary>
     [JsonIgnore]
     public SourceSpan? XSpan { get; init; }
 
+    /// <summary>What a number can replace to move it down.</summary>
     [JsonIgnore]
     public SourceSpan? YSpan { get; init; }
 
-    /// <summary>A shape's width or a line's end X, as one number in code.</summary>
+    /// <summary>A shape's width or a line's end X: what a number can replace.</summary>
     [JsonIgnore]
     public SourceSpan? WidthSpan { get; init; }
 
-    /// <summary>A shape's height or a line's end Y, as one number in code.</summary>
+    /// <summary>A shape's height or a line's end Y: what a number can replace.</summary>
     [JsonIgnore]
     public SourceSpan? HeightSpan { get; init; }
+
+    /// <summary>The position across, when the code does not write it as a plain number.</summary>
+    [JsonIgnore]
+    public CodeExpression? XCode { get; init; }
+
+    [JsonIgnore]
+    public CodeExpression? YCode { get; init; }
+
+    [JsonIgnore]
+    public CodeExpression? WidthCode { get; init; }
+
+    [JsonIgnore]
+    public CodeExpression? HeightCode { get; init; }
+
+    /// <summary>Printed where the last thing ended, or where shared code left the cursor: where a cursor of its own can go.</summary>
+    [JsonIgnore]
+    public SourceInsert? CursorInsert { get; init; }
+
+    /// <summary>The object it draws on there, with its accessor.</summary>
+    [JsonIgnore]
+    public string CursorReceiver { get; init; } = "";
 
     /// <summary>A value's expression, when it is written where it is printed.</summary>
     [JsonIgnore]

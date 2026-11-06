@@ -27,7 +27,24 @@ A tolerant scanner in `Core/Screens`, not a compiler: it works on sketches that 
 
 A class of the sketch's own with `setCursor(x, y)` draws for it, and its objects count as the display. Apart from what the screens show, the scan keeps what the constructor needs (`ScreenCodeShape`, the spans on elements, transitions and screens): where the screen's own drawing ends, where a `case` goes, how the sketch goes to a screen (`enterScreen({0});`), which function handles keys and with what variable.
 
-It is a heuristic and says so: what it could not place is marked, and each screen and transition links to its line. Nothing is ever replaced that was not read as exactly one token, and nothing removed that does not stand alone.
+It is a heuristic and says so: what it could not place is marked, and each screen and transition links to its line. Nothing is ever replaced that was not read exactly, and nothing removed that does not stand alone.
+
+### Positions that are not plain numbers
+
+Code rarely places everything with `setCursor(3, 1)`. A position is read as what it is, and what can be done with it follows from that:
+
+| In the code | Shows | A drag |
+|---|---|---|
+| A number | the number | replaces it |
+| A name or expression of constants: `MARGIN`, `LCD_COLUMNS - 5`, `const`, `enum` | as written, at its value | writes a number at this call; the definition stays |
+| A local given a value once, from constants and `strlen`: `start = (LCD_COLUMNS - len) / 2` | as written, worked out with the width of what is printed | writes a number, and the declarations nothing else then uses go too |
+| Anything the run changes: a loop's variable, a field, a call, a local assigned twice | as written | leaves that axis alone, since a number would freeze it. Typing a number or an expression in the panel replaces it, because that is a decision |
+| Nothing of its own: text printed after other text, or after a helper left the cursor | where the cursor is | adds a `setCursor` before it; what is printed next follows, as on the display |
+| Inside a function other screens call too | | never edited from here. What such a helper prints first takes its `setCursor` before the call to it, unless the helper sets a cursor itself |
+
+A shape whose size or place the run decides is shown all the same, at a size to find it by, instead of disappearing from the screen.
+
+A file's text is the record of what was decided, so each of these says what it did, and one Ctrl+Z takes back all of it.
 
 ### The constructor in code
 

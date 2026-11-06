@@ -105,6 +105,14 @@ internal sealed class SketchScanner
         Structure(file);
     }
 
+    /// <summary>The tokens of a piece of code that is in no file: a macro's body.</summary>
+    public static List<CodeToken> TokensOf(string text)
+    {
+        var file = new CodeFile("", text, 0);
+        new SketchScanner().Tokenize(file);
+        return file.Tokens;
+    }
+
     public static string Decode(CodeToken literal)
     {
         string body = literal.Text.Length >= 2 ? literal.Text[1..^1] : "";
