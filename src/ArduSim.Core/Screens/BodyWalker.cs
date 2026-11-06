@@ -65,6 +65,19 @@ internal abstract class BodyWalker(IReadOnlyList<CodeToken> tokens)
     /// <param name="close">Its closing parenthesis.</param>
     protected virtual int LoopPasses(int start, int close) => 1;
 
+    /// <summary>Whether to walk this case of a <c>switch</c>: all of them, unless a walker can tell.</summary>
+    protected virtual bool EntersCase(string variable, int index, IReadOnlyList<(IReadOnlyList<CodeToken> Labels, bool IsDefault, int Start, int End)> cases) => true;
+
+    /// <summary>After a case that was walked.</summary>
+    protected virtual void CaseDone(int index)
+    {
+    }
+
+    /// <summary>After the last case of a <c>switch</c>.</summary>
+    protected virtual void SwitchDone()
+    {
+    }
+
     /// <summary>Before each walk of a <c>for</c> loop's body.</summary>
     protected virtual void LoopPass(int pass)
     {
@@ -274,15 +287,23 @@ internal abstract class BodyWalker(IReadOnlyList<CodeToken> tokens)
         var cases = Cases(close + 2, bodyEnd);
         SwitchSeen(variable, Text(open + 1, close), bodyEnd, cases);
         string[] labels = [.. cases.SelectMany(c => c.Labels).Select(l => l.Text)];
+        int index = 0;
         foreach ((IReadOnlyList<CodeToken> caseLabels, bool isDefault, int start, int stop) in cases)
         {
-            Conditions.Add(isDefault
-                ? new Condition(variable, [], labels.Length > 0 ? labels : ["?"], "default")
-                : new Condition(variable, caseLabels, [], variable + "==" + string.Join('|', caseLabels.Select(l => l.Text))));
-            Walk(start, stop);
-            Conditions.RemoveAt(Conditions.Count - 1);
+            if (EntersCase(variable, index, cases))
+            {
+                Conditions.Add(isDefault
+                    ? new Condition(variable, [], labels.Length > 0 ? labels : ["?"], "default")
+                    : new Condition(variable, caseLabels, [], variable + "==" + string.Join('|', caseLabels.Select(l => l.Text))));
+                Walk(start, stop);
+                Conditions.RemoveAt(Conditions.Count - 1);
+                CaseDone(index);
+            }
+
+            index++;
         }
 
+        SwitchDone();
         return bodyEnd + 1;
     }
 

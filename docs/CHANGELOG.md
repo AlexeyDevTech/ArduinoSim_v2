@@ -1,5 +1,19 @@
 # Changelog
 
+## Screens: lists kept in a sketch's own functions (2026-11-06)
+
+On the map of a project from code, a list that one function draws for every screen showed a row of dots and no heading, because its heading, length and items now came from functions that switch on the screen. The tab now runs such small functions on what the sources can tell (ADR-019), in general: nothing in it knows any one sketch.
+
+- Each such screen shows its own heading, its items and a counter such as `1/6` at the right edge, where the sketch puts it.
+- Items can come from a string with several in it, walked with pointers, or from an array of structs. Rows under an `#if` that the sketch's own `#define`s turn off are left out, and what depends on a flag from the build stays.
+- A value that a function can work out shows what it comes to. What depends on a variable or the hardware stays as written, and a function that never ends stops the reading of itself, not the tab.
+- A heading returned from a `case` of that screen alone can be edited. Everything else read this way is shown and not edited.
+- A `switch` on something other than the screen, such as a choice of layout, draws one of its cases rather than all of them on top of each other: its `default`, and the others are listed as alternatives.
+- **Changed:** the palette no longer adds to a screen with no `case` of its own. It used to write into the `default`, so the element appeared on every other screen that falls there. It says why.
+
+How to try it: open a project whose lists are drawn by one function and go to Экраны: every card of such a list has its heading, items and counter.
+In Экран, a heading can be double-clicked and edited if its `case` is that screen's alone.
+
 ## Screens: a palette of elements (2026-11-06)
 
 The owner did not find what to build a screen from: the buttons for it were on the tab's toolbar, there only with a screen open.

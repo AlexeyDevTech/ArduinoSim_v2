@@ -1396,7 +1396,7 @@
   <data name="Screens_ElementsTitle" xml:space="preserve"><value>На этом экране</value></data>
   <data name="Screens_ToolsTitle" xml:space="preserve"><value>Элементы экрана</value></data>
   <data name="Screens_ToolsFromCode" xml:space="preserve"><value>В проекте из кода доступно то, что можно записать в скетч. Остальное есть в проекте, созданном на этой вкладке.</value></data>
-  <data name="Screens_ToolsNoPlace" xml:space="preserve"><value>На выбранный экран элемент не добавить: в коде не найдено, где заканчивается его отрисовка.</value></data>
+  <data name="Screens_ToolsNoPlace" xml:space="preserve"><value>На выбранный экран элемент не добавить: его рисует код, общий с другими экранами, или в коде не найдено, где заканчивается его отрисовка.</value></data>
   <data name="Screens_ToolOnlyGenerated" xml:space="preserve"><value>Только в проекте, созданном на этой вкладке: этому элементу нужны её данные.</value></data>
   <data name="Screens_GroupScreens" xml:space="preserve"><value>Экраны ({0})</value></data>
   <data name="Screens_GroupData" xml:space="preserve"><value>Данные ({0})</value></data>

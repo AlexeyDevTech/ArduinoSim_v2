@@ -63,6 +63,9 @@ internal sealed class CodeFile
 
     public List<CodeToken> Tokens { get; } = [];
 
+    /// <summary>The <c>#if</c>, <c>#else</c> and <c>#endif</c> lines, in order, with what follows the <c>#</c>.</summary>
+    public List<(int Offset, string Line)> Conditionals { get; } = [];
+
     public int LineOf(int offset)
     {
         int found = _lineStarts.BinarySearch(offset);
@@ -90,6 +93,9 @@ internal sealed class SketchScanner
     public List<CodeEnum> Enums { get; } = [];
 
     public Dictionary<string, CodeStringArray> StringArrays { get; } = new(StringComparer.Ordinal);
+
+    /// <summary><c>const char NAME[] = "one" "two";</c>: the literals that make up each, one or more.</summary>
+    public Dictionary<string, IReadOnlyList<CodeToken>> CharArrays { get; } = new(StringComparer.Ordinal);
 
     public List<CodeDisplay> Displays { get; } = [];
 
@@ -185,7 +191,7 @@ internal sealed class SketchScanner
             }
             else if (c == '#' && lineStart)
             {
-                i = Directive(s, i);
+                i = Directive(file, s, i);
             }
             else
             {
@@ -196,7 +202,7 @@ internal sealed class SketchScanner
     }
 
     // A directive to its line's end, continuations included; a simple #define's value is kept.
-    private int Directive(string s, int start)
+    private int Directive(CodeFile file, string s, int start)
     {
         int i = start;
         while (i < s.Length && s[i] != '\n')
@@ -205,6 +211,13 @@ internal sealed class SketchScanner
         }
 
         string line = s[(start + 1)..i].Trim();
+        int commented = line.IndexOf("//", StringComparison.Ordinal);
+        string code = commented >= 0 ? line[..commented].TrimEnd() : line;
+        if (code.Split(' ', '\t', '(')[0] is "if" or "ifdef" or "ifndef" or "elif" or "else" or "endif")
+        {
+            file.Conditionals.Add((start, code));
+        }
+
         if (line.StartsWith("define", StringComparison.Ordinal))
         {
             string rest = line["define".Length..].TrimStart();
@@ -597,6 +610,7 @@ internal sealed class SketchScanner
                 StringArrays[t[i].Text] = new CodeStringArray(t[i].Text, literals, texts);
             }
 
+            CharArrays[t[i].Text] = literals;
             return last;
         }
 

@@ -18,7 +18,9 @@ public sealed partial class ScreenCodeAnalyzer
     private readonly Dictionary<string, List<CodeFunction>> _byName = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (IReadOnlyList<CodeToken> Tokens, int Start, int End)> _constants = new(StringComparer.Ordinal);
     private readonly HashSet<string> _cellMethods = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _listPlaces = new(StringComparer.Ordinal);
     private readonly ScreenDisplay? _sceneDisplay;
+    private SketchRun? _runner;
     private ScreenDisplay _display = new(DisplayFamily.CharLcd, 16, 2, DisplayLibrary.LiquidCrystalI2c, "lcd");
     private HashSet<string> _displayNames = new(StringComparer.Ordinal);
     private HashSet<string> _surfaceTypes = new(StringComparer.Ordinal);
@@ -124,7 +126,84 @@ public sealed partial class ScreenCodeAnalyzer
         }
 
         ComputeDrawing();
+        FindListPlaces();
         return FromState() ?? FromFunctions();
+    }
+
+    private SketchRun Runner => _runner ??= new SketchRun(_scan, _constants, _byName, _listPlaces);
+
+    // What a list's loop compares its variable with is where the list stands: for (i...) if (i == selected) mark.
+    // What it starts from is the top of what shows: for (i = top; ...). In a picture a list stands at its first item,
+    // with that item on top, which is what the picture marks too.
+    private void FindListPlaces()
+    {
+        foreach (CodeFunction function in _scan.Functions)
+        {
+            IReadOnlyList<CodeToken> t = function.Tokens;
+            for (int k = function.BodyStart; k + 1 < function.BodyEnd; k++)
+            {
+                if (!t[k].Is("for") || !t[k + 1].Is("("))
+                {
+                    continue;
+                }
+
+                int close = SketchScanner.Matching(t, k + 1, "(", ")");
+                int equals = k + 2;
+                while (equals < close && !t[equals].Is("="))
+                {
+                    equals++;
+                }
+
+                if (equals >= close || close + 1 >= function.BodyEnd)
+                {
+                    continue;
+                }
+
+                string variable = t[equals - 1].Text;
+                if (equals + 2 < close && t[equals + 2].Is(";") && IsListPlace(function, equals + 1))
+                {
+                    _listPlaces.Add(t[equals + 1].Text);
+                }
+
+                int bodyEnd = t[close + 1].Is("{") ? SketchScanner.Matching(t, close + 1, "{", "}") : close + 1;
+                for (int m = close + 1; m + 2 < bodyEnd; m++)
+                {
+                    if (!t[m].Is("=="))
+                    {
+                        continue;
+                    }
+
+                    int other = t[m - 1].Is(variable) ? m + 1 : t[m + 1].Is(variable) ? m - 1 : -1;
+                    if (other >= 0 && IsListPlace(function, other))
+                    {
+                        _listPlaces.Add(t[other].Text);
+                    }
+                }
+            }
+        }
+    }
+
+    // A plain name that belongs to the sketch's state: not a call, a member of something, a constant, or the function's own.
+    private bool IsListPlace(CodeFunction function, int at)
+    {
+        IReadOnlyList<CodeToken> t = function.Tokens;
+        string name = t[at].Text;
+        if (t[at].Kind != TokenKind.Identifier || t[at + 1].Is("(") || t[at + 1].Is(".") || t[at + 1].Is("->") || t[at + 1].Is("[") || t[at - 1].Is(".") || t[at - 1].Is("->")
+            || function.Parameters.Any(p => p.Name == name) || _constants.ContainsKey(name) || _scan.Macros.ContainsKey(name) || _scan.Enums.Any(e => e.Constants.Any(c => c.Text == name)))
+        {
+            return false;
+        }
+
+        for (int k = function.BodyStart + 1; k < function.BodyEnd; k++)
+        {
+            bool declared = t[k].Is(name) && (t[k - 1].Is("*") || t[k - 1].Is("&") || (t[k - 1].Kind == TokenKind.Identifier && !t[k - 1].Is("return") && !t[k - 1].Is("case")));
+            if (declared)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // A class of the sketch's own that draws for it, such as a buffer in front of the panel: what has
@@ -156,7 +235,7 @@ public sealed partial class ScreenCodeAnalyzer
                 if ((t[i].Is("const") || t[i].Is("constexpr")) && !InsideFunction(t, i))
                 {
                     int k = i + 1;
-                    while (k + 1 < t.Count && t[k].Kind == TokenKind.Identifier && !t[k + 1].Is("="))
+                    while (k + 1 < t.Count && (t[k].Kind == TokenKind.Identifier || t[k].Is("*")) && !t[k + 1].Is("="))
                     {
                         k++;
                     }
@@ -1660,6 +1739,10 @@ public sealed partial class ScreenCodeAnalyzer
         CodeFile declaredIn = _scan.Files[declaration.File];
         var location = new SourceLocation(declaredIn.Path, declaredIn.LineOf(declaration.Offset));
         bool found = false;
+        Runner.Screen = id;
+        Runner.ScreenVariable = draw?.Switch.Variable;
+        painter.ScreenVariable = draw?.Switch.Variable;
+        painter.Screen = id;
         (SourceInsert? Insert, string Receiver) site = (null, "");
         if (draw is { } drawing)
         {
@@ -1688,10 +1771,10 @@ public sealed partial class ScreenCodeAnalyzer
         // No case of its own: what is left falls to the default.
         if (!found && draw is { } fallback)
         {
+            // Other screens may come here too: what is drawn is theirs as well, so nothing in it is this screen's to change.
             foreach ((IReadOnlyList<CodeToken> _, bool isDefault, int start, int end) in fallback.Switch.Cases.Where(c => c.IsDefault))
             {
-                painter.Paint(fallback.Function, start, end);
-                site = DrawSiteIn(fallback.Function, start, end);
+                painter.PaintShared(fallback.Function, start, end);
             }
         }
 
@@ -1777,7 +1860,20 @@ public sealed partial class ScreenCodeAnalyzer
         /// <summary>It called something like <c>active()->render()</c>, which cannot be followed by name.</summary>
         public bool CallsOutside { get; set; }
 
+        /// <summary>The constant of the screen being drawn.</summary>
+        public string? Screen { get; set; }
+
+        /// <summary>The variable that holds the screen.</summary>
+        public string? ScreenVariable { get; set; }
+
         public void Paint(CodeFunction function, int start, int end) => Enter(function, start, end, new Dictionary<string, Bound>(StringComparer.Ordinal));
+
+        public void PaintShared(CodeFunction function, int start, int end)
+        {
+            _shared = true;
+            Paint(function, start, end);
+            _shared = false;
+        }
 
         private void Enter(CodeFunction function, int start, int end, Dictionary<string, Bound> bindings)
         {
@@ -2056,8 +2152,20 @@ public sealed partial class ScreenCodeAnalyzer
                     case "sizeof":
                         return null;
                     default:
+                        // A function of the sketch, run on what is known. The run can change what it comes to, so that this stays as written.
                         Changes = true;
-                        return null;
+                        var numbers = new List<long>();
+                        foreach ((int from, int to) in arguments)
+                        {
+                            if (Child(function, scope, _t, from, to) is not { } number)
+                            {
+                                return null;
+                            }
+
+                            numbers.Add(number);
+                        }
+
+                        return owner.Runner.IsFunction(name) && owner.Runner.Number(name, numbers) is { } result and >= int.MinValue and <= int.MaxValue ? (int)result : null;
                 }
             }
 
@@ -2124,6 +2232,12 @@ public sealed partial class ScreenCodeAnalyzer
                     return Child(function, scope, function.Tokens, local.InitStart, local.InitEnd);
                 }
 
+                if (owner._listPlaces.Contains(name))
+                {
+                    Changes = true;
+                    return 0;
+                }
+
                 if (owner._scan.Macros.TryGetValue(name, out string? body))
                 {
                     List<CodeToken> tokens = SketchScanner.TokensOf(body);
@@ -2155,6 +2269,8 @@ public sealed partial class ScreenCodeAnalyzer
             private readonly Stack<(int X, int Y)> _branch = new();
             private readonly Stack<(int X, int Y)> _afterThen = new();
             private readonly Stack<(string Name, int From)?> _running = new();
+            private readonly Stack<(string Variable, int StartOf, int StartEnd, int ConditionStart, int ConditionEnd)?> _headers = new();
+            private readonly Stack<(int X, int Y, int Chosen, bool OnScreen, int EndX, int EndY)> _switches = new();
             private int _conditional;
             private int _elses;
             private int _ranLoops;
@@ -2168,6 +2284,7 @@ public sealed partial class ScreenCodeAnalyzer
             // A display class's own loop over known numbers draws what it draws: for (i = 0; i < 6; ++i).
             protected override int LoopPasses(int start, int close)
             {
+                _headers.Push(HeaderOf(start, close));
                 (string Name, int From)? run = null;
                 int passes = 1;
                 if (InSurface && close > start)
@@ -2219,10 +2336,91 @@ public sealed partial class ScreenCodeAnalyzer
 
             protected override void LoopDone()
             {
+                _headers.Pop();
                 if (_running.Pop() is { } run)
                 {
                     bindings.Remove(run.Name);
                     _ranLoops--;
+                }
+            }
+
+            // for (type v = ...; condition; ...): the variable, and where its condition lies.
+            private (string Variable, int StartOf, int StartEnd, int ConditionStart, int ConditionEnd)? HeaderOf(int start, int close)
+            {
+                int first = start;
+                while (first < close && !Tokens[first].Is(";"))
+                {
+                    first++;
+                }
+
+                int second = first + 1;
+                while (second < close && !Tokens[second].Is(";"))
+                {
+                    second++;
+                }
+
+                int equals = start;
+                while (equals < first && !Tokens[equals].Is("="))
+                {
+                    equals++;
+                }
+
+                return equals > start && equals < first && second <= close ? (Tokens[equals - 1].Text, equals + 1, first, first + 1, second) : null;
+            }
+
+            // A switch on the screen draws this screen's case. Any other shows one thing at a time, so its cases are
+            // alternatives of what it shows at first: the default, which is what is left when nothing is chosen.
+            protected override void SwitchSeen(string variable, string expression, int bodyEnd, IReadOnlyList<(IReadOnlyList<CodeToken> Labels, bool IsDefault, int Start, int End)> cases)
+            {
+                base.SwitchSeen(variable, expression, bodyEnd, cases);
+                bool onScreen = painter.Screen is not null && variable == painter.ScreenVariable;
+                int chosen = -1;
+                for (int i = 0; i < cases.Count && onScreen; i++)
+                {
+                    chosen = cases[i].Labels.Any(l => l.Text == painter.Screen) ? i : chosen;
+                }
+
+                for (int i = 0; i < cases.Count && chosen < 0; i++)
+                {
+                    chosen = cases[i].IsDefault ? i : chosen;
+                }
+
+                _switches.Push((painter._x, painter._y, Math.Max(chosen, 0), onScreen, painter._x, painter._y));
+            }
+
+            protected override bool EntersCase(string variable, int index, IReadOnlyList<(IReadOnlyList<CodeToken> Labels, bool IsDefault, int Start, int End)> cases)
+            {
+                (int x, int y, int chosen, bool onScreen, int _, int _) = _switches.Peek();
+                if (onScreen)
+                {
+                    return index == chosen;
+                }
+
+                (painter._x, painter._y) = (x, y);
+                _conditional++;
+                _elses += index == chosen ? 0 : 1;
+                return true;
+            }
+
+            protected override void CaseDone(int index)
+            {
+                (int x, int y, int chosen, bool onScreen, int endX, int endY) = _switches.Pop();
+                if (!onScreen)
+                {
+                    _conditional--;
+                    _elses -= index == chosen ? 0 : 1;
+                    (endX, endY) = index == chosen ? (painter._x, painter._y) : (endX, endY);
+                }
+
+                _switches.Push((x, y, chosen, onScreen, endX, endY));
+            }
+
+            protected override void SwitchDone()
+            {
+                (int _, int _, int _, bool onScreen, int endX, int endY) = _switches.Pop();
+                if (!onScreen)
+                {
+                    (painter._x, painter._y) = (endX, endY);
                 }
             }
 
@@ -2736,6 +2934,11 @@ public sealed partial class ScreenCodeAnalyzer
                     return;
                 }
 
+                if (PrintedByFunction(t, start, end, scope, where, inLoop, alternative))
+                {
+                    return;
+                }
+
                 // cond ? "A" : "B" shows one of them: the first gives the preview, the longest the width.
                 string[] literals = [.. t.Skip(start).Take(end - start).Where(x => x.Kind is TokenKind.String or TokenKind.Char).Select(SketchScanner.Decode)];
                 SourceSpan? written = null;
@@ -2747,8 +2950,121 @@ public sealed partial class ScreenCodeAnalyzer
                     written = new SourceSpan(file.Path, from, to - from, file.Text[from..to]);
                 }
 
+                // What can be worked out shows as what it comes to.
+                if (literals.Length == 0 && new Reckoning(Analyzer, where, scope, null).Of(t, start, end) is { } known)
+                {
+                    literals = [known.ToString(CultureInfo.InvariantCulture)];
+                }
+
                 (SourceInsert? Insert, string Receiver) valueSite = CursorSite();
                 painter.AddValue(expression, literals, IsConditional, inLoop, alternative, RemovalOwn(), written, valueSite);
+            }
+
+            // Text that a function of the sketch says, or a #define: what it comes to on this screen. In a loop, with the
+            // loop's variable in it, it says one item for each number, and those are a list.
+            private bool PrintedByFunction(IReadOnlyList<CodeToken> t, int start, int end, Dictionary<string, Bound> scope, CodeFunction where, bool inLoop, bool alternative)
+            {
+                SketchRun run = Analyzer.Runner;
+                bool calls = false;
+                bool mentions = false;
+                string? variable = _headers.Count > 0 ? _headers.Peek()?.Variable : null;
+                var known = new Dictionary<string, object?>(StringComparer.Ordinal);
+                for (int k = start; k < end; k++)
+                {
+                    if (t[k].Kind != TokenKind.Identifier)
+                    {
+                        continue;
+                    }
+
+                    bool isCall = k + 1 < end && t[k + 1].Is("(");
+                    calls |= isCall && run.IsFunction(t[k].Text);
+                    mentions |= t[k].Is(variable ?? "\0");
+
+                    // What it is given: a parameter or a local of the code that draws, as far as that can be told.
+                    if (!isCall && !t[k].Is(variable ?? "\0") && new Reckoning(Analyzer, where, scope, null).Of(t, k, k + 1) is { } number)
+                    {
+                        known[t[k].Text] = (long)number;
+                    }
+                }
+
+                bool isMacro = end - start == 1 && t[start].Kind == TokenKind.Identifier && Analyzer._scan.Macros.ContainsKey(t[start].Text);
+                if (!calls && !isMacro)
+                {
+                    return false;
+                }
+
+                if (inLoop && mentions)
+                {
+                    var items = new List<string>();
+                    (int first, int limit) = LoopRange();
+                    for (int i = first; i < limit; i++)
+                    {
+                        known[variable!] = (long)i;
+                        if (run.Evaluate(t, start, end, known) is not TextPointer item)
+                        {
+                            break;
+                        }
+
+                        items.Add(item.Text);
+                    }
+
+                    if (items.Count == 0)
+                    {
+                        return false;
+                    }
+
+                    painter.AddMenu(items);
+                    return true;
+                }
+
+                if (run.Evaluate(t, start, end, known) is not TextPointer answer)
+                {
+                    return false;
+                }
+
+                // Its literal can be edited where it is, if this screen alone comes to it.
+                SourceSpan? span = answer.Origin is { } origin && run.ReturnedFromOwnCase ? Analyzer.Span(origin) : null;
+                (SourceInsert? Insert, string Receiver) site = CursorSite();
+                painter.AddText(answer.Text, span, IsConditional, inLoop, alternative, RemovalOwn(), site);
+                return true;
+            }
+
+            // Where this loop's variable goes: the list behind it, from what it starts at to the smallest that its condition
+            // says. for (i = top; i < count && i < top + 3; ++i) shows a window of a longer list: the window's own bound is left
+            // out, and the list starts from its beginning. With no bound, the run stops at the first item that cannot be told.
+            private (int First, int Limit) LoopRange()
+            {
+                const int Most = 64;
+                if (_headers.Peek() is not { } header)
+                {
+                    return (0, Most);
+                }
+
+                var reckon = new Reckoning(Analyzer, function, bindings, null);
+                int first = Math.Max(reckon.Of(Tokens, header.StartOf, header.StartEnd) ?? 0, 0);
+                int limit = first + Most;
+                int from = header.ConditionStart;
+                int nested = 0;
+                for (int k = header.ConditionStart; k <= header.ConditionEnd; k++)
+                {
+                    bool ends = k == header.ConditionEnd || (nested == 0 && Tokens[k].Is("&&"));
+                    if (!ends)
+                    {
+                        nested += Tokens[k].Is("(") ? 1 : Tokens[k].Is(")") ? -1 : 0;
+                        continue;
+                    }
+
+                    if (k - from >= 3 && Tokens[from].Is(header.Variable) && (Tokens[from + 1].Is("<") || Tokens[from + 1].Is("<="))
+                        && !Tokens.Skip(from + 2).Take(k - from - 2).Any(x => Analyzer._listPlaces.Contains(x.Text))
+                        && new Reckoning(Analyzer, function, bindings, null).Of(Tokens, from + 2, k) is { } bound)
+                    {
+                        limit = Math.Min(limit, Math.Max(bound + (Tokens[from + 1].Is("<=") ? 1 : 0), 0));
+                    }
+
+                    from = k + 1;
+                }
+
+                return (first, limit);
             }
 
             private (IReadOnlyList<CodeToken>, int, int, Dictionary<string, Bound>) ResolveName(string name) =>
@@ -2906,7 +3222,14 @@ public sealed partial class ScreenCodeAnalyzer
             _callSite = alternative ? _callSite : null;
         }
 
-        private void AddMenu(CodeStringArray items, ScreenCodeAnalyzer analyzer)
+        private void AddMenu(CodeStringArray items, ScreenCodeAnalyzer analyzer) =>
+            SetMenu(items.Packed is { } packed
+                ? [.. packed.Select(text => new ScreenMenuItem { Text = text })]
+                : [.. items.Items.Select(i => new ScreenMenuItem { Text = SketchScanner.Decode(i), TextSpan = analyzer.Span(i) })]);
+
+        private void AddMenu(List<string> items) => SetMenu([.. items.Select(text => new ScreenMenuItem { Text = text })]);
+
+        private void SetMenu(IReadOnlyList<ScreenMenuItem> items)
         {
             // What else the loop draws (the cursor, a mark) is the menu's own.
             foreach (int index in Enumerable.Reverse(_fromLoops))
@@ -2922,9 +3245,7 @@ public sealed partial class ScreenCodeAnalyzer
             int rows = display.Family == DisplayFamily.CharLcd ? Math.Max(1, display.Height - top) : Math.Max(1, (display.Height - top) / 8);
             Menu = new ScreenMenu
             {
-                Items = items.Packed is { } packed
-                    ? [.. packed.Select(text => new ScreenMenuItem { Text = text })]
-                    : [.. items.Items.Select(i => new ScreenMenuItem { Text = SketchScanner.Decode(i), TextSpan = analyzer.Span(i) })],
+                Items = items,
                 Top = top,
                 Rows = rows,
             };

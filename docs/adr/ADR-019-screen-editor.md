@@ -38,7 +38,7 @@ Code rarely places everything with `setCursor(3, 1)`. A position is read as what
 | A number | the number | replaces it |
 | A name or expression of constants: `MARGIN`, `LCD_COLUMNS - 5`, `const`, `enum` | as written, at its value | writes a number at this call; the definition stays |
 | A local given a value once, from constants and `strlen`: `start = (LCD_COLUMNS - len) / 2` | as written, worked out with the width of what is printed | writes a number, and the declarations nothing else then uses go too |
-| Anything the run changes: a loop's variable, a field, a call, a local assigned twice | as written | leaves that axis alone, since a number would freeze it. Typing a number or an expression in the panel replaces it, because that is a decision |
+| Anything the run changes: a loop's variable, a field, a call, a local assigned twice | as written, at what a small function comes to if that can be told | leaves that axis alone, since a number would freeze it. Typing a number or an expression in the panel replaces it, because that is a decision |
 | Nothing of its own: text printed after other text, or after a helper left the cursor | where the cursor is | adds a `setCursor` before it; what is printed next follows, as on the display |
 | Inside a function other screens call too | | never edited from here. What such a helper prints first takes its `setCursor` before the call to it, unless the helper sets a cursor itself |
 
@@ -57,6 +57,18 @@ A class with `setCursor(x, y)` in front of the panel is drawn on as a display is
 A value with nothing known to show draws as its last name when it has one (`dt.day` as `day`) and as dots otherwise: the start of `reinterpret_cast<...>` says nothing. What could not be placed draws only where it hides nothing. Prints in a row that a guessed width would push off the display are drawn narrower, because what a sketch lines up fits.
 
 A list kept in one string (`"one\0" "two"`) makes a menu as an array does, reached through locals and parameters. Its items cannot be edited from here, since a literal holds its terminator. A screen with no `case` of its own is what the switch's `default` draws.
+
+### Small functions of the sketch
+
+One function can draw every list, and ask others for its heading, its length and its items, each of which switches on the screen. Their text says nothing about what a list shows: the answer is in what they return, and a reading of shapes breaks the next time the sketch is tidied. So they are run. `SketchRun` follows the small part of C++ such functions are written in, on what the sources alone can tell. It is for the picture and does not simulate anything: the sketch itself never runs here, and a wrong guess draws a wrong picture, with no effect on the program.
+
+- **What it knows.** The screen being read, constants, enums with their numbering, `#define`s, arrays of strings, a string holding several items (walked by real pointer arithmetic, so `list += strlen_P(list) + 1` needs nothing special), arrays of structs with their `sizeof`, its own locals and arguments, and a default argument wherever that was declared. The place of a list counts as its first item, since that is what the picture shows: what a list's loop compares its variable with (`i == selected`) or starts from (`for (i = top; ...)`).
+- **What it does not.** Anything else: a variable of the sketch, the hardware, a library's function. A condition on one of those ends the run, the answer is that it cannot be told, and the print stays a value as written. Nothing changes but its own locals. It gives up past 20000 steps or 16 calls deep, and does not follow `do`. Numbers do not wrap as on the board: a cast does not narrow.
+- **`#if`.** A table's row or a part of a string under an `#if` that the sketch's own `#define`s turn off is left out. What depends on something else (a flag from the build, `defined(...)`) counts as built, and so does its `#else`, because shown is better than lost. `#ifndef` counts as on, being mostly a guard or a default that follows at once.
+- **What comes of it.** Text becomes an element. Text in a loop, with the loop's variable in it, becomes a menu, over what the loop's header allows: a bound that mentions a list's place is a window of the list and does not count. A number becomes what a value shows and what a position is.
+- **What can be edited.** Only a literal that a function returned from a `case` of this screen alone. What a table, a constant or a `#define` holds, and what a `default` returns, other screens may come to as well. An item of a menu read this way is not edited from here, and a position worked out from a call is left alone by a drag, as the table above says.
+
+Around this, a `switch` on the screen inside what is being drawn draws this screen's case. A `switch` on anything else shows one thing at a time, so its cases are alternatives of its `default`, or of its first case if it has none, and the cursor goes on from where that one leaves it. What a screen with no `case` of its own draws, other screens draw too, so nothing is added to it from the tab.
 
 ### The constructor in code
 
