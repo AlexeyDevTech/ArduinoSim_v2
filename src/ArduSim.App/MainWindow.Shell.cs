@@ -31,6 +31,7 @@ public partial class MainWindow
     private bool _narrow;
     private double _splitRatio = 0.55;
     private ExplorerEntry? _renaming;
+    private string? _newFileFolder;
 
     // ---- window bounds -------------------------------------------------------------------------
 
@@ -332,8 +333,40 @@ public partial class MainWindow
 
     // ---- project explorer -----------------------------------------------------------------------------
 
+    // Left and right fold and unfold, as in any tree.
+    private void OnExplorerRowKey(object sender, KeyEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ExplorerEntry { IsFolder: true } folder } && e.Key is Key.Left or Key.Right)
+        {
+            _viewModel.SetFolderExpanded(folder, e.Key == Key.Right);
+            e.Handled = true;
+        }
+    }
+
     private void OnExplorerRowMenu(object sender, MouseButtonEventArgs e)
     {
+        if (sender is FrameworkElement { DataContext: ExplorerEntry { IsFolder: true } folder } folderRow)
+        {
+            var folderMenu = new ContextMenu { PlacementTarget = folderRow };
+            var newHere = new MenuItem { Header = Strings.Get("Explorer_NewFileHere") };
+            newHere.Click += (_, _) => AskFileName(null, folderRow, folder.Path);
+            var foldAll = new MenuItem { Header = Strings.Get("Explorer_FoldAll") };
+            foldAll.Click += (_, _) => _viewModel.SetAllFoldersExpanded(false);
+            var unfoldAll = new MenuItem { Header = Strings.Get("Explorer_UnfoldAll") };
+            unfoldAll.Click += (_, _) => _viewModel.SetAllFoldersExpanded(true);
+            var revealFolder = new MenuItem { Header = Strings.Get("Explorer_Reveal") };
+            revealFolder.Click += (_, _) => MainViewModel.RevealFile(folder);
+            folderMenu.Items.Add(newHere);
+            folderMenu.Items.Add(new Separator());
+            folderMenu.Items.Add(foldAll);
+            folderMenu.Items.Add(unfoldAll);
+            folderMenu.Items.Add(new Separator());
+            folderMenu.Items.Add(revealFolder);
+            folderMenu.IsOpen = true;
+            e.Handled = true;
+            return;
+        }
+
         if (sender is not FrameworkElement { DataContext: ExplorerEntry { Kind: ExplorerKind.File } entry } row)
         {
             return;
@@ -348,7 +381,10 @@ public partial class MainWindow
         delete.Click += (_, _) => _viewModel.DeleteSketchFile(entry);
         var reveal = new MenuItem { Header = Strings.Get("Explorer_Reveal") };
         reveal.Click += (_, _) => MainViewModel.RevealFile(entry);
+        var besideIt = new MenuItem { Header = Strings.Get("Explorer_NewFileHere") };
+        besideIt.Click += (_, _) => AskFileName(null, row, Path.GetDirectoryName(entry.Path));
         menu.Items.Add(open);
+        menu.Items.Add(besideIt);
         menu.Items.Add(rename);
         menu.Items.Add(delete);
         menu.Items.Add(new Separator());
@@ -359,9 +395,10 @@ public partial class MainWindow
 
     private void OnNewFile(object sender, RoutedEventArgs e) => AskFileName(null, NewFileButton);
 
-    private void AskFileName(ExplorerEntry? renaming, UIElement anchor)
+    private void AskFileName(ExplorerEntry? renaming, UIElement anchor, string? inFolder = null)
     {
         _renaming = renaming;
+        _newFileFolder = inFolder;
         FileNamePrompt.Text = Strings.Get(renaming is null ? "Explorer_NewFilePrompt" : "Explorer_RenamePrompt");
         FileNameBox.Text = renaming is null ? "" : Path.GetFileName(renaming.Path) ?? "";
         FileNameError.Visibility = Visibility.Collapsed;
@@ -385,7 +422,7 @@ public partial class MainWindow
         }
         else if (e.Key == Key.Enter)
         {
-            string? error = _renaming is { } entry ? _viewModel.RenameSketchFile(entry, FileNameBox.Text) : _viewModel.CreateSketchFile(FileNameBox.Text);
+            string? error = _renaming is { } entry ? _viewModel.RenameSketchFile(entry, FileNameBox.Text) : _viewModel.CreateSketchFile(FileNameBox.Text, _newFileFolder);
             FileNameError.Text = error ?? "";
             FileNameError.Visibility = error is null ? Visibility.Collapsed : Visibility.Visible;
             FileNamePopup.IsOpen = error is not null;

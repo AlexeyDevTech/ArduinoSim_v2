@@ -171,3 +171,4 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-06 — The readout on the schematic is on LEDs and resistors only, and Параметры can hide it; every other current is in tooltips and the Свойства pin rows, so that busy schematics stay readable.
 - 2026-11-06 — Pin rows in Свойства put level, voltage and current on a second line while running: on one line they squeezed the connection down to a dot.
 - 2026-11-06 — Electrical readings travel as the state of the reserved component id `~circuit`, not as a new field of `Snapshot`: no IPC change, and the same delta rules as parts.
+- 2026-11-06 — Explorer tree: flat rows with an indent, not a WPF TreeView. Rows only hide when a folder folds, so the keyboard focus survives, and every row keeps the look and the menu it has elsewhere. Folders themselves cannot be renamed or deleted here yet: their open tabs would have to follow.

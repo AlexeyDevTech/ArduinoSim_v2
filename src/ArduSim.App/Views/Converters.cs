@@ -31,6 +31,7 @@ public sealed class ExplorerGlyphConverter : IValueConverter
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
     {
         ExplorerKind.File => "\uE943",
+        ExplorerKind.Folder => "\uE8B7",
         ExplorerKind.Part => "\uE950",
         ExplorerKind.Library => "\uE8F1",
         _ => "\uE946",

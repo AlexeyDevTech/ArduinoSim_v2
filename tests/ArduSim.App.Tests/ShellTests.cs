@@ -307,6 +307,132 @@ public sealed class ShellTests : IDisposable
         await vm.DisposeAsync();
     });
 
+    private string NestedProject()
+    {
+        string directory = NewProject("nano");
+        string sketch = Path.GetDirectoryName(Directory.EnumerateFiles(directory, "*.ino", SearchOption.AllDirectories).Single())!;
+        foreach (string file in (string[])["src/app/alarm.cpp", "src/app/alarm.h", "src/config.h", "src/Beta.cpp", "lib/x.h", "zeta.h", "alpha.cpp"])
+        {
+            string path = Path.Combine(sketch, file);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, "");
+        }
+
+        return directory;
+    }
+
+    private static System.Collections.ObjectModel.ObservableCollection<ExplorerEntry> Rows(MainViewModel vm) => vm.ExplorerGroups.Single(g => g.Key == "sketch").Items;
+
+    private static string Tree(MainViewModel vm) =>
+        string.Join(' ', Rows(vm).Where(r => r.IsShown).Select(r => new string('-', r.Depth) + r.Title + (r.IsFolder ? "/" : "")));
+
+    [Fact]
+    public void TheExplorerShowsTheSketchAsATreeOfFolders() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        Assert.True(await vm.OpenAsync(NestedProject()));
+        vm.LeftTab = MainViewModel.ProjectPage;
+
+        string main = Rows(vm).First().Title;
+        Assert.EndsWith(".ino", main, StringComparison.Ordinal);
+        Assert.Equal($"{main} lib/ -x.h src/ -app/ --alarm.cpp --alarm.h -Beta.cpp -config.h alpha.cpp zeta.h", Tree(vm));
+
+        ExplorerEntry src = Rows(vm).Single(r => r.Title == "src");
+        Assert.Equal("4", src.Detail);
+        Assert.Equal(Path.Combine("src", "app", "alarm.cpp"), Rows(vm).Single(r => r.Title == "alarm.cpp").Tip);
+        Assert.Equal(new System.Windows.Thickness(42, 0, 0, 0), Rows(vm).Single(r => r.Title == "alarm.cpp").Indent);
+
+        vm.OpenExplorerEntryCommand.Execute(Rows(vm).Single(r => r.Title == "app"));
+        Assert.Equal($"{main} lib/ -x.h src/ -app/ -Beta.cpp -config.h alpha.cpp zeta.h", Tree(vm));
+        vm.OpenExplorerEntryCommand.Execute(src);
+        Assert.Equal($"{main} lib/ -x.h src/ alpha.cpp zeta.h", Tree(vm));
+
+        // Unfolding the outer folder brings back the inner one as it was: folded.
+        vm.OpenExplorerEntryCommand.Execute(src);
+        Assert.Equal($"{main} lib/ -x.h src/ -app/ -Beta.cpp -config.h alpha.cpp zeta.h", Tree(vm));
+
+        vm.SetAllFoldersExpanded(false);
+        Assert.Equal($"{main} lib/ src/ alpha.cpp zeta.h", Tree(vm));
+        vm.SetAllFoldersExpanded(true);
+        Assert.Equal($"{main} lib/ -x.h src/ -app/ --alarm.cpp --alarm.h -Beta.cpp -config.h alpha.cpp zeta.h", Tree(vm));
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void AFlatSketchLeavesNoRoomForAChevron() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        Assert.True(await vm.OpenAsync(NewProject()));
+        vm.LeftTab = MainViewModel.ProjectPage;
+
+        Assert.Equal(default, Rows(vm).Single().Indent);
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void FoldedFoldersAreRememberedPerProject() => OnSta(async () =>
+    {
+        string project = NestedProject();
+        MainViewModel first = NewViewModel();
+        Assert.True(await first.OpenAsync(project));
+        first.LeftTab = MainViewModel.ProjectPage;
+        first.SetFolderExpanded(Rows(first).Single(r => r.Title == "src"), false);
+        await first.DisposeAsync();
+
+        MainViewModel second = NewViewModel();
+        Assert.True(await second.OpenAsync(project));
+        second.LeftTab = MainViewModel.ProjectPage;
+        Assert.False(Rows(second).Single(r => r.Title == "src").IsExpanded);
+        Assert.False(Rows(second).Single(r => r.Title == "config.h").IsShown);
+        Assert.True(Rows(second).Single(r => r.Title == "x.h").IsShown);
+        await second.DisposeAsync();
+    });
+
+    [Fact]
+    public void AFileComingToTheFrontUnfoldsItsFolders() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        Assert.True(await vm.OpenAsync(NestedProject()));
+        vm.LeftTab = MainViewModel.ProjectPage;
+        vm.SetAllFoldersExpanded(false);
+
+        ExplorerEntry hidden = Rows(vm).Single(r => r.Title == "alarm.h");
+        Assert.False(hidden.IsShown);
+        vm.OpenExplorerEntryCommand.Execute(hidden);
+
+        ExplorerEntry shown = Rows(vm).Single(r => r.Title == "alarm.h");
+        Assert.True(shown.IsShown);
+        Assert.True(shown.IsCurrent);
+        Assert.False(Rows(vm).Single(r => r.Title == "lib").IsExpanded);
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void NewFilesGoIntoTheFolderTheyWereAskedFor() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        Assert.True(await vm.OpenAsync(NestedProject()));
+        vm.LeftTab = MainViewModel.ProjectPage;
+        ExplorerEntry app = Rows(vm).Single(r => r.Title == "app");
+
+        Assert.Null(vm.CreateSketchFile("timer.cpp", app.Path));
+        Assert.True(File.Exists(Path.Combine(app.Path!, "timer.cpp")));
+        Assert.Equal(2, Rows(vm).Single(r => r.Title == "timer.cpp").Depth);
+
+        Assert.Null(vm.CreateSketchFile("drivers/lcd.h"));
+        Assert.Equal(1, Rows(vm).Single(r => r.Title == "lcd.h").Depth);
+        Assert.Contains(Rows(vm), r => r.IsFolder && r.Title == "drivers");
+
+        Assert.NotNull(vm.CreateSketchFile("../outside.h"));
+        Assert.NotNull(vm.CreateSketchFile("../../outside.h", app.Path + "/../.."));
+
+        // A file in a folder renames in place.
+        ExplorerEntry lcd = Rows(vm).Single(r => r.Title == "lcd.h");
+        Assert.Null(vm.RenameSketchFile(lcd, "oled.h"));
+        Assert.Equal(1, Rows(vm).Single(r => r.Title == "oled.h").Depth);
+        await vm.DisposeAsync();
+    });
+
     [Fact]
     public void AFailedBuildGivesThePanelsBack() => OnSta(async () =>
     {

@@ -248,6 +248,7 @@ public sealed partial class MainViewModel
         {
             _lastDocument = document;
             document.RequestFocus();
+            RevealInExplorer(document.Path);
         }
 
         OnPropertyChanged(nameof(VisibleDocument));

@@ -1,5 +1,17 @@
 # Changelog
 
+## Project explorer as a tree (2026-11-06)
+
+The owner's request: the Скетч group listed every file flat, with `src\` in each name.
+
+- Folders are rows now, with a chevron, the number of files they hold and their contents indented below. A click or ← → folds one, and each project remembers what is folded (`ui-state.json`, for projects on the recent list).
+- In each folder its .ino files come first, then subfolders, then the other files, so a long `src` does not push the main file out of sight.
+- A file that comes to the front unfolds its folders and scrolls into view.
+- Новый файл здесь… on a file or folder; a typed name may include a folder (src/app.cpp) and can no longer leave the sketch. Свернуть все папки and Развернуть все папки on a folder's menu.
+- Explorer rows are 24 px instead of 28 px, to fit more of a tree.
+
+How to try it: open a project with subfolders in its sketch (or make one: Новый файл… → src/app.cpp), Ctrl+Shift+E; click a folder to fold it.
+
 ## M12 — Electrical DC solver (2026-11-06)
 
 Voltages and currents are now calculated, on every change of the circuit (ADR-017). Virtual time does not move, and sketches run at the same speed as before: a bare pin slightly faster, a pin with an LED toggled in a tight loop 25 % slower in real time, still 7 times faster than real time.

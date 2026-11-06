@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows;
 using System.Windows.Threading;
 using ArduSim.App.Localization;
 using ArduSim.App.Services;
@@ -11,13 +12,14 @@ namespace ArduSim.App.ViewModels;
 public enum ExplorerKind
 {
     File,
+    Folder,
     Part,
     Library,
     Symbol,
     Note,
 }
 
-/// <summary>One row of the project explorer: a sketch file, a part on the schematic or a library of the last build.</summary>
+/// <summary>One row of the project explorer: a sketch file or folder, a part on the schematic or a library of the last build.</summary>
 public sealed partial class ExplorerEntry(ExplorerKind kind, string title, string detail, string? path = null, string? partId = null, bool isMain = false) : ObservableObject
 {
     public ExplorerKind Kind { get; } = kind;
@@ -33,14 +35,36 @@ public sealed partial class ExplorerEntry(ExplorerKind kind, string title, strin
     /// <summary>The sketch's main file: named after the project, so it cannot be renamed or deleted here.</summary>
     public bool IsMain { get; } = isMain;
 
-    public bool CanOpen => Kind is ExplorerKind.File or ExplorerKind.Part or ExplorerKind.Symbol;
+    public bool CanOpen => Kind is ExplorerKind.File or ExplorerKind.Folder or ExplorerKind.Part or ExplorerKind.Symbol;
+
+    public bool IsFolder => Kind == ExplorerKind.Folder;
 
     /// <summary>The line of a function or variable in the open file.</summary>
     public int Line { get; init; }
 
+    /// <summary>A file or folder, relative to the sketch; empty for other rows.</summary>
+    public string Relative { get; init; } = "";
+
+    /// <summary>How deep a file or folder sits under the sketch folder.</summary>
+    public int Depth { get; init; }
+
+    /// <summary>Room to the left of the row, which is what draws the tree.</summary>
+    public Thickness Indent { get; init; }
+
+    /// <summary>The whole path below the sketch for files and folders, whose title is only their own name.</summary>
+    public string Tip => Relative.Length > 0 ? Relative : Title;
+
     /// <summary>The open tab or the selected part.</summary>
     [ObservableProperty]
     public partial bool IsCurrent { get; set; }
+
+    /// <summary>A folder shows what is in it.</summary>
+    [ObservableProperty]
+    public partial bool IsExpanded { get; set; } = true;
+
+    /// <summary>False while a folder above it is folded.</summary>
+    [ObservableProperty]
+    public partial bool IsShown { get; set; } = true;
 }
 
 public sealed partial class ExplorerGroup(string key, string name) : ObservableObject
@@ -58,8 +82,11 @@ public sealed partial class ExplorerGroup(string key, string name) : ObservableO
 /// <summary>The Проект page of the left panel: sketch files, parts and libraries, with file commands.</summary>
 public sealed partial class MainViewModel
 {
+    private const double TreeStep = 14;
     private static readonly string[] IgnoredFolders = [".pio", ".git", ".vscode", "build", "bin", "obj"];
     private string? _explorerSignature;
+    private HashSet<string> _foldedFolders = new(StringComparer.OrdinalIgnoreCase);
+    private string? _foldedOf;
     private IReadOnlyList<SymbolEntry> _outline = [];
     private string? _outlineOf;
 
@@ -124,10 +151,7 @@ public sealed partial class MainViewModel
         ExplorerGroups.Clear();
 
         var sketch = new ExplorerGroup("sketch", Strings.Get("Explorer_Sketch"));
-        foreach (string file in files)
-        {
-            sketch.Items.Add(new ExplorerEntry(ExplorerKind.File, Path.GetRelativePath(root, file), "", file, isMain: IsMainFile(file)));
-        }
+        AddSketchRows(sketch, root, files);
 
         var scheme = new ExplorerGroup("scene", Strings.Format("Explorer_Scene", parts.Count));
         foreach (PartViewModel part in parts)
@@ -158,7 +182,166 @@ public sealed partial class MainViewModel
             ExplorerGroups.Add(group);
         }
 
+        ApplyFolding();
         UpdateExplorerCurrent();
+    }
+
+    // The folders as a tree, in the order of a file manager, except that a folder's .ino files come
+    // first: they are where a sketch starts, and a long src must not push them out of sight.
+    private void AddSketchRows(ExplorerGroup group, string root, List<string> files)
+    {
+        HashSet<string> folded = FoldedFolders();
+        var items = files.Select(f => (Full: f, Parts: Path.GetRelativePath(root, f).Split(Path.DirectorySeparatorChar))).ToList();
+
+        // Files leave room for the chevron only where there are folders to line up with.
+        double chevron = items.Any(i => i.Parts.Length > 1) ? TreeStep : 0;
+
+        void AddFile(string full, string[] parts) => group.Items.Add(new ExplorerEntry(ExplorerKind.File, parts[^1], "", full, isMain: IsMainFile(full))
+        {
+            Relative = Path.Combine(parts),
+            Depth = parts.Length - 1,
+            Indent = new Thickness(((parts.Length - 1) * TreeStep) + chevron, 0, 0, 0),
+        });
+
+        void AddLevel(List<(string Full, string[] Parts)> level, int depth)
+        {
+            var here = level.Where(i => i.Parts.Length == depth + 1).OrderBy(i => i.Parts[depth], StringComparer.OrdinalIgnoreCase).ToList();
+            static bool IsSketch((string Full, string[] Parts) item) => Path.GetExtension(item.Full).Equals(".ino", StringComparison.OrdinalIgnoreCase);
+            foreach ((string full, string[] parts) in here.Where(IsSketch))
+            {
+                AddFile(full, parts);
+            }
+
+            foreach (IGrouping<string, (string Full, string[] Parts)> folder in level.Where(i => i.Parts.Length > depth + 1)
+                .GroupBy(i => i.Parts[depth], StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                string relative = Path.Combine(folder.First().Parts[..(depth + 1)]);
+                group.Items.Add(new ExplorerEntry(ExplorerKind.Folder, folder.Key, folder.Count().ToString(System.Globalization.CultureInfo.CurrentCulture), Path.Combine(root, relative))
+                {
+                    Relative = relative,
+                    Depth = depth,
+                    Indent = new Thickness(depth * TreeStep, 0, 0, 0),
+                    IsExpanded = !folded.Contains(relative),
+                });
+                AddLevel([.. folder], depth + 1);
+            }
+
+            foreach ((string full, string[] parts) in here.Where(i => !IsSketch(i)))
+            {
+                AddFile(full, parts);
+            }
+        }
+
+        AddLevel(items, 0);
+    }
+
+    private HashSet<string> FoldedFolders()
+    {
+        if (_foldedOf != _projectDirectory)
+        {
+            _foldedOf = _projectDirectory;
+            _foldedFolders = new HashSet<string>(_projectDirectory is null ? [] : _state.FoldedFolders(_projectDirectory), StringComparer.OrdinalIgnoreCase);
+        }
+
+        return _foldedFolders;
+    }
+
+    private IEnumerable<ExplorerEntry> SketchRows => ExplorerGroups.Where(g => g.Key == "sketch").SelectMany(g => g.Items);
+
+    // Rows stay and only hide, so that the keyboard focus survives a fold.
+    private void ApplyFolding()
+    {
+        int hiddenBelow = int.MaxValue;
+        foreach (ExplorerEntry row in SketchRows)
+        {
+            if (row.Depth > hiddenBelow)
+            {
+                row.IsShown = false;
+                continue;
+            }
+
+            hiddenBelow = row.IsFolder && !row.IsExpanded ? row.Depth : int.MaxValue;
+            row.IsShown = true;
+        }
+    }
+
+    private void StoreFolding()
+    {
+        if (_projectDirectory is not null)
+        {
+            _state.SetFoldedFolders(_projectDirectory, _foldedFolders);
+        }
+    }
+
+    /// <summary>Folds or unfolds one folder of the sketch; the project remembers it.</summary>
+    public void SetFolderExpanded(ExplorerEntry folder, bool expanded)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+        if (!folder.IsFolder || folder.IsExpanded == expanded)
+        {
+            return;
+        }
+
+        folder.IsExpanded = expanded;
+        if (expanded)
+        {
+            FoldedFolders().Remove(folder.Relative);
+        }
+        else
+        {
+            FoldedFolders().Add(folder.Relative);
+        }
+
+        ApplyFolding();
+        StoreFolding();
+    }
+
+    /// <summary>Folds or unfolds every folder of the sketch.</summary>
+    public void SetAllFoldersExpanded(bool expanded)
+    {
+        foreach (ExplorerEntry folder in SketchRows.Where(r => r.IsFolder))
+        {
+            folder.IsExpanded = expanded;
+            if (expanded)
+            {
+                FoldedFolders().Remove(folder.Relative);
+            }
+            else
+            {
+                FoldedFolders().Add(folder.Relative);
+            }
+        }
+
+        ApplyFolding();
+        StoreFolding();
+    }
+
+    // A file that comes to the front (a tab, go to definition) is shown: its folders unfold.
+    private void RevealInExplorer(string path)
+    {
+        if (_project is null || _projectDirectory is null)
+        {
+            return;
+        }
+
+        string relative = Path.GetRelativePath(_project.SketchDirectory(_projectDirectory), path);
+        bool changed = false;
+        for (string? folder = Path.GetDirectoryName(relative); !string.IsNullOrEmpty(folder); folder = Path.GetDirectoryName(folder))
+        {
+            changed |= FoldedFolders().Remove(folder);
+        }
+
+        if (changed)
+        {
+            foreach (ExplorerEntry row in SketchRows.Where(r => r.IsFolder))
+            {
+                row.IsExpanded = !_foldedFolders.Contains(row.Relative);
+            }
+
+            ApplyFolding();
+            StoreFolding();
+        }
     }
 
     private void UpdateExplorerCurrent()
@@ -204,7 +387,11 @@ public sealed partial class MainViewModel
     [RelayCommand]
     private void OpenExplorerEntry(ExplorerEntry? entry)
     {
-        if (entry?.Path is { } path && entry.Kind == ExplorerKind.File)
+        if (entry is { IsFolder: true })
+        {
+            SetFolderExpanded(entry, !entry.IsExpanded);
+        }
+        else if (entry?.Path is { } path && entry.Kind == ExplorerKind.File)
         {
             OpenFile(path);
         }
@@ -225,7 +412,8 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>The file name for a new or renamed file, checked: the full path, or the reason it cannot be used.</summary>
-    public (string? Path, string? Error) CheckFileName(string name, string? renaming = null)
+    /// <param name="inFolder">Where a new file goes, when not in the sketch's own folder.</param>
+    public (string? Path, string? Error) CheckFileName(string name, string? renaming = null, string? inFolder = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         name = name.Trim();
@@ -254,8 +442,14 @@ public sealed partial class MainViewModel
             return (null, Strings.Get("File_NameExtension"));
         }
 
-        string folder = renaming is null ? _project.SketchDirectory(_projectDirectory) : Path.GetDirectoryName(renaming)!;
+        string sketch = Path.GetFullPath(_project.SketchDirectory(_projectDirectory));
+        string folder = renaming is null ? inFolder ?? sketch : Path.GetDirectoryName(renaming)!;
         string path = Path.GetFullPath(Path.Combine(folder, name));
+        if (!path.StartsWith(sketch.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            return (null, Strings.Get("File_NameOutside"));
+        }
+
         if (File.Exists(path) && !string.Equals(path, renaming, StringComparison.OrdinalIgnoreCase))
         {
             return (null, Strings.Format("File_NameTaken", name));
@@ -264,10 +458,10 @@ public sealed partial class MainViewModel
         return (path, null);
     }
 
-    /// <summary>Creates a file in the sketch folder and opens it; the reason on failure.</summary>
-    public string? CreateSketchFile(string name)
+    /// <summary>Creates a file in the sketch, in its own folder or in <paramref name="inFolder"/>, and opens it; the reason on failure.</summary>
+    public string? CreateSketchFile(string name, string? inFolder = null)
     {
-        (string? path, string? error) = CheckFileName(name);
+        (string? path, string? error) = CheckFileName(name, inFolder: inFolder);
         if (path is null)
         {
             return error;

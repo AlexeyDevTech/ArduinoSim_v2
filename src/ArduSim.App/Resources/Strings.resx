@@ -575,7 +575,11 @@
   <data name="Explorer_LibrariesHint" xml:space="preserve"><value>Появятся после сборки</value></data>
   <data name="Explorer_NewFile" xml:space="preserve"><value>Новый файл…</value></data>
   <data name="Explorer_NewFileTip" xml:space="preserve"><value>Добавить файл в папку скетча</value></data>
-  <data name="Explorer_NewFilePrompt" xml:space="preserve"><value>Имя файла: .ino, .h, .cpp, .c</value></data>
+  <data name="Explorer_NewFilePrompt" xml:space="preserve"><value>Имя файла, можно с папкой: src/app.cpp</value></data>
+  <data name="Explorer_NewFileHere" xml:space="preserve"><value>Новый файл здесь…</value></data>
+  <data name="Explorer_FoldAll" xml:space="preserve"><value>Свернуть все папки</value></data>
+  <data name="Explorer_UnfoldAll" xml:space="preserve"><value>Развернуть все папки</value></data>
+  <data name="File_NameOutside" xml:space="preserve"><value>Файл должен быть внутри папки скетча.</value></data>
   <data name="Explorer_RenamePrompt" xml:space="preserve"><value>Новое имя файла</value></data>
   <data name="Explorer_Open" xml:space="preserve"><value>Открыть</value></data>
   <data name="Explorer_Rename" xml:space="preserve"><value>Переименовать…</value></data>
@@ -1063,6 +1067,7 @@
   <data name="Settings_WheelPansTip" xml:space="preserve"><value>Прокрутка двигает схему, Ctrl+прокрутка меняет масштаб. Выключено: прокрутка меняет масштаб, как на мыши</value></data>
   <data name="Shortcuts_Panels_11" xml:space="preserve"><value>Ctrl+F6, Ctrl+Shift+F6|Следующая и предыдущая панель</value></data>
   <data name="Shortcuts_Panels_12" xml:space="preserve"><value>Alt|Меню проекта</value></data>
+  <data name="Shortcuts_Panels_13" xml:space="preserve"><value>←, →|Свернуть и развернуть папку в обозревателе проекта</value></data>
   <data name="Shortcuts_Canvas_20" xml:space="preserve"><value>Правая кнопка + мышь, стрелки|Сдвиг вида (стрелки: ничего не выделено)</value></data>
   <data name="Shortcuts_Running_8" xml:space="preserve"><value>Ctrl+щелчок по кнопке или клавише|Зафиксировать, ещё щелчок отпускает</value></data>
   <data name="Shortcuts_Running_9" xml:space="preserve"><value>Tab, затем стрелки, Page, Home, End|Ручка, энкодер, джойстик, датчик с клавиатуры</value></data>

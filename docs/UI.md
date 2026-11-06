@@ -180,7 +180,7 @@ New project: a name and a click on a board's tile create `Документы\Ard
 
 The Проект page of the left panel (Ctrl+Shift+E). Groups, each foldable:
 
-- **Скетч**: the sketch's files. A click opens one; its menu has Открыть, Переименовать, Удалить в корзину (no question: it can be brought back) and Показать в проводнике. The main file, named after the project, cannot be renamed or deleted here. Новый файл… is at the top and in the + of the tab strip.
+- **Скетч**: the sketch's files as a tree of its folders. In each folder its .ino files come first, then its subfolders, then the other files, by name. A folder shows how many files it holds; a click or ← → folds it, and each project remembers what is folded. A file coming to the front (a tab, go to definition) unfolds its folders and scrolls into view. A file's menu has Открыть, Новый файл здесь…, Переименовать, Удалить в корзину (no question: it can be brought back) and Показать в проводнике; a folder's has Новый файл здесь…, Свернуть все папки, Развернуть все папки and Показать в проводнике. The main file, named after the project, cannot be renamed or deleted here. Новый файл… is at the top and in the + of the tab strip, and its name may include a folder (src/app.cpp), but stays inside the sketch.
 - **Структура: file**: the functions, types and variables of the file on screen, from clangd; a click goes to the line.
 - **Схема**: the parts by id and kind; a click selects one and brings it into view. The row of the open file or the selected part is marked.
 - **Библиотеки**: what the last build used.

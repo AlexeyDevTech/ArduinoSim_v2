@@ -126,6 +126,27 @@ public sealed partial class UserState
         }
     }
 
+    /// <summary>The sketch folders the user folded in this project's explorer, relative to the sketch.</summary>
+    public IReadOnlyList<string> FoldedFolders(string directory) =>
+        _data.FoldedFolders.TryGetValue(Path.GetFullPath(directory).ToUpperInvariant(), out IReadOnlyList<string>? folders) ? folders : [];
+
+    public void SetFoldedFolders(string directory, IEnumerable<string> folders)
+    {
+        // Kept only for projects that are still on the recent list, so the file does not grow for ever.
+        string key = Path.GetFullPath(directory).ToUpperInvariant();
+        HashSet<string> recent = _data.Recent.Select(r => Path.GetFullPath(r.Path).ToUpperInvariant()).ToHashSet();
+        Dictionary<string, IReadOnlyList<string>> kept = _data.FoldedFolders.Where(p => recent.Contains(p.Key)).ToDictionary();
+        kept.Remove(key);
+        string[] list = [.. folders.Order(StringComparer.OrdinalIgnoreCase)];
+        if (list.Length > 0)
+        {
+            kept[key] = list;
+        }
+
+        _data = _data with { FoldedFolders = kept };
+        Save();
+    }
+
     /// <summary>Moves (or adds) a project to the top of the recent list.</summary>
     public void Touch(string directory)
     {
@@ -184,5 +205,7 @@ public sealed partial class UserState
         public bool Sound { get; init; } = true;
 
         public string? LastBoard { get; init; }
+
+        public Dictionary<string, IReadOnlyList<string>> FoldedFolders { get; init; } = [];
     }
 }
