@@ -40,6 +40,13 @@
             <Button Content="{l:Loc Screens_AddFrame}" Command="{Binding AddElementCommand}" CommandParameter="Frame" Tag="Frame" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
             <Button Content="{l:Loc Screens_AddBox}" Command="{Binding AddElementCommand}" CommandParameter="Box" Tag="Box" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
           </StackPanel>
+          <StackPanel Orientation="Horizontal" Visibility="{Binding IsGenerated, Converter={StaticResource BoolToVisibility}}">
+            <Button Content="{l:Loc Screens_AddBig}" Command="{Binding AddElementCommand}" CommandParameter="BigNumber" Tag="BigNumber" ToolTip="{l:Loc Screens_AddBigTip}" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
+            <Button Content="{l:Loc Screens_AddBar}" Command="{Binding AddElementCommand}" CommandParameter="Bar" Tag="Bar" ToolTip="{l:Loc Screens_AddBarTip}" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
+            <Button Content="{l:Loc Screens_AddSymbol}" Command="{Binding AddElementCommand}" CommandParameter="Symbol" Tag="Symbol" ToolTip="{l:Loc Screens_AddSymbolTip}" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
+            <Button Content="{l:Loc Screens_AddInput}" Command="{Binding AddElementCommand}" CommandParameter="Input" Tag="Input" ToolTip="{l:Loc Screens_AddInputTip}" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
+            <Button Content="{l:Loc Screens_AddDrawn}" Command="{Binding AddElementCommand}" CommandParameter="Drawn" Tag="Drawn" ToolTip="{l:Loc Screens_AddDrawnTip}" Margin="0,0,4,0" Padding="10,0" PreviewMouseLeftButtonDown="OnPalettePress" PreviewMouseMove="OnPaletteMove" />
+          </StackPanel>
         </StackPanel>
         <Button DockPanel.Dock="Right" Style="{StaticResource Button.Icon}" Content="&#xE72C;" Command="{Binding RefreshCommand}" ToolTip="{l:Loc Screens_RefreshTip}" Visibility="{Binding IsFromCode, Converter={StaticResource BoolToVisibility}}" />
         <Button DockPanel.Dock="Right" Content="{l:Loc Screens_ShowCode}" Command="{Binding ShowGeneratedCodeCommand}" ToolTip="{l:Loc Screens_ShowCodeTip}" Padding="10,0" Margin="4,0,0,0" Visibility="{Binding IsGenerated, Converter={StaticResource BoolToVisibility}}" />
@@ -50,6 +57,7 @@
 
       <StackPanel DockPanel.Dock="Bottom" Margin="10,4,10,8">
         <TextBlock Text="{Binding Notice}" Style="{StaticResource Line.WhenText}" Foreground="{DynamicResource Brush.Warning}" />
+        <TextBlock Text="{Binding ProblemsText}" Style="{StaticResource Line.WhenText}" Foreground="{DynamicResource Brush.Warning}" />
         <TextBlock Text="{l:Loc Screens_FaceHint}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" Visibility="{Binding CanAddElements, Converter={StaticResource BoolToVisibility}}" />
         <TextBlock Text="{l:Loc Screens_MapHint}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" Visibility="{Binding ShowsMapHint, Converter={StaticResource BoolToVisibility}}" />
         <TextBlock Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis">

@@ -1,0 +1,803 @@
+{
+  "schemaVersion": 2,
+  "source": "Generated",
+  "display": {
+    "family": "CharLcd",
+    "width": 20,
+    "height": 4,
+    "library": "LiquidCrystalI2c",
+    "variable": "uiDisplay",
+    "part": "lcd1"
+  },
+  "start": "home",
+  "screens": [
+    {
+      "id": "home",
+      "title": "Часы",
+      "elements": [
+        {
+          "id": "e1",
+          "kind": "Text",
+          "x": 0,
+          "y": 0,
+          "text": "{bell}",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "when": "sound"
+        },
+        {
+          "id": "e2",
+          "kind": "Value",
+          "x": 10,
+          "y": 0,
+          "text": "date",
+          "width": 10,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "align": "Right",
+          "format": "DateDayFirst"
+        },
+        {
+          "id": "e3",
+          "kind": "BigNumber",
+          "x": 0,
+          "y": 1,
+          "text": "clock",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "format": "HourMinute"
+        },
+        {
+          "id": "e4",
+          "kind": "Value",
+          "x": 18,
+          "y": 2,
+          "text": "second",
+          "width": 2,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "format": "TwoDigits"
+        },
+        {
+          "id": "e5",
+          "kind": "Text",
+          "x": 0,
+          "y": 3,
+          "text": "A:МЕНЮ",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null
+        },
+        {
+          "id": "e6",
+          "kind": "Text",
+          "x": 0,
+          "y": 3,
+          "text": "#:ТАЙМЕР",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "align": "Right"
+        }
+      ],
+      "transitions": [
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "A",
+            "menuItem": -1
+          },
+          "target": "menu2"
+        },
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "#",
+            "menuItem": -1
+          },
+          "target": "screen1"
+        }
+      ],
+      "mapX": 0,
+      "mapY": 0
+    },
+    {
+      "id": "screen1",
+      "title": "Таймер",
+      "elements": [
+        {
+          "id": "e1",
+          "kind": "Text",
+          "x": 0,
+          "y": 0,
+          "text": "ТАЙМЕР",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null
+        },
+        {
+          "id": "e2",
+          "kind": "Bar",
+          "x": 8,
+          "y": 0,
+          "text": "left",
+          "width": 12,
+          "height": 10,
+          "size": 1,
+          "sample": null,
+          "when": "!typing",
+          "maximum": "total"
+        },
+        {
+          "id": "e3",
+          "kind": "Input",
+          "x": 7,
+          "y": 1,
+          "text": "left",
+          "width": 4,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "align": "Right",
+          "format": "MinuteSecond",
+          "when": "typing"
+        },
+        {
+          "id": "e4",
+          "kind": "BigNumber",
+          "x": 1,
+          "y": 1,
+          "text": "left",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "format": "MinuteSecond",
+          "when": "!typing"
+        },
+        {
+          "id": "e5",
+          "kind": "Text",
+          "x": 0,
+          "y": 3,
+          "text": "#:СТАРТ",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null
+        },
+        {
+          "id": "e6",
+          "kind": "Text",
+          "x": 0,
+          "y": 3,
+          "text": "D:СБРОС",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "align": "Right"
+        }
+      ],
+      "transitions": [
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "#",
+            "menuItem": -1,
+            "when": "typing"
+          },
+          "actions": [
+            {
+              "kind": "InputCommit"
+            },
+            {
+              "kind": "Set",
+              "target": "total",
+              "value": "left"
+            },
+            {
+              "kind": "Start",
+              "target": "left"
+            },
+            {
+              "kind": "Set",
+              "target": "typing",
+              "value": "0"
+            }
+          ]
+        },
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "#",
+            "menuItem": -1
+          },
+          "actions": [
+            {
+              "kind": "StartStop",
+              "target": "left"
+            }
+          ]
+        },
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "D",
+            "menuItem": -1,
+            "when": "typing"
+          },
+          "actions": [
+            {
+              "kind": "InputErase"
+            }
+          ]
+        },
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "D",
+            "menuItem": -1
+          },
+          "actions": [
+            {
+              "kind": "Reset",
+              "target": "left"
+            },
+            {
+              "kind": "InputClear"
+            },
+            {
+              "kind": "Set",
+              "target": "typing",
+              "value": "1"
+            }
+          ]
+        },
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "*",
+            "menuItem": -1
+          },
+          "target": "@back"
+        }
+      ],
+      "mapX": 620,
+      "mapY": 0
+    },
+    {
+      "id": "screen2",
+      "title": "Секундомер",
+      "elements": [
+        {
+          "id": "e1",
+          "kind": "Text",
+          "x": 0,
+          "y": 0,
+          "text": "СЕКУНДОМЕР",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null
+        },
+        {
+          "id": "e2",
+          "kind": "BigNumber",
+          "x": 1,
+          "y": 1,
+          "text": "lap",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "format": "MinuteSecond"
+        },
+        {
+          "id": "e3",
+          "kind": "Value",
+          "x": 12,
+          "y": 0,
+          "text": "lap_ms",
+          "width": 8,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "align": "Right",
+          "format": "MinuteSecondCentis"
+        },
+        {
+          "id": "e4",
+          "kind": "Text",
+          "x": 0,
+          "y": 3,
+          "text": "#:СТАРТ",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null
+        },
+        {
+          "id": "e5",
+          "kind": "Text",
+          "x": 0,
+          "y": 3,
+          "text": "D:СБРОС",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "align": "Right"
+        }
+      ],
+      "transitions": [
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "#",
+            "menuItem": -1
+          },
+          "actions": [
+            {
+              "kind": "StartStop",
+              "target": "lap"
+            }
+          ]
+        },
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "D",
+            "menuItem": -1
+          },
+          "actions": [
+            {
+              "kind": "Reset",
+              "target": "lap"
+            }
+          ]
+        },
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "*",
+            "menuItem": -1
+          },
+          "target": "@back"
+        }
+      ],
+      "mapX": 620,
+      "mapY": 200
+    },
+    {
+      "id": "screen3",
+      "title": "Установка времени",
+      "elements": [
+        {
+          "id": "e1",
+          "kind": "Text",
+          "x": 0,
+          "y": 0,
+          "text": "ВРЕМЯ",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null
+        },
+        {
+          "id": "e2",
+          "kind": "Text",
+          "x": 0,
+          "y": 0,
+          "text": "ЧЧ:ММ:СС",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "align": "Right"
+        },
+        {
+          "id": "e3",
+          "kind": "Input",
+          "x": 6,
+          "y": 1,
+          "text": "clock",
+          "width": 4,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "format": "HourMinuteSecond"
+        },
+        {
+          "id": "e4",
+          "kind": "Text",
+          "x": 0,
+          "y": 3,
+          "text": "#:ОК D:СТЕР *:НАЗАД",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null
+        }
+      ],
+      "transitions": [
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "#",
+            "menuItem": -1
+          },
+          "target": "@back",
+          "actions": [
+            {
+              "kind": "InputCommit"
+            }
+          ]
+        },
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "D",
+            "menuItem": -1
+          },
+          "actions": [
+            {
+              "kind": "InputErase"
+            }
+          ]
+        },
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "*",
+            "menuItem": -1
+          },
+          "target": "@back"
+        }
+      ],
+      "mapX": 930,
+      "mapY": 200
+    },
+    {
+      "id": "menu1",
+      "title": "Настройки",
+      "elements": [
+        {
+          "id": "e1",
+          "kind": "Text",
+          "x": 0,
+          "y": 0,
+          "text": "НАСТРОЙКИ",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null
+        }
+      ],
+      "menu": {
+        "items": [
+          {
+            "text": "ЗВУК",
+            "actions": [
+              {
+                "kind": "Toggle",
+                "target": "sound"
+              }
+            ],
+            "value": "sound"
+          },
+          {
+            "text": "СИГНАЛ",
+            "actions": [
+              {
+                "kind": "Toggle",
+                "target": "signal"
+              }
+            ],
+            "value": "signal"
+          },
+          {
+            "text": "ВРЕМЯ",
+            "target": "screen3"
+          },
+          {
+            "text": "НАЗАД",
+            "target": "@back"
+          }
+        ],
+        "top": 1,
+        "rows": 3,
+        "up": {
+          "kind": "Key",
+          "part": "kp1",
+          "value": "2",
+          "menuItem": -1
+        },
+        "down": {
+          "kind": "Key",
+          "part": "kp1",
+          "value": "8",
+          "menuItem": -1
+        },
+        "select": {
+          "kind": "Key",
+          "part": "kp1",
+          "value": "#",
+          "menuItem": -1
+        },
+        "counter": true,
+        "marker": "{arrowRight}"
+      },
+      "transitions": [
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "*",
+            "menuItem": -1
+          },
+          "target": "@back"
+        }
+      ],
+      "mapX": 620,
+      "mapY": 400
+    },
+    {
+      "id": "menu2",
+      "title": "Меню",
+      "elements": [
+        {
+          "id": "e1",
+          "kind": "Text",
+          "x": 0,
+          "y": 0,
+          "text": "МЕНЮ",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null
+        }
+      ],
+      "menu": {
+        "items": [
+          {
+            "text": "ТАЙМЕР",
+            "target": "screen1"
+          },
+          {
+            "text": "СЕКУНДОМЕР",
+            "target": "screen2"
+          },
+          {
+            "text": "НАСТРОЙКИ",
+            "target": "menu1"
+          },
+          {
+            "text": "НАЗАД",
+            "target": "@back"
+          }
+        ],
+        "top": 1,
+        "rows": 3,
+        "up": {
+          "kind": "Key",
+          "part": "kp1",
+          "value": "2",
+          "menuItem": -1
+        },
+        "down": {
+          "kind": "Key",
+          "part": "kp1",
+          "value": "8",
+          "menuItem": -1
+        },
+        "select": {
+          "kind": "Key",
+          "part": "kp1",
+          "value": "#",
+          "menuItem": -1
+        },
+        "counter": true,
+        "marker": "{arrowRight}"
+      },
+      "transitions": [
+        {
+          "trigger": {
+            "kind": "Key",
+            "part": "kp1",
+            "value": "*",
+            "menuItem": -1
+          },
+          "target": "@back"
+        }
+      ],
+      "mapX": 310,
+      "mapY": 200
+    },
+    {
+      "id": "screen4",
+      "title": "Время вышло",
+      "elements": [
+        {
+          "id": "e1",
+          "kind": "Text",
+          "x": 0,
+          "y": 1,
+          "text": "{bell} ВРЕМЯ ВЫШЛО {bell}",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "align": "Center"
+        },
+        {
+          "id": "e2",
+          "kind": "Text",
+          "x": 0,
+          "y": 3,
+          "text": "НАЖМИ КЛАВИШУ",
+          "width": 0,
+          "height": 0,
+          "size": 1,
+          "sample": null,
+          "align": "Center"
+        }
+      ],
+      "transitions": [
+        {
+          "trigger": {
+            "kind": "AnyKey",
+            "menuItem": -1
+          },
+          "target": "@back"
+        }
+      ],
+      "mapX": 310,
+      "mapY": 0
+    }
+  ],
+  "fromAnywhere": [
+    {
+      "trigger": {
+        "kind": "Finished",
+        "value": "left",
+        "menuItem": -1,
+        "when": "sound && signal == 1"
+      },
+      "target": "screen4",
+      "actions": [
+        {
+          "kind": "Beep",
+          "target": "bz1",
+          "value": "1500 1500"
+        },
+        {
+          "kind": "Set",
+          "target": "typing",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "trigger": {
+        "kind": "Finished",
+        "value": "left",
+        "menuItem": -1,
+        "when": "sound"
+      },
+      "target": "screen4",
+      "actions": [
+        {
+          "kind": "Beep",
+          "target": "bz1",
+          "value": "1500 300"
+        },
+        {
+          "kind": "Set",
+          "target": "typing",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "trigger": {
+        "kind": "Finished",
+        "value": "left",
+        "menuItem": -1
+      },
+      "target": "screen4",
+      "actions": [
+        {
+          "kind": "Set",
+          "target": "typing",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "trigger": {
+        "kind": "Key",
+        "part": "kp1",
+        "value": "B",
+        "menuItem": -1
+      },
+      "target": "home"
+    }
+  ],
+  "variables": [
+    {
+      "name": "sound",
+      "kind": "Flag",
+      "initial": 1,
+      "min": 0,
+      "max": 100,
+      "options": [
+        "НЕТ",
+        "ДА"
+      ],
+      "saved": true
+    },
+    {
+      "name": "signal",
+      "kind": "Choice",
+      "initial": 0,
+      "min": 0,
+      "max": 100,
+      "options": [
+        "КОРОТКО",
+        "ДОЛГО"
+      ],
+      "saved": true
+    },
+    {
+      "name": "left",
+      "kind": "Countdown",
+      "initial": 0,
+      "min": 0,
+      "max": 100
+    },
+    {
+      "name": "total",
+      "kind": "Number",
+      "initial": 0,
+      "min": 0,
+      "max": 5999
+    },
+    {
+      "name": "typing",
+      "kind": "Flag",
+      "initial": 1,
+      "min": 0,
+      "max": 100
+    },
+    {
+      "name": "lap",
+      "kind": "Stopwatch",
+      "initial": 0,
+      "min": 0,
+      "max": 100
+    }
+  ]
+}

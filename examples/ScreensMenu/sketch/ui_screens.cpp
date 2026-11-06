@@ -4,104 +4,205 @@
 LiquidCrystal_I2C uiDisplay(0x27, 20, 4);
 
 static UiScreen uiScreen = UI_HOME;
+static bool uiDirty = true;
+static uint32_t uiDrawnAt;
 static uint32_t uiEnteredAt;
-static uint32_t uiValuesAt;
 static uint8_t uiMenuIndex;
 static uint8_t uiMenuTop;
 
-// Text and values go through these, so that the screens below say only what and where.
-static void uiAt(int x, int y, int size) {
+// A frame is drawn here first. uiFlush sends the panel only the cells that differ, a few on each pass,
+// so that a whole new screen neither flickers nor keeps the keys waiting.
+static const uint8_t UI_COLUMNS = 20;
+static const uint8_t UI_ROWS = 4;
+static const uint8_t UI_CELLS = UI_COLUMNS * UI_ROWS;
+static const uint8_t UI_CELLS_PER_PASS = 4;
+
+static uint8_t uiFrame[UI_CELLS];
+static uint8_t uiPanel[UI_CELLS];
+static uint8_t uiColumn;
+static uint8_t uiRow;
+static uint8_t uiScan;
+static uint8_t uiNextCell = UI_CELLS;
+static bool uiPending;
+
+void uiAt(int x, int y, int size) {
   (void)size;
-  uiDisplay.setCursor(x, y);
+  uiColumn = x;
+  uiRow = y;
+}
+
+// Past the end of a row a text is cut off, not carried to another row.
+static void uiPut(uint8_t cell) {
+  if (uiColumn < UI_COLUMNS && uiRow < UI_ROWS) {
+    uiFrame[uiRow * UI_COLUMNS + uiColumn] = cell;
+    uiColumn++;
+  }
 }
 
 static void uiClear() {
-  uiDisplay.clear();
+  memset(uiFrame, ' ', UI_CELLS);
+  uiColumn = 0;
+  uiRow = 0;
 }
 
 static void uiShow() {
+  uiPending = true;
 }
 
-// A value's own cells: padded, so that a shorter one leaves nothing behind.
-static void uiPrintField(const char* text, uint8_t width) {
-  uint8_t used = 0;
-  while (text[used] != 0 && used < width) {
-    uiDisplay.print(text[used++]);
+static void uiSendCell(uint8_t at, uint8_t code) {
+  if (uiNextCell != at) {
+    uiDisplay.setCursor(at % UI_COLUMNS, at / UI_COLUMNS);
   }
-  while (used++ < width) {
-    uiDisplay.print(' ');
+
+  uiDisplay.write(code);
+  // Rows do not follow each other in the panel's memory.
+  uiNextCell = (at + 1) % UI_COLUMNS == 0 ? UI_CELLS : at + 1;
+}
+
+static void uiFlush() {
+  if (!uiPending) {
+    return;
+  }
+
+  uint8_t sent = 0;
+  for (uint8_t seen = 0; seen < UI_CELLS && sent < UI_CELLS_PER_PASS; seen++) {
+    uint8_t at = uiScan;
+    uiScan = at + 1 == UI_CELLS ? 0 : at + 1;
+    if (uiFrame[at] != uiPanel[at]) {
+      uiSendCell(at, uiFrame[at]);
+      uiPanel[at] = uiFrame[at];
+      sent++;
+    }
+  }
+
+  if (sent < UI_CELLS_PER_PASS) {
+    uiPending = false;
   }
 }
 
-static const __FlashStringHelper* uiItem_menu1(uint8_t index) {
+UiOut uiOut;
+
+size_t UiOut::write(uint8_t ch) {
+  if (ch >= ' ' && ch < 0x80) {
+    uiPut(ch);
+  }
+
+  return 1;
+}
+
+enum UiAlign : uint8_t {
+  UI_LEFT,
+  UI_CENTER,
+  UI_RIGHT
+};
+
+// A text in its field: where it lies there, and cut off at the field's end.
+static void uiPlace(int x, int y, int size, int width, UiAlign align, const char* text) {
+  int cells = 0;
+  for (const char* p = text; *p != 0; p++) {
+    if ((*p & 0xC0) != 0x80) {
+      cells++;
+    }
+  }
+
+  int room = width > cells ? width - cells : 0;
+  uiAt(x + (align == UI_CENTER ? room / 2 : align == UI_RIGHT ? room : 0) * (1), y, size);
+  int left = width;
+  for (const char* p = text; *p != 0; p++) {
+    if ((*p & 0xC0) != 0x80 && left-- == 0) {
+      break;
+    }
+
+    uiOut.write((uint8_t)*p);
+  }
+}
+
+static void uiSayItem_menu1(uint8_t index) {
   switch (index) {
-    case 0: return F("Sensor");
-    case 1: return F("About");
-    case 2: return F("Back");
-    default: return F("");
+    case 0:
+      uiOut.print(F("Sensor"));
+      break;
+    case 1:
+      uiOut.print(F("About"));
+      break;
+    case 2:
+      uiOut.print(F("Back"));
+      break;
+    default:
+      break;
   }
 }
 
 static void uiDrawMenu_menu1() {
-  uiAt(0, 1, 1);
   if (uiMenuTop + 0 < 3) {
-    uiDisplay.print(uiMenuTop + 0 == uiMenuIndex ? '>' : ' ');
-    uiDisplay.print(uiItem_menu1(uiMenuTop + 0));
+    uiAt(0, 1, 1);
+    if (uiMenuTop + 0 == uiMenuIndex) {
+      uiOut.print(F(">"));
+    } else {
+      uiOut.print(F(" "));
+    }
+    uiSayItem_menu1(uiMenuTop + 0);
   }
-  uiAt(0, 2, 1);
   if (uiMenuTop + 1 < 3) {
-    uiDisplay.print(uiMenuTop + 1 == uiMenuIndex ? '>' : ' ');
-    uiDisplay.print(uiItem_menu1(uiMenuTop + 1));
+    uiAt(0, 2, 1);
+    if (uiMenuTop + 1 == uiMenuIndex) {
+      uiOut.print(F(">"));
+    } else {
+      uiOut.print(F(" "));
+    }
+    uiSayItem_menu1(uiMenuTop + 1);
   }
-  uiAt(0, 3, 1);
   if (uiMenuTop + 2 < 3) {
-    uiDisplay.print(uiMenuTop + 2 == uiMenuIndex ? '>' : ' ');
-    uiDisplay.print(uiItem_menu1(uiMenuTop + 2));
+    uiAt(0, 3, 1);
+    if (uiMenuTop + 2 == uiMenuIndex) {
+      uiOut.print(F(">"));
+    } else {
+      uiOut.print(F(" "));
+    }
+    uiSayItem_menu1(uiMenuTop + 2);
   }
 }
 
 // Главный
 static void uiDraw_home() {
   uiAt(0, 0, 1);
-  uiDisplay.print(F("ArduSim screens"));
+  uiOut.print(F("ArduSim screens"));
   uiAt(0, 2, 1);
-  uiDisplay.print(F("Up:"));
+  uiOut.print(F("Up:"));
   {
-    char text[6] = "";
+    char text[16] = "";
     uiValue_uptime(text, sizeof text);
-    uiAt(4, 2, 1);
-    uiPrintField(text, 5);
+    uiPlace(4, 2, 1, 5, UI_LEFT, text);
   }
   uiAt(0, 3, 1);
-  uiDisplay.print(F("Press knob: menu"));
+  uiOut.print(F("Press knob: menu"));
 }
 
 // Датчик
 static void uiDraw_screen1() {
   uiAt(0, 0, 1);
-  uiDisplay.print(F("Sensor on A0"));
+  uiOut.print(F("Sensor on A0"));
   {
-    char text[6] = "";
+    char text[16] = "";
     uiValue_adc(text, sizeof text);
-    uiAt(0, 1, 1);
-    uiPrintField(text, 5);
+    uiPlace(0, 1, 1, 5, UI_LEFT, text);
   }
   uiAt(0, 3, 1);
-  uiDisplay.print(F("Press knob: menu"));
+  uiOut.print(F("Press knob: menu"));
 }
 
 // О программе
 static void uiDraw_screen2() {
   uiAt(0, 0, 1);
-  uiDisplay.print(F("Made on the map"));
+  uiOut.print(F("Made on the map"));
   uiAt(0, 1, 1);
-  uiDisplay.print(F("of the Screens tab"));
+  uiOut.print(F("of the Screens tab"));
 }
 
 // Меню
 static void uiDraw_menu1() {
   uiAt(0, 0, 1);
-  uiDisplay.print(F("Menu"));
+  uiOut.print(F("Menu"));
   uiDrawMenu_menu1();
 }
 
@@ -126,36 +227,17 @@ static void uiDrawScreen() {
   uiShow();
 }
 
-// What changes on its own. A character display rewrites only these cells; an OLED, its whole buffer.
-static void uiDrawValues() {
-  switch (uiScreen) {
-    case UI_HOME:
-      {
-        char text[6] = "";
-        uiValue_uptime(text, sizeof text);
-        uiAt(4, 2, 1);
-        uiPrintField(text, 5);
-      }
-      break;
-    case UI_SCREEN1:
-      {
-        char text[6] = "";
-        uiValue_adc(text, sizeof text);
-        uiAt(0, 1, 1);
-        uiPrintField(text, 5);
-      }
-      break;
-    default:
-      break;
-  }
+static bool uiArrive() {
+  uiMenuIndex = 0;
+  uiMenuTop = 0;
+  return true;
 }
 
 static void uiEnter(UiScreen next) {
   uiScreen = next;
   uiEnteredAt = millis();
-  uiMenuIndex = 0;
-  uiMenuTop = 0;
-  uiDrawScreen();
+  uiDirty = true;
+  uiArrive();
 }
 
 void uiGoTo(UiScreen screen) {
@@ -163,20 +245,22 @@ void uiGoTo(UiScreen screen) {
 }
 
 void uiRedraw() {
-  uiDrawScreen();
+  uiDirty = true;
 }
 
 UiScreen uiCurrent() {
   return uiScreen;
 }
 
-void uiSend(UiEvent event) {
+// What an event does on each screen, then on any screen. True if something took it.
+static bool uiHandle(UiEvent event) {
   switch (uiScreen) {
     case UI_HOME:
       switch (event) {
         case UI_ON_ENC1_PRESS:
           uiEnter(UI_MENU1);
-          return;
+          uiDirty = true;
+          return true;
         default:
           break;
       }
@@ -185,7 +269,8 @@ void uiSend(UiEvent event) {
       switch (event) {
         case UI_ON_ENC1_PRESS:
           uiEnter(UI_MENU1);
-          return;
+          uiDirty = true;
+          return true;
         default:
           break;
       }
@@ -200,26 +285,35 @@ void uiSend(UiEvent event) {
             if (uiMenuIndex < uiMenuTop) {
               uiMenuTop = uiMenuIndex;
             }
-            uiDrawScreen();
+            uiDirty = true;
           }
-          return;
+          return true;
         case UI_ON_ENC1_RIGHT:
           if (uiMenuIndex + 1 < 3) {
             uiMenuIndex++;
             if (uiMenuIndex >= uiMenuTop + 3) {
               uiMenuTop = uiMenuIndex - 2;
             }
-            uiDrawScreen();
+            uiDirty = true;
           }
-          return;
+          return true;
         case UI_ON_ENC1_PRESS:
           switch (uiMenuIndex) {
-            case 0: uiEnter(UI_SCREEN1); break;
-            case 1: uiEnter(UI_SCREEN2); break;
-            case 2: uiEnter(UI_HOME); break;
+            case 0:
+              uiEnter(UI_SCREEN1);
+              uiDirty = true;
+              break;
+            case 1:
+              uiEnter(UI_SCREEN2);
+              uiDirty = true;
+              break;
+            case 2:
+              uiEnter(UI_HOME);
+              uiDirty = true;
+              break;
             default: break;
           }
-          return;
+          return true;
         default:
           break;
       }
@@ -232,10 +326,16 @@ void uiSend(UiEvent event) {
   switch (event) {
     case UI_ON_BTN1:
       uiEnter(UI_HOME);
-      break;
+      uiDirty = true;
+      return true;
     default:
       break;
   }
+  return false;
+}
+
+void uiSend(UiEvent event) {
+  uiHandle(event);
 }
 
 struct UiButton {
@@ -281,34 +381,51 @@ static void uiReadEncoder_enc1() {
   last = now;
 }
 
-void uiBegin() {
-  uiDisplay.init();
-  uiDisplay.backlight();
-  for (uint8_t i = 0; i < uiButtonCount; i++) {
-    pinMode(uiButtons[i].pin, uiButtons[i].activeLow ? INPUT_PULLUP : INPUT);
-  }
-  pinMode(4, INPUT_PULLUP);
-  pinMode(3, INPUT_PULLUP);
-  uiEnter(uiScreen);
-}
-
-void uiUpdate() {
-  uiReadButtons();
-  uiReadEncoder_enc1();
-
+static bool uiTimeouts() {
   uint32_t now = millis();
   switch (uiScreen) {
     case UI_SCREEN2:
       if (now - uiEnteredAt >= 800UL) {
         uiEnter(UI_HOME);
+        uiDirty = true;
+        uiEnteredAt = now;
+        return true;
       }
+
       break;
     default:
       break;
   }
 
-  if (now - uiValuesAt >= 250UL) {
-    uiValuesAt = now;
-    uiDrawValues();
+  return false;
+}
+
+void uiBegin() {
+  uiDisplay.init();
+  uiDisplay.backlight();
+  uiDisplay.clear();
+  memset(uiFrame, ' ', UI_CELLS);
+  memset(uiPanel, ' ', UI_CELLS);
+  for (uint8_t i = 0; i < uiButtonCount; i++) {
+    pinMode(uiButtons[i].pin, uiButtons[i].activeLow ? INPUT_PULLUP : INPUT);
   }
+  pinMode(4, INPUT_PULLUP);
+  pinMode(3, INPUT_PULLUP);
+  uiEnteredAt = millis();
+  uiArrive();
+}
+
+void uiUpdate() {
+  uiReadButtons();
+  uiReadEncoder_enc1();
+  uiTimeouts();
+
+  uint32_t now = millis();
+  if (uiDirty || now - uiDrawnAt >= 100UL) {
+    uiDirty = false;
+    uiDrawnAt = now;
+    uiDrawScreen();
+  }
+
+  uiFlush();
 }

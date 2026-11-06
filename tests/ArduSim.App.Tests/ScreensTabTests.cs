@@ -129,6 +129,241 @@ public sealed class ScreensTabTests : IDisposable
         return vm.Screens!;
     }
 
+    private const string DeviceScene = """
+        { "components": [
+            { "id": "board", "type": "arduino-nano-v3", "x": 0, "y": 0, "rotation": 0, "flip": false },
+            { "id": "lcd1", "type": "lcd", "x": 280, "y": 0, "rotation": 0, "flip": false, "properties": { "size": "20x4" } },
+            { "id": "bz1", "type": "buzzer", "x": 0, "y": 200, "rotation": 0, "flip": false },
+            { "id": "led1", "type": "led", "x": 100, "y": 200, "rotation": 0, "flip": false },
+            { "id": "r1", "type": "resistor", "x": 200, "y": 200, "rotation": 0, "flip": false }
+          ],
+          "wires": [
+            { "id": "w1", "from": { "component": "board", "pin": "A4" }, "to": { "component": "lcd1", "pin": "SDA" }, "waypoints": [], "color": "auto" },
+            { "id": "w2", "from": { "component": "board", "pin": "A5" }, "to": { "component": "lcd1", "pin": "SCL" }, "waypoints": [], "color": "auto" },
+            { "id": "w3", "from": { "component": "bz1", "pin": "1" }, "to": { "component": "board", "pin": "D10" }, "waypoints": [], "color": "auto" },
+            { "id": "w4", "from": { "component": "led1", "pin": "A" }, "to": { "component": "r1", "pin": "1" }, "waypoints": [], "color": "auto" },
+            { "id": "w5", "from": { "component": "r1", "pin": "2" }, "to": { "component": "board", "pin": "D11" }, "waypoints": [], "color": "auto" }
+          ] }
+        """;
+
+    private static async Task<ScreensViewModel> CreatedScreens(MainViewModel vm, string project)
+    {
+        await Opened(vm, project);
+        ScreensViewModel screens = ShowScreens(vm);
+        screens.CreateCommand.Execute(null);
+        return screens;
+    }
+
+    private static PropertyField Field(MainViewModel vm, string name) => vm.Properties!.Fields.First(f => f.Name == name);
+
+    [Fact]
+    public void Data_is_made_chosen_and_changed_from_the_panels_and_undoes() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+
+        screens.AddVariableCommand.Execute(null);
+
+        Assert.Equal("value", screens.SelectedVariableName);
+        Assert.Single(screens.VariableRows);
+        Assert.Null(screens.SelectedRow);
+        Assert.False(screens.ShowsScreenPanel);
+
+        Field(vm, "max").Text = "9";
+        Field(vm, "max").Commit();
+        Assert.Equal(9, screens.Document!.Variables[0].Max);
+
+        Field(vm, "name").Text = "count";
+        Field(vm, "name").Commit();
+        Assert.Equal("count", screens.SelectedVariableName);
+
+        Field(vm, "kind").SelectedOption = Field(vm, "kind").Options.First(o => o.Value == nameof(VariableKind.Flag));
+        Assert.Equal(VariableKind.Flag, screens.Document.Variables[0].Kind);
+        Assert.Equal(2, screens.Document.Variables[0].Options.Count);
+
+        Assert.True(screens.RemoveSelectedCommand.CanExecute(null));
+        screens.RemoveSelectedCommand.Execute(null);
+        Assert.Empty(screens.VariableRows);
+        screens.UndoEditCommand.Execute(null);
+        Assert.Single(screens.VariableRows);
+
+        screens.SelectedRow = screens.Rows[0];
+        Assert.True(screens.ShowsScreenPanel);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void A_name_that_cannot_be_used_stays_out_and_says_why() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        screens.AddVariableCommand.Execute(null);
+
+        Field(vm, "name").Text = "hour";
+        Field(vm, "name").Commit();
+
+        Assert.Equal("value", screens.Document!.Variables[0].Name);
+        Assert.NotEmpty(Field(vm, "name").Error);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void An_element_s_expression_that_cannot_be_read_stays_out_and_says_why() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        screens.IsFace = true;
+        screens.AddElementAt(ElementKind.Value, 0, 1);
+        ScreenElement element = screens.SelectedElement!;
+
+        Field(vm, "when").Text = "a +";
+        Field(vm, "when").Commit();
+        Assert.NotEmpty(Field(vm, "when").Error);
+        Assert.Empty(screens.SelectedElement!.When);
+
+        Field(vm, "when").Text = "uptime > 3";
+        Field(vm, "when").Commit();
+        Assert.Empty(Field(vm, "when").Error);
+        Assert.Equal("uptime > 3", screens.SelectedElement!.When);
+        Assert.Equal(element.Id, screens.SelectedElementId);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void Each_new_element_can_be_added_and_a_new_one_starts_from_the_first_variable() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        screens.AddVariableCommand.Execute(null);
+        screens.SelectScreen("home");
+        screens.IsFace = true;
+
+        foreach (string kind in (string[])["BigNumber", "Bar", "Symbol", "Input", "Drawn"])
+        {
+            Assert.True(screens.AddElementCommand.CanExecute(kind), kind);
+            screens.AddElementCommand.Execute(kind);
+            Assert.Equal(kind, screens.SelectedElement!.Kind.ToString());
+            Assert.Contains(vm.Properties!.Fields, f => f.Name == "when");
+        }
+
+        Assert.Contains(screens.SelectedScreen!.Elements, e => e.Kind == ElementKind.BigNumber && e.Text == "value");
+        Assert.Contains(screens.SelectedScreen.Elements, e => e.Kind == ElementKind.Symbol && e.Text == "bell");
+        Assert.Equal(6, screens.ElementRows.Count);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void An_action_is_added_changed_and_taken_away_on_a_transition() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        screens.AddVariableCommand.Execute(null);
+        screens.SelectScreen("home");
+        screens.AddTransitionCommand.Execute(null);
+        TransitionRow row = screens.TransitionRows[0];
+
+        row.Actions.AddCommand.Execute(null);
+        ActionRow action = screens.TransitionRows[0].Actions.Rows[0];
+        Assert.Equal(ActionKind.Set, screens.SelectedScreen!.Transitions[0].Actions[0].Kind);
+        Assert.Equal("value", action.SelectedTarget!.Value);
+
+        action.Value = "5";
+        Assert.Equal("5", screens.SelectedScreen!.Transitions[0].Actions[0].Value);
+
+        action.SelectedKind = action.Kinds.First(k => k.Value == nameof(ActionKind.Beep));
+        ScreenAction beep = screens.SelectedScreen!.Transitions[0].Actions[0];
+        Assert.Equal(ActionKind.Beep, beep.Kind);
+        Assert.Equal("bz1", beep.Target);
+
+        screens.TransitionRows[0].Actions.RemoveCommand.Execute(screens.TransitionRows[0].Actions.Rows[0]);
+        Assert.Empty(screens.SelectedScreen!.Transitions[0].Actions);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void A_transition_can_go_back_stay_or_wait_for_a_condition() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        screens.AddScreenCommand.Execute(null);
+        screens.SelectScreen("home");
+        screens.AddTransitionCommand.Execute(null);
+        TransitionRow row = screens.TransitionRows[0];
+
+        row.SelectedTarget = row.Targets.First(t => t.Value == ScreenDocument.Back);
+        Assert.Equal(ScreenDocument.Back, screens.SelectedScreen!.Transitions[0].Target);
+
+        row = screens.TransitionRows[0];
+        row.SelectedTrigger = row.Triggers.First(o => o.Value == ScreensViewModel.ConditionOption);
+        row = screens.TransitionRows[0];
+        Assert.True(row.NeedsValue);
+        row.TriggerValue = "uptime > 3";
+        Assert.Equal(TriggerKind.Condition, screens.SelectedScreen!.Transitions[0].Trigger.Kind);
+        Assert.Equal("uptime > 3", screens.SelectedScreen.Transitions[0].Trigger.Value);
+
+        row = screens.TransitionRows[0];
+        row.SelectedTarget = row.Targets.First(t => t.Value == "");
+        Assert.Equal("", screens.SelectedScreen!.Transitions[0].Target);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void A_symbol_is_drawn_dot_by_dot_and_a_drag_undoes_as_one() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        screens.AddGlyphCommand.Execute(null);
+        Assert.Equal("symbol", screens.SelectedGlyphName);
+        Assert.True(screens.HasSelectedGlyph);
+
+        screens.SetGlyphDot(0, 0, on: true, finished: false);
+        screens.SetGlyphDot(1, 0, on: true, finished: false);
+        screens.SetGlyphDot(4, 7, on: true, finished: true);
+
+        Assert.Equal(0b11000, screens.SelectedGlyphRows[0]);
+        Assert.Equal(0b00001, screens.SelectedGlyphRows[7]);
+        Assert.Contains("\"symbol\"", File.ReadAllText(Path.Combine(vm.ProjectDirectory!, ScreenDocument.FileName)), StringComparison.Ordinal);
+
+        screens.UndoEditCommand.Execute(null);
+        Assert.Equal(0, screens.SelectedGlyphRows[0]);
+        Assert.Equal(0, screens.SelectedGlyphRows[7]);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void What_will_not_work_shows_on_the_tab() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+        screens.IsFace = true;
+        Assert.Empty(screens.ProblemsText);
+
+        screens.AddElementAt(ElementKind.Input, 0, 1);
+
+        Assert.Contains("клавиатуры", screens.ProblemsText, StringComparison.Ordinal);
+
+        await vm.DisposeAsync();
+    });
+
+    [Fact]
+    public void What_actions_can_drive_comes_from_the_schematic() => OnSta(async () =>
+    {
+        MainViewModel vm = NewViewModel();
+        ScreensViewModel screens = await CreatedScreens(vm, Project(DeviceScene, EmptySketch));
+
+        Assert.Equal(["bz1"], screens.ActionTargets(ActionKind.Beep).Select(o => o.Value));
+        Assert.Equal(["led1"], screens.ActionTargets(ActionKind.Output).Select(o => o.Value));
+
+        await vm.DisposeAsync();
+    });
+
     [Fact]
     public void The_tab_is_there_with_a_display_on_the_schematic_and_not_without() => OnSta(async () =>
     {

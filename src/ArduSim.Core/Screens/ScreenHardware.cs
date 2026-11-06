@@ -22,12 +22,23 @@ public enum ScreenInputKind
 /// <param name="ActiveLow">A button that pulls its pin low.</param>
 public sealed record ScreenInput(string Part, ScreenInputKind Kind, IReadOnlyList<int> Pins, bool ActiveLow = true);
 
+/// <summary>A part on the schematic that an action can drive, and the board pin it is on.</summary>
+/// <param name="IsBuzzer">It sounds a tone rather than following a level.</param>
+public sealed record ScreenOutput(string Part, int Pin, bool IsBuzzer);
+
 /// <summary>How the display and the inputs are wired, as the generated code needs to know.</summary>
 /// <param name="Address">An I2C display's address; 0 on another bus.</param>
 /// <param name="LcdPins">A parallel LCD's RS, E, D4, D5, D6, D7, as board pin numbers.</param>
 /// <param name="OledSpiPins">An SPI OLED's DC, RES, CS, as board pin numbers.</param>
 /// <param name="Controller">An OLED's controller: <c>ssd1306</c>, <c>sh1106</c>, <c>ssd1309</c>.</param>
-public sealed record ScreenWiring(int Address, IReadOnlyList<int> LcdPins, IReadOnlyList<int> OledSpiPins, string Controller, IReadOnlyList<ScreenInput> Inputs);
+public sealed record ScreenWiring(int Address, IReadOnlyList<int> LcdPins, IReadOnlyList<int> OledSpiPins, string Controller, IReadOnlyList<ScreenInput> Inputs)
+{
+    /// <summary>What actions can drive.</summary>
+    public IReadOnlyList<ScreenOutput> Outputs { get; init; } = [];
+
+    /// <summary>The schematic has a DS3231, so the clock is that chip and not the board's own count.</summary>
+    public bool HasRtc { get; init; }
+}
 
 /// <summary>Reads the display and the inputs off the schematic: it knows the wiring (ADR-019).</summary>
 public static class ScreenHardware
@@ -95,10 +106,21 @@ public static class ScreenHardware
         }
 
         var inputs = new List<ScreenInput>();
+        var outputs = new List<ScreenOutput>();
         foreach (ComponentDocument part in scene.Components)
         {
             switch (part.Type)
             {
+                case "buzzer":
+                    AddOutput(outputs, part.Id, PinOf(part.Id, "1"), isBuzzer: true);
+                    break;
+                case "relay":
+                    AddOutput(outputs, part.Id, PinOf(part.Id, "IN"), isBuzzer: false);
+                    break;
+                case "led":
+                    int anode = PinOf(part.Id, "A");
+                    AddOutput(outputs, part.Id, anode >= 0 || boardPart is null ? anode : nets.PinThroughResistor(scene, part.Id, "A", boardPart.Id, board), isBuzzer: false);
+                    break;
                 case "pushbutton":
                     if (boardPart is not null && nets.Button(part.Id, boardPart.Id, board) is { } button)
                     {
@@ -128,7 +150,19 @@ public static class ScreenHardware
             }
         }
 
-        return new ScreenWiring(address, lcdPins, spiPins, controller, inputs);
+        return new ScreenWiring(address, lcdPins, spiPins, controller, inputs)
+        {
+            Outputs = outputs,
+            HasRtc = scene.Components.Any(c => c.Type == "ds3231"),
+        };
+    }
+
+    private static void AddOutput(List<ScreenOutput> outputs, string part, int pin, bool isBuzzer)
+    {
+        if (pin >= 0)
+        {
+            outputs.Add(new ScreenOutput(part, pin, isBuzzer));
+        }
     }
 
     private static string Choice(ComponentDocument part, string name, string fallback) =>
@@ -195,6 +229,22 @@ public static class ScreenHardware
                 if (board.FindPin(name) is { } found)
                 {
                     return found.Number;
+                }
+            }
+
+            return -1;
+        }
+
+        // An LED usually reaches its pin through a series resistor.
+        public int PinThroughResistor(SceneDocument scene, string part, string pin, string boardId, BoardProfile board)
+        {
+            (string, string) root = Find((part, pin));
+            foreach (ComponentDocument resistor in scene.Components.Where(c => c.Type == "resistor"))
+            {
+                string? other = Find((resistor.Id, "1")) == root ? "2" : Find((resistor.Id, "2")) == root ? "1" : null;
+                if (other is not null && BoardPin(resistor.Id, other, boardId, board) is >= 0 and var found)
+                {
+                    return found;
                 }
             }
 

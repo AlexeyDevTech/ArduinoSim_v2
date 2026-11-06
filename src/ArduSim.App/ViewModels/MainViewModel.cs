@@ -428,6 +428,41 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         return handled;
     }
 
+    /// <summary>A keypad's key from the computer's keyboard, while a run is active: the selected keypad's, or the first on the schematic.</summary>
+    public bool OnKeypadKey(int index)
+    {
+        if (!IsRunning || Scene is not { } scene)
+        {
+            return false;
+        }
+
+        PartViewModel? keypad = scene.SinglePart is { Type: "keypad" } selected ? selected : scene.Parts.FirstOrDefault(p => p.Type == "keypad");
+        if (keypad is null)
+        {
+            return false;
+        }
+
+        if (keypad.KeyIndex != index)
+        {
+            keypad.PressKey(index);
+        }
+
+        return true;
+    }
+
+    /// <summary>The computer's key is up: what the keypads hold lets go.</summary>
+    public bool OnKeypadKeyUp()
+    {
+        bool held = false;
+        foreach (PartViewModel keypad in Scene?.Parts.Where(p => p.Type == "keypad" && p.KeyIndex >= 0) ?? [])
+        {
+            keypad.ReleaseKey();
+            held = true;
+        }
+
+        return held;
+    }
+
     /// <summary>Before anything replaces the project: offers to save. False when the user cancelled.</summary>
     public bool ConfirmDiscard()
     {

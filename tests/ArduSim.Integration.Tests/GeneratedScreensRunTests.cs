@@ -205,6 +205,47 @@ public sealed partial class GeneratedScreensRunTests(ToolchainFixture toolchain)
         Assert.DoesNotContain("warning", result.Stdout, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task The_kitchen_timer_counts_down_on_any_screen_and_says_so_with_a_beep()
+    {
+        string project = RunnerProcess.CopyProject("examples/ScreensKitchenTimer");
+
+        // Its keypad's keys, in the part's order: 1 2 3 A / 4 5 6 B / 7 8 9 C / * 0 # D.
+        int at = 1500;
+        var keys = new List<string>();
+        void Key(int index, int gap = 200)
+        {
+            keys.AddRange(["--input", string.Create(CultureInfo.InvariantCulture, $"{at}:kp1:k{index}=1"), "--input", string.Create(CultureInfo.InvariantCulture, $"{at + 60}:kp1:k{index}=0")]);
+            at += gap;
+        }
+
+        Key(14);          // #: the timer
+        Key(0);           // 1
+        Key(13, 400);     // 0: 10 seconds
+        Key(14, 300);     // #: it starts
+        Key(12, 300);     // *: back to the clock, where it goes on
+        Key(3, 300);      // A: the menu
+        Key(9, 300);      // down to the stopwatch
+        Key(14, 300);     // #: the stopwatch
+        Key(14, 9500);    // #: it runs while the countdown runs out
+        Key(3, 400);      // any key closes the notification, and nothing else happens
+
+        RunResult result = await RunnerProcess.RunProjectAsync(project, ["--run-for", string.Create(CultureInfo.InvariantCulture, $"{at + 500}"), .. keys]);
+
+        Assert.True(result.ExitCode == 0, result.ToString());
+        Assert.DoesNotContain("warning", result.Stdout, StringComparison.Ordinal);
+        List<string[]> frames = Frames(result, "lcd1");
+        string text = string.Join('\n', frames.Select(f => string.Join('|', f)));
+        Assert.Contains(result.Timeline, e => e.Text == "bz1 frequency=1500");
+        int done = frames.FindIndex(f => f[1].Contains("BPEM", StringComparison.Ordinal));
+        Assert.True(done > 0, text);
+
+        // Closed by a key, it is back on the stopwatch, which has gone on counting.
+        string last = frames[^1][0];
+        Assert.StartsWith("CEK", last, StringComparison.Ordinal);
+        Assert.DoesNotContain("00:00.00", last, StringComparison.Ordinal);
+    }
+
     private static string[] Press(int at, string part) =>
         ["--input", string.Create(CultureInfo.InvariantCulture, $"{at}:{part}:pressed=1"), "--input", string.Create(CultureInfo.InvariantCulture, $"{at + 100}:{part}:pressed=0")];
 

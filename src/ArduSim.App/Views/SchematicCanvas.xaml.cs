@@ -1124,7 +1124,7 @@ public partial class SchematicCanvas : UserControl
     }
 
     /// <summary>A keypad's key by its label: digits, A-D, * and #.</summary>
-    private static int? KeypadIndex(Key key, bool shift)
+    public static int? KeypadIndex(Key key, bool shift)
     {
         char label = key switch
         {

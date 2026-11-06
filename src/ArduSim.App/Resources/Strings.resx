@@ -818,6 +818,10 @@
   <data name="Example_Ds3231Clock_Desc" xml:space="preserve"><value>RTClib читает дату, время и температуру микросхемы по I2C.</value></data>
   <data name="Example_Ds3231Clock_Try" xml:space="preserve"><value>Запустите: дата и время идут в Монитор порта; будильник раз в минуту тянет SQW к земле.</value></data>
   <data name="Example_Ds3231Clock_Keys" xml:space="preserve"><value>часы rtc время i2c будильник rtclib</value></data>
+  <data name="Example_ScreensKitchenTimer" xml:space="preserve"><value>Кухонный таймер без кода</value></data>
+  <data name="Example_ScreensKitchenTimer_Desc" xml:space="preserve"><value>Устройство целиком на вкладке «Экраны»: часы крупными цифрами, таймер с вводом с клавиатуры, секундомер, настройки в EEPROM, русский текст и уведомление поверх любого экрана со звуком.</value></data>
+  <data name="Example_ScreensKitchenTimer_Try" xml:space="preserve"><value>Запустите и нажимайте клавиши на клавиатуре компьютера: # открывает таймер, цифры задают время, снова # запускает. A открывает меню. Откройте «Экраны»: в левой панели данные и символы, в правой действия клавиш.</value></data>
+  <data name="Example_ScreensKitchenTimer_Keys" xml:space="preserve"><value>экраны таймер часы секундомер меню настройки кириллица данные действия устройство система keypad lcd 2004 buzzer eeprom</value></data>
   <data name="Example_ScreensMenu" xml:space="preserve"><value>Экраны и меню на LCD 2004</value></data>
   <data name="Example_ScreensMenu_Desc" xml:space="preserve"><value>Экраны и переходы нарисованы на вкладке «Экраны», код создан по ним: меню на энкодере, значения из вашего кода, возврат кнопкой.</value></data>
   <data name="Example_ScreensMenu_Try" xml:space="preserve"><value>Откройте вкладку «Экраны» и передвиньте текст. Запустите: нажатие на ручку открывает меню, поворот выбирает пункт, кнопка возвращает на главный экран.</value></data>
@@ -1131,7 +1135,7 @@
   <data name="Shortcuts_Canvas_20" xml:space="preserve"><value>Правая кнопка + мышь, стрелки|Сдвиг вида (стрелки: ничего не выделено)</value></data>
   <data name="Shortcuts_Running_8" xml:space="preserve"><value>Ctrl+щелчок по кнопке или клавише|Зафиксировать, ещё щелчок отпускает</value></data>
   <data name="Shortcuts_Running_9" xml:space="preserve"><value>Tab, затем стрелки, Page, Home, End|Ручка, энкодер, джойстик, датчик с клавиатуры</value></data>
-  <data name="Shortcuts_Running_10" xml:space="preserve"><value>Tab, затем 0-9, A-D, *, #|Клавиатура 4×4 с клавиатуры</value></data>
+  <data name="Shortcuts_Running_10" xml:space="preserve"><value>0-9, A-D, *, #|Клавиатура 4×4 на схеме</value></data>
   <data name="Tab_Screens" xml:space="preserve"><value>Экраны</value></data>
   <data name="Panel_Screens" xml:space="preserve"><value>Экраны</value></data>
   <data name="Panel_ScreensTip" xml:space="preserve"><value>Экраны проекта и переходы между ними: открывает вкладку «Экраны»</value></data>
@@ -1258,4 +1262,136 @@
   <data name="Explorer_GoToHeader" xml:space="preserve"><value>Перейти к заголовку</value></data>
   <data name="Explorer_GoToSource" xml:space="preserve"><value>Перейти к реализации</value></data>
   <data name="Screens_RowTransitionsTip" xml:space="preserve"><value>Переходов с этого экрана</value></data>
+  <data name="Screens_AddBig" xml:space="preserve"><value>Крупные цифры</value></data>
+  <data name="Screens_AddBigTip" xml:space="preserve"><value>Число или время высотой в две строки на LCD, крупным шрифтом на OLED</value></data>
+  <data name="Screens_AddBar" xml:space="preserve"><value>Полоса</value></data>
+  <data name="Screens_AddBarTip" xml:space="preserve"><value>Полоса заполнения: значение из максимума</value></data>
+  <data name="Screens_AddSymbol" xml:space="preserve"><value>Символ</value></data>
+  <data name="Screens_AddSymbolTip" xml:space="preserve"><value>Один символ из раздела «Символы». В тексте символ пишется как {имя}</value></data>
+  <data name="Screens_AddInput" xml:space="preserve"><value>Поле ввода</value></data>
+  <data name="Screens_AddInputTip" xml:space="preserve"><value>Цифры с клавиатуры 4×4 для переменной: число, время или дата</value></data>
+  <data name="Screens_AddDrawn" xml:space="preserve"><value>Свой код</value></data>
+  <data name="Screens_AddDrawnTip" xml:space="preserve"><value>Участок экрана, который рисует ваша функция в ui_hooks.cpp</value></data>
+  <data name="Screens_Element_BigNumber" xml:space="preserve"><value>Крупные цифры</value></data>
+  <data name="Screens_Element_Bar" xml:space="preserve"><value>Полоса</value></data>
+  <data name="Screens_Element_Symbol" xml:space="preserve"><value>Символ</value></data>
+  <data name="Screens_Element_Input" xml:space="preserve"><value>Поле ввода</value></data>
+  <data name="Screens_Element_Drawn" xml:space="preserve"><value>Свой код</value></data>
+  <data name="Screens_DataTitle" xml:space="preserve"><value>Данные</value></data>
+  <data name="Screens_SymbolsTitle" xml:space="preserve"><value>Символы</value></data>
+  <data name="Screens_AddVariableTip" xml:space="preserve"><value>Новая переменная: то, что экраны показывают и меняют</value></data>
+  <data name="Screens_AddGlyphTip" xml:space="preserve"><value>Новый символ 5×8</value></data>
+  <data name="Screens_VariableKind_Number" xml:space="preserve"><value>Число</value></data>
+  <data name="Screens_VariableKind_Flag" xml:space="preserve"><value>Флаг</value></data>
+  <data name="Screens_VariableKind_Choice" xml:space="preserve"><value>Выбор</value></data>
+  <data name="Screens_VariableKind_Time" xml:space="preserve"><value>Время</value></data>
+  <data name="Screens_VariableKind_Stopwatch" xml:space="preserve"><value>Секундомер</value></data>
+  <data name="Screens_VariableKind_Countdown" xml:space="preserve"><value>Отсчёт</value></data>
+  <data name="Screens_FieldName" xml:space="preserve"><value>Имя</value></data>
+  <data name="Screens_FieldKind" xml:space="preserve"><value>Что хранит</value></data>
+  <data name="Screens_FieldInitial" xml:space="preserve"><value>Начальное значение</value></data>
+  <data name="Screens_FieldMin" xml:space="preserve"><value>Наименьшее</value></data>
+  <data name="Screens_FieldMax" xml:space="preserve"><value>Наибольшее</value></data>
+  <data name="Screens_FieldWrap" xml:space="preserve"><value>Идти по кругу</value></data>
+  <data name="Screens_FieldSaved" xml:space="preserve"><value>Хранить в EEPROM</value></data>
+  <data name="Screens_FieldFlagInitial" xml:space="preserve"><value>Вначале включён</value></data>
+  <data name="Screens_FieldFlagWords" xml:space="preserve"><value>Слова «выключен | включён»</value></data>
+  <data name="Screens_FieldWords" xml:space="preserve"><value>Слова через |</value></data>
+  <data name="Screens_FieldChoiceInitial" xml:space="preserve"><value>Вначале выбран, номер с 0</value></data>
+  <data name="Screens_FieldCountdownInitial" xml:space="preserve"><value>Сколько отсчитывать</value></data>
+  <data name="Screens_UnitSeconds" xml:space="preserve"><value>с</value></data>
+  <data name="Screens_FlagOff" xml:space="preserve"><value>ВЫКЛ</value></data>
+  <data name="Screens_FlagOn" xml:space="preserve"><value>ВКЛ</value></data>
+  <data name="Screens_ChoiceOne" xml:space="preserve"><value>ОДИН</value></data>
+  <data name="Screens_ChoiceTwo" xml:space="preserve"><value>ДВА</value></data>
+  <data name="Screens_Yes" xml:space="preserve"><value>Да</value></data>
+  <data name="Screens_No" xml:space="preserve"><value>Нет</value></data>
+  <data name="Screens_BadName" xml:space="preserve"><value>«{0}» не подходит: имя из латинских букв и цифр, которого ещё нет</value></data>
+  <data name="Screens_VariableNote" xml:space="preserve"><value>В выражениях: {0}. В своём коде: uiVar_{0}.</value></data>
+  <data name="Screens_TimerNote" xml:space="preserve"><value>В выражениях: {0} (секунды), {0}_ms (миллисекунды), {0}_on (идёт). Запускается действиями.</value></data>
+  <data name="Screens_GlyphNote" xml:space="preserve"><value>Щелчок ставит и снимает точку. В тексте: {{{0}}}. Правка встроенного символа создаёт его копию в проекте. На один экран LCD помещается 8 своих символов и букв.</value></data>
+  <data name="Screens_SymbolSubtitle" xml:space="preserve"><value>символ 5×8</value></data>
+  <data name="Screens_NamesNote" xml:space="preserve"><value>Можно написать выражение: {0}.</value></data>
+  <data name="Screens_HookNote" xml:space="preserve"><value>Незнакомое имя: значение из функции uiValue_имя в ui_hooks.cpp.</value></data>
+  <data name="Screens_InputNote" xml:space="preserve"><value>Цифры идут в это поле на экране сами. Чтобы записать их в переменную, нужно действие «Записать ввод» на клавише или в пункте меню.</value></data>
+  <data name="Screens_TextNote" xml:space="preserve"><value>Кириллица показывается заглавными. Символ в тексте: {имя}.</value></data>
+  <data name="Screens_DrawnNote" xml:space="preserve"><value>Рисует функция uiCode_имя в ui_hooks.cpp: uiAt(x, y) и uiOut.print(...).</value></data>
+  <data name="Screens_FieldShows" xml:space="preserve"><value>Показывает</value></data>
+  <data name="Screens_FieldFormat" xml:space="preserve"><value>Вид</value></data>
+  <data name="Screens_FieldAlign" xml:space="preserve"><value>Выравнивание</value></data>
+  <data name="Screens_FieldWhen" xml:space="preserve"><value>Показывать, если</value></data>
+  <data name="Screens_FieldMaximum" xml:space="preserve"><value>Полная при (пусто: 100)</value></data>
+  <data name="Screens_FieldSymbol" xml:space="preserve"><value>Символ</value></data>
+  <data name="Screens_FieldInputFor" xml:space="preserve"><value>Куда записать</value></data>
+  <data name="Screens_FieldDigits" xml:space="preserve"><value>Цифр</value></data>
+  <data name="Screens_FieldFill" xml:space="preserve"><value>Цифры идут</value></data>
+  <data name="Screens_FillLeft" xml:space="preserve"><value>Слева</value></data>
+  <data name="Screens_FillRight" xml:space="preserve"><value>Справа</value></data>
+  <data name="Screens_FieldDrawnHook" xml:space="preserve"><value>Имя функции</value></data>
+  <data name="Screens_FieldRows" xml:space="preserve"><value>Строк</value></data>
+  <data name="Screens_Align_Left" xml:space="preserve"><value>Слева</value></data>
+  <data name="Screens_Align_Center" xml:space="preserve"><value>По центру</value></data>
+  <data name="Screens_Align_Right" xml:space="preserve"><value>Справа</value></data>
+  <data name="Screens_Format_Auto" xml:space="preserve"><value>Как есть</value></data>
+  <data name="Screens_Format_TwoDigits" xml:space="preserve"><value>Две цифры: 07</value></data>
+  <data name="Screens_Format_HourMinute" xml:space="preserve"><value>ЧЧ:ММ</value></data>
+  <data name="Screens_Format_HourMinuteSecond" xml:space="preserve"><value>ЧЧ:ММ:СС</value></data>
+  <data name="Screens_Format_MinuteSecond" xml:space="preserve"><value>ММ:СС</value></data>
+  <data name="Screens_Format_MinuteSecondCentis" xml:space="preserve"><value>ММ:СС.сс (из мс)</value></data>
+  <data name="Screens_Format_DateDayFirst" xml:space="preserve"><value>ДД.ММ.ГГГГ</value></data>
+  <data name="Screens_Format_DateMonthFirst" xml:space="preserve"><value>ММ.ДД.ГГГГ</value></data>
+  <data name="Screens_Format_DateYearFirst" xml:space="preserve"><value>ГГГГ-ММ-ДД</value></data>
+  <data name="Screens_Format_List" xml:space="preserve"><value>Слово из списка</value></data>
+  <data name="Screens_ExpressionBad" xml:space="preserve"><value>Это выражение не прочитать: {0}</value></data>
+  <data name="Screens_ExpressionUnknown" xml:space="preserve"><value>Нет такого имени: {0}</value></data>
+  <data name="Screens_FieldKeyHook" xml:space="preserve"><value>Клавиши в свой код</value></data>
+  <data name="Screens_FieldTickHook" xml:space="preserve"><value>Свой код на каждом проходе</value></data>
+  <data name="Screens_MenuCounter" xml:space="preserve"><value>Номер пункта вверху</value></data>
+  <data name="Screens_MenuMarker" xml:space="preserve"><value>Метка пункта (пусто: &gt;)</value></data>
+  <data name="Screens_Actions" xml:space="preserve"><value>Действия</value></data>
+  <data name="Screens_AddAction" xml:space="preserve"><value>Добавить действие</value></data>
+  <data name="Screens_OnEnter" xml:space="preserve"><value>При входе на экран</value></data>
+  <data name="Screens_ActionKind_Set" xml:space="preserve"><value>Присвоить</value></data>
+  <data name="Screens_ActionKind_Add" xml:space="preserve"><value>Прибавить</value></data>
+  <data name="Screens_ActionKind_Toggle" xml:space="preserve"><value>Переключить</value></data>
+  <data name="Screens_ActionKind_Start" xml:space="preserve"><value>Запустить</value></data>
+  <data name="Screens_ActionKind_Stop" xml:space="preserve"><value>Остановить</value></data>
+  <data name="Screens_ActionKind_StartStop" xml:space="preserve"><value>Запустить или остановить</value></data>
+  <data name="Screens_ActionKind_Reset" xml:space="preserve"><value>Сбросить</value></data>
+  <data name="Screens_ActionKind_InputCommit" xml:space="preserve"><value>Записать ввод</value></data>
+  <data name="Screens_ActionKind_InputErase" xml:space="preserve"><value>Стереть цифру ввода</value></data>
+  <data name="Screens_ActionKind_InputClear" xml:space="preserve"><value>Очистить ввод</value></data>
+  <data name="Screens_ActionKind_Beep" xml:space="preserve"><value>Звук</value></data>
+  <data name="Screens_ActionKind_Output" xml:space="preserve"><value>Включить вывод</value></data>
+  <data name="Screens_ActionKind_Hook" xml:space="preserve"><value>Функция в ui_hooks.cpp</value></data>
+  <data name="Screens_ActionValueSet" xml:space="preserve"><value>Значение</value></data>
+  <data name="Screens_ActionValueAdd" xml:space="preserve"><value>Сколько (можно отрицательное)</value></data>
+  <data name="Screens_ActionValueBeep" xml:space="preserve"><value>Гц и мс: 1000 200</value></data>
+  <data name="Screens_ActionValueOutput" xml:space="preserve"><value>Включён, если (не ноль)</value></data>
+  <data name="Screens_ActionValueHook" xml:space="preserve"><value>Имя функции uiAction_…</value></data>
+  <data name="Screens_TriggerAnyKey" xml:space="preserve"><value>Любая клавиша</value></data>
+  <data name="Screens_TriggerCondition" xml:space="preserve"><value>когда {0}</value></data>
+  <data name="Screens_TriggerFinished" xml:space="preserve"><value>{0} закончился</value></data>
+  <data name="Screens_OptionCondition" xml:space="preserve"><value>Когда условие станет верным</value></data>
+  <data name="Screens_GoBack" xml:space="preserve"><value>Назад, откуда пришли</value></data>
+  <data name="Screens_FieldTransitionWhen" xml:space="preserve"><value>Только если</value></data>
+  <data name="Screens_FieldTransitionWhenTip" xml:space="preserve"><value>Выражение: без него срабатывает всегда. У одной клавиши может быть несколько переходов с разными условиями</value></data>
+  <data name="Screens_ItemValue" xml:space="preserve"><value>Справа показывает</value></data>
+  <data name="Screens_ItemValueTip" xml:space="preserve"><value>Переменная или выражение, по правому краю строки</value></data>
+  <data name="Screens_ItemMark" xml:space="preserve"><value>Звёздочка, если</value></data>
+  <data name="Screens_ItemMarkTip" xml:space="preserve"><value>Выражение: например mode == 1</value></data>
+  <data name="Screens_ProblemsMore" xml:space="preserve"><value>И ещё замечаний: {0}</value></data>
+  <data name="Screens_ProblemOn" xml:space="preserve"><value>«{0}»: {1}</value></data>
+  <data name="Screens_ProblemAnywhere" xml:space="preserve"><value>С любого экрана: {0}</value></data>
+  <data name="Screens_Problem_BadExpression" xml:space="preserve"><value>выражение не прочитать: {0}</value></data>
+  <data name="Screens_Problem_UnknownName" xml:space="preserve"><value>нет такого имени: {0}</value></data>
+  <data name="Screens_Problem_WrongVariable" xml:space="preserve"><value>нет подходящей переменной: {0}</value></data>
+  <data name="Screens_Problem_TooManySymbols" xml:space="preserve"><value>своих символов и букв сразу {0}, а дисплей держит 8; лишние покажутся похожими</value></data>
+  <data name="Screens_Problem_NoShape" xml:space="preserve"><value>для «{0}» нет начертания, покажется вопрос</value></data>
+  <data name="Screens_Problem_UnknownSymbol" xml:space="preserve"><value>нет символа {0}</value></data>
+  <data name="Screens_Problem_NoKeypad" xml:space="preserve"><value>поле ввода есть, а клавиатуры 4×4 на схеме нет</value></data>
+  <data name="Screens_Problem_TwoInputs" xml:space="preserve"><value>два поля ввода: цифры пойдут в первое</value></data>
+  <data name="Screens_Problem_NoInput" xml:space="preserve"><value>действие записывает ввод, а поля ввода на экране нет</value></data>
+  <data name="Screens_Problem_NoPart" xml:space="preserve"><value>детали {0} нет на схеме или она не подключена</value></data>
+  <data name="Screens_ElementsTitle" xml:space="preserve"><value>На этом экране</value></data>
 </root>

@@ -170,16 +170,21 @@ public sealed class ScreenEditor(ScreenDocument document)
             Width = kind switch
             {
                 ElementKind.Value => 5,
-                ElementKind.Text => 0,
+                ElementKind.Text or ElementKind.Symbol or ElementKind.BigNumber => 0,
+                ElementKind.Input => 4,
                 ElementKind.Line => x + 20,
+                ElementKind.Bar => Document.Display.Family == DisplayFamily.CharLcd ? 10 : 60,
+                ElementKind.Drawn => Document.Display.Family == DisplayFamily.CharLcd ? 10 : 60,
                 _ => 20,
             },
             Height = kind switch
             {
                 ElementKind.Line => y,
-                ElementKind.Frame or ElementKind.Box => 10,
+                ElementKind.Frame or ElementKind.Box or ElementKind.Bar => 10,
+                ElementKind.Drawn => Document.Display.Family == DisplayFamily.CharLcd ? 1 : 16,
                 _ => 0,
             },
+            Size = kind == ElementKind.BigNumber && Document.Display.Family != DisplayFamily.CharLcd ? 3 : 1,
         };
         Replace(screen, s => s with { Elements = [.. s.Elements, element] });
         return element;
@@ -193,6 +198,138 @@ public sealed class ScreenEditor(ScreenDocument document)
         Replace(screen, s => s with { Elements = [.. s.Elements.Where(e => e.Id != element)] });
 
     public void SetMenu(string screen, ScreenMenu? menu) => Replace(screen, s => s with { Menu = menu });
+
+    /// <summary>What a screen's own settings say: what arriving there does, and whether its code takes keys and passes.</summary>
+    public void UpdateScreen(string screen, Func<ScreenNode, ScreenNode> change) => Replace(screen, change);
+
+    // ---- data and symbols -------------------------------------------------------------------------
+
+    /// <summary>A new variable, with a name nothing else has.</summary>
+    public ScreenVariable AddVariable(VariableKind kind, string stem, IReadOnlyList<string> options)
+    {
+        string name = stem;
+        for (int i = 2; ScreenExpression.IsKnown(Document, name); i++)
+        {
+            name = stem + i.ToString(CultureInfo.InvariantCulture);
+        }
+
+        var variable = new ScreenVariable { Name = name, Kind = kind, Options = options };
+        Apply(Document with { Variables = [.. Document.Variables, variable] });
+        return variable;
+    }
+
+    public void UpdateVariable(string name, Func<ScreenVariable, ScreenVariable> change) =>
+        Apply(Document with { Variables = [.. Document.Variables.Select(v => v.Name == name ? change(v) : v)] });
+
+    /// <summary>A variable under a new name, and every place that names it. False if the name cannot be used.</summary>
+    public bool RenameVariable(string name, string newName)
+    {
+        if (!IsName(newName) || ScreenExpression.IsKnown(Document, newName))
+        {
+            return false;
+        }
+
+        string Change(string text) => ScreenExpression.Rename(text, name, newName);
+        ScreenAction Act(ScreenAction action) => action with { Target = action.Target == name ? newName : action.Target, Value = action.Kind is ActionKind.Beep or ActionKind.Hook ? action.Value : Change(action.Value) };
+        IReadOnlyList<ScreenAction> Acts(IReadOnlyList<ScreenAction> actions) => [.. actions.Select(Act)];
+        ScreenTransition Transition(ScreenTransition transition) => transition with
+        {
+            Actions = Acts(transition.Actions),
+            Trigger = transition.Trigger with
+            {
+                When = Change(transition.Trigger.When),
+                Value = transition.Trigger.Kind is TriggerKind.Condition or TriggerKind.Finished ? Change(transition.Trigger.Value) : transition.Trigger.Value,
+            },
+        };
+        Apply(Document with
+        {
+            Variables = [.. Document.Variables.Select(v => v.Name == name ? v with { Name = newName } : v)],
+            FromAnywhere = [.. Document.FromAnywhere.Select(Transition)],
+            Screens =
+            [
+                .. Document.Screens.Select(s => s with
+                {
+                    OnEnter = Acts(s.OnEnter),
+                    Transitions = [.. s.Transitions.Select(Transition)],
+                    Elements = [.. s.Elements.Select(e => e with
+                    {
+                        When = Change(e.When),
+                        Maximum = Change(e.Maximum),
+                        Text = e.Kind is ElementKind.Value or ElementKind.BigNumber or ElementKind.Bar or ElementKind.Input ? Change(e.Text) : e.Text,
+                    })],
+                    Menu = s.Menu is null ? null : s.Menu with
+                    {
+                        Items = [.. s.Menu.Items.Select(i => i with { Actions = Acts(i.Actions), Value = Change(i.Value), Mark = Change(i.Mark) })],
+                    },
+                }),
+            ],
+        });
+        return true;
+    }
+
+    /// <summary>Removes a variable. What names it is left to say so: the tab lists it as a problem.</summary>
+    public void RemoveVariable(string name) =>
+        Apply(Document with { Variables = [.. Document.Variables.Where(v => v.Name != name)] });
+
+    /// <summary>A new symbol: empty, or a copy of what it starts from.</summary>
+    public ScreenGlyph AddGlyph(string stem, IReadOnlyList<byte>? rows = null)
+    {
+        string name = stem;
+        for (int i = 2; ScreenFont.Find(Document, name) is not null; i++)
+        {
+            name = stem + i.ToString(CultureInfo.InvariantCulture);
+        }
+
+        var glyph = new ScreenGlyph { Name = name, Rows = rows ?? new byte[8] };
+        Apply(Document with { Glyphs = [.. Document.Glyphs, glyph] });
+        return glyph;
+    }
+
+    /// <summary>A symbol's dots. A built-in one gets a copy in the project, under its name, that takes its place.</summary>
+    public void SetGlyphRows(string name, IReadOnlyList<byte> rows, bool checkpoint = true)
+    {
+        bool own = Document.Glyphs.Any(g => g.Name == name);
+        Apply(Document with
+        {
+            Glyphs = own
+                ? [.. Document.Glyphs.Select(g => g.Name == name ? g with { Rows = rows } : g)]
+                : [.. Document.Glyphs, new ScreenGlyph { Name = name, Rows = rows }],
+        }, checkpoint);
+    }
+
+    /// <summary>A symbol under a new name, and the places that name it. False if the name cannot be used.</summary>
+    public bool RenameGlyph(string name, string newName)
+    {
+        if (!IsName(newName) || ScreenFont.Find(Document, newName) is not null)
+        {
+            return false;
+        }
+
+        string Change(string text) => text.Replace("{" + name + "}", "{" + newName + "}", StringComparison.Ordinal);
+        Apply(Document with
+        {
+            Glyphs = [.. Document.Glyphs.Select(g => g.Name == name ? g with { Name = newName } : g)],
+            Screens =
+            [
+                .. Document.Screens.Select(s => s with
+                {
+                    Elements = [.. s.Elements.Select(e => e with { Text = e.Kind == ElementKind.Symbol && e.Text == name ? newName : e.Kind == ElementKind.Text ? Change(e.Text) : e.Text })],
+                    Menu = s.Menu is null ? null : s.Menu with
+                    {
+                        Marker = Change(s.Menu.Marker),
+                        Items = [.. s.Menu.Items.Select(i => i with { Text = Change(i.Text) })],
+                    },
+                }),
+            ],
+        });
+        return true;
+    }
+
+    public void RemoveGlyph(string name) =>
+        Apply(Document with { Glyphs = [.. Document.Glyphs.Where(g => g.Name != name)] });
+
+    private static bool IsName(string name) =>
+        name.Length > 0 && (char.IsAsciiLetter(name[0]) || name[0] == '_') && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
 
     /// <summary>A transition from a screen, or from any screen when <paramref name="from"/> is null.</summary>
     public void AddTransition(string? from, ScreenTrigger trigger, string target)

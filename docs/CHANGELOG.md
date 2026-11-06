@@ -1,5 +1,25 @@
 # Changelog
 
+## Screens: a whole device from the tab (2026-11-06)
+
+The tab could draw screens and link them, and the rest of a device was C++. The owner asked for the mechanisms to make a system like NanoOS, with NanoOS only an example: no template and no button that makes one. A generated project now has them, each usable without the others (ADR-019).
+
+- **Data** in the left panel: numbers with limits, flags, choices, times, stopwatches, countdowns, and any of the first four kept in EEPROM.
+- **Actions** on a key, a menu item or arriving on a screen: set, add, toggle, start, stop, reset, take what was typed, beep, drive an output, call a hook. **Conditions** where something depends on data, checked where they are typed.
+- **Going places**: back to where it came from, with a menu's place restored; staying; several transitions on a key with different conditions; any key; a condition becoming true; a countdown running out. A notification over any screen is made of these.
+- **Elements**: text and values aligned at run time, formats for time, date and words, big digits, a bar, a symbol, an input for numbers, times and dates, a place for a hook to draw. A menu's item number, its own mark, and a value or a star at a row's right edge.
+- **Russian text and symbols** on a character display, in the panel's eight programmable characters as they are needed, on any ROM, and on an OLED. A symbol editor, with a dozen to start from. A frame in RAM, so that a new screen does not flicker or keep keys waiting.
+- **A clock**: counted from the start, or a DS3231 if the schematic has one.
+- **The tab says what will not work**, such as a ninth programmable character on a screen, before it is built.
+- While running, the computer's 0-9, A-D, * and # press a keypad on the schematic. It used to be selected first.
+- New example: ScreensKitchenTimer, with no code of its own. `screens.json` is schema version 2, and version 1 files open as they were.
+
+A system like NanoOS was put together from these in a scratch folder, not kept, and driven key by key on the simulated hardware; it took C++ only for a month's grid and a calculator. Tested by building and running such devices on a 2004 on I2C, a parallel 1602, Adafruit, U8g2 and GyverOLED, an ESP32 and with a DS3231.
+
+Not done: free SRAM is still not real in a simulation (a monitor screen would show 0), lower-case Cyrillic, and the size of the firmware on real hardware, which takes an AVR compiler.
+
+How to try it: open the ScreensKitchenTimer example and press Запуск, then # on the keyboard, 1, 0 and # again, and look at Экраны for how it is made. Or start from any sketch with an LCD and a keypad: Экраны, Создать экраны, + next to Данные.
+
 ## Screens: sketches that draw through a display class of their own (2026-11-06)
 
 NanoOS v1.5 keeps its layout in methods of its own display class, its text in Cyrillic and its menus in one string, and the Экраны tab showed noise for it. The firmware and the simulation were right all along; this is about what the tab reads from code (ADR-019).

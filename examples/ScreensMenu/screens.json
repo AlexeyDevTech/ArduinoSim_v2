@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "source": "Generated",
   "display": {
     "family": "CharLcd",
@@ -7,10 +7,7 @@
     "height": 4,
     "library": "LiquidCrystalI2c",
     "variable": "uiDisplay",
-    "part": "lcd1",
-    "existing": false,
-    "typeName": "",
-    "textFromBaseline": false
+    "part": "lcd1"
   },
   "start": "home",
   "screens": [
@@ -27,9 +24,7 @@
           "width": 0,
           "height": 0,
           "size": 1,
-          "isConditional": false,
-          "isAlternative": false,
-          "isPlaced": true
+          "sample": null
         },
         {
           "id": "e2",
@@ -40,9 +35,7 @@
           "width": 0,
           "height": 0,
           "size": 1,
-          "isConditional": false,
-          "isAlternative": false,
-          "isPlaced": true
+          "sample": null
         },
         {
           "id": "e3",
@@ -53,9 +46,7 @@
           "width": 5,
           "height": 0,
           "size": 1,
-          "isConditional": false,
-          "isAlternative": false,
-          "isPlaced": true
+          "sample": null
         },
         {
           "id": "e4",
@@ -66,9 +57,7 @@
           "width": 0,
           "height": 0,
           "size": 1,
-          "isConditional": false,
-          "isAlternative": false,
-          "isPlaced": true
+          "sample": null
         }
       ],
       "transitions": [
@@ -76,17 +65,13 @@
           "trigger": {
             "kind": "EncoderPress",
             "part": "enc1",
-            "value": "",
-            "name": "",
-            "menuItem": -1,
-            "when": ""
+            "menuItem": -1
           },
           "target": "menu1"
         }
       ],
       "mapX": 0,
-      "mapY": 0,
-      "drawnElsewhere": false
+      "mapY": 0
     },
     {
       "id": "screen1",
@@ -101,9 +86,7 @@
           "width": 0,
           "height": 0,
           "size": 1,
-          "isConditional": false,
-          "isAlternative": false,
-          "isPlaced": true
+          "sample": null
         },
         {
           "id": "e2",
@@ -114,9 +97,7 @@
           "width": 5,
           "height": 0,
           "size": 1,
-          "isConditional": false,
-          "isAlternative": false,
-          "isPlaced": true
+          "sample": null
         },
         {
           "id": "e3",
@@ -127,9 +108,7 @@
           "width": 0,
           "height": 0,
           "size": 1,
-          "isConditional": false,
-          "isAlternative": false,
-          "isPlaced": true
+          "sample": null
         }
       ],
       "transitions": [
@@ -137,17 +116,13 @@
           "trigger": {
             "kind": "EncoderPress",
             "part": "enc1",
-            "value": "",
-            "name": "",
-            "menuItem": -1,
-            "when": ""
+            "menuItem": -1
           },
           "target": "menu1"
         }
       ],
       "mapX": 600,
-      "mapY": 0,
-      "drawnElsewhere": false
+      "mapY": 0
     },
     {
       "id": "screen2",
@@ -162,9 +137,7 @@
           "width": 0,
           "height": 0,
           "size": 1,
-          "isConditional": false,
-          "isAlternative": false,
-          "isPlaced": true
+          "sample": null
         },
         {
           "id": "e2",
@@ -175,27 +148,21 @@
           "width": 0,
           "height": 0,
           "size": 1,
-          "isConditional": false,
-          "isAlternative": false,
-          "isPlaced": true
+          "sample": null
         }
       ],
       "transitions": [
         {
           "trigger": {
             "kind": "Timeout",
-            "part": "",
             "value": "800",
-            "name": "",
-            "menuItem": -1,
-            "when": ""
+            "menuItem": -1
           },
           "target": "home"
         }
       ],
       "mapX": 600,
-      "mapY": 170,
-      "drawnElsewhere": false
+      "mapY": 170
     },
     {
       "id": "menu1",
@@ -210,27 +177,22 @@
           "width": 0,
           "height": 0,
           "size": 1,
-          "isConditional": false,
-          "isAlternative": false,
-          "isPlaced": true
+          "sample": null
         }
       ],
       "menu": {
         "items": [
           {
             "text": "Sensor",
-            "target": "screen1",
-            "action": ""
+            "target": "screen1"
           },
           {
             "text": "About",
-            "target": "screen2",
-            "action": ""
+            "target": "screen2"
           },
           {
             "text": "Back",
-            "target": "home",
-            "action": ""
+            "target": "home"
           }
         ],
         "top": 1,
@@ -238,32 +200,21 @@
         "up": {
           "kind": "EncoderLeft",
           "part": "enc1",
-          "value": "",
-          "name": "",
-          "menuItem": -1,
-          "when": ""
+          "menuItem": -1
         },
         "down": {
           "kind": "EncoderRight",
           "part": "enc1",
-          "value": "",
-          "name": "",
-          "menuItem": -1,
-          "when": ""
+          "menuItem": -1
         },
         "select": {
           "kind": "EncoderPress",
           "part": "enc1",
-          "value": "",
-          "name": "",
-          "menuItem": -1,
-          "when": ""
+          "menuItem": -1
         }
       },
-      "transitions": [],
       "mapX": 300,
-      "mapY": 0,
-      "drawnElsewhere": false
+      "mapY": 0
     }
   ],
   "fromAnywhere": [
@@ -271,10 +222,7 @@
       "trigger": {
         "kind": "Button",
         "part": "btn1",
-        "value": "",
-        "name": "",
-        "menuItem": -1,
-        "when": ""
+        "menuItem": -1
       },
       "target": "home"
     }

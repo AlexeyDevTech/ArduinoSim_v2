@@ -65,6 +65,8 @@ public sealed class ScreenMapView : FrameworkElement
     }
 
     private bool _fitted;
+    private object? _thumbnailVariables;
+    private object? _thumbnailGlyphs;
 
     private ScreenDocument? Document => _model?.Document;
 
@@ -82,12 +84,20 @@ public sealed class ScreenMapView : FrameworkElement
 
     private BitmapSource Thumbnail(ScreenNode screen, ScreenDisplay display)
     {
+        // A symbol or a variable changed: every picture may show it.
+        if (!ReferenceEquals(_thumbnailVariables, Document?.Variables) || !ReferenceEquals(_thumbnailGlyphs, Document?.Glyphs))
+        {
+            _thumbnails.Clear();
+            _thumbnailVariables = Document?.Variables;
+            _thumbnailGlyphs = Document?.Glyphs;
+        }
+
         if (_thumbnails.TryGetValue(screen.Id, out var known) && ReferenceEquals(known.Node, screen))
         {
             return known.Bitmap;
         }
 
-        BitmapSource bitmap = ScreenPreview.Render(screen, display);
+        BitmapSource bitmap = ScreenPreview.Render(screen, display, Document);
         _thumbnails[screen.Id] = (screen, bitmap);
         return bitmap;
     }

@@ -30,6 +30,9 @@ public sealed class ScreenFaceView : FrameworkElement
     private int _dragWidth;
     private int _dragHeight;
     private ScreenNode? _cachedFor;
+    private object? _cachedVariables;
+    private object? _cachedGlyphs;
+    private string? _cachedSelected;
     private BitmapSource? _bitmap;
 
     public ScreenFaceView()
@@ -90,15 +93,19 @@ public sealed class ScreenFaceView : FrameworkElement
             return;
         }
 
+        ScreenDocument? document = _model.Document;
         if (_moving is not null || _sizing is not null)
         {
-            _bitmap = ScreenPreview.Render(Live(screen), display);
+            _bitmap = ScreenPreview.Render(Live(screen), display, document, _model.SelectedElementId);
             _cachedFor = null;
         }
-        else if (!ReferenceEquals(_cachedFor, screen))
+        else if (!ReferenceEquals(_cachedFor, screen) || !ReferenceEquals(_cachedVariables, document?.Variables) || !ReferenceEquals(_cachedGlyphs, document?.Glyphs) || _cachedSelected != _model.SelectedElementId)
         {
-            _bitmap = ScreenPreview.Render(screen, display);
+            _bitmap = ScreenPreview.Render(screen, display, document, _model.SelectedElementId);
             _cachedFor = screen;
+            _cachedSelected = _model.SelectedElementId;
+            _cachedVariables = document?.Variables;
+            _cachedGlyphs = document?.Glyphs;
         }
 
         (int width, int height) = ScreenPreview.DotSize(display);
@@ -112,7 +119,7 @@ public sealed class ScreenFaceView : FrameworkElement
         var accent = (Brush)FindResource("Brush.Accent");
         var selected = new Pen(accent, 2);
         var other = new Pen(new SolidColorBrush(Color.FromArgb(70, 255, 255, 255)), 1);
-        foreach (ScreenElement element in ScreenPreview.Shown(screen, display))
+        foreach (ScreenElement element in ScreenPreview.Shown(screen, display, document, _model.SelectedElementId))
         {
             bool isSelected = element.Id == _model.SelectedElementId;
             Rect rect = ViewRect(Shown(element), display, scale, left, top);
@@ -141,9 +148,9 @@ public sealed class ScreenFaceView : FrameworkElement
         }
     }
 
-    private static Rect ViewRect(ScreenElement element, ScreenDisplay display, double scale, double left, double top)
+    private Rect ViewRect(ScreenElement element, ScreenDisplay display, double scale, double left, double top)
     {
-        Rect bounds = ScreenPreview.BoundsOf(element, display);
+        Rect bounds = ScreenPreview.BoundsOf(element, display, _model?.Document);
         return new Rect(left + (bounds.X * scale), top + (bounds.Y * scale), bounds.Width * scale, bounds.Height * scale);
     }
 
@@ -155,7 +162,7 @@ public sealed class ScreenFaceView : FrameworkElement
             return null;
         }
 
-        Rect bounds = ScreenPreview.BoundsOf(element, display);
+        Rect bounds = ScreenPreview.BoundsOf(element, display, _model.Document);
         if (element.Kind == ElementKind.Line && _model.CanResize(element))
         {
             return new Point(element.Width, element.Height);
@@ -181,9 +188,9 @@ public sealed class ScreenFaceView : FrameworkElement
 
         (double scale, double left, double top) = Placement(display);
         var point = new Point((position.X - left) / scale, (position.Y - top) / scale);
-        return ScreenPreview.Shown(screen, display).Reverse().FirstOrDefault(e =>
+        return ScreenPreview.Shown(screen, display, _model.Document, _model.SelectedElementId).Reverse().FirstOrDefault(e =>
         {
-            Rect bounds = ScreenPreview.BoundsOf(e, display);
+            Rect bounds = ScreenPreview.BoundsOf(e, display, _model?.Document);
             bounds.Inflate(2, 2);
             return bounds.Contains(point);
         });
@@ -248,8 +255,13 @@ public sealed class ScreenFaceView : FrameworkElement
 
     private void RequestTextEdit(ScreenElement element, ScreenDisplay display)
     {
-        bool editable = element.Kind == ElementKind.Text ? _model?.IsGenerated == true || element.TextSpan is not null
-            : element.Kind == ElementKind.Value && (_model?.IsGenerated == true || element.ExpressionSpan is not null);
+        bool editable = element.Kind switch
+        {
+            ElementKind.Text => _model?.IsGenerated == true || element.TextSpan is not null,
+            ElementKind.Value => _model?.IsGenerated == true || element.ExpressionSpan is not null,
+            ElementKind.BigNumber or ElementKind.Bar or ElementKind.Input or ElementKind.Drawn or ElementKind.Symbol => _model?.IsGenerated == true,
+            _ => false,
+        };
         if (editable)
         {
             (double scale, double left, double top) = Placement(display);
@@ -287,6 +299,8 @@ public sealed class ScreenFaceView : FrameworkElement
                 : Math.Max(1, sized.Width + across);
             _dragHeight = sized.Kind == ElementKind.Value ? sized.Height
                 : sized.Kind == ElementKind.Line ? Math.Clamp(sized.Height + down, 0, display.Height - 1)
+                : lcd && sized.Kind == ElementKind.Bar ? sized.Height
+                : lcd ? Math.Max(1, sized.Height + (int)Math.Round(moved.Y / (scale * 9)))
                 : Math.Max(1, sized.Height + down);
             InvalidateVisual();
         }

@@ -378,6 +378,10 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
         }
+        else if (!TextHasFocus && (modifiers & (ModifierKeys.Control | ModifierKeys.Alt)) == 0 && Views.SchematicCanvas.KeypadIndex(key, modifiers.HasFlag(ModifierKeys.Shift)) is int keypadKey && _viewModel.OnKeypadKey(keypadKey))
+        {
+            e.Handled = true;
+        }
         else if (_viewModel.IsCanvasVisible && !Canvas.IsKeyboardFocusWithin && !BottomTabs.IsKeyboardFocusWithin
             && Keyboard.FocusedElement is not (TextBox or TextArea or ComboBox or ComboBoxItem or MenuItem or ListBoxItem) && Canvas.HandlesKey(key, modifiers))
         {
@@ -391,6 +395,10 @@ public partial class MainWindow : Window
     {
         Key key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (!TextHasFocus && _viewModel.OnKey(key.ToString(), down: false))
+        {
+            e.Handled = true;
+        }
+        else if (!TextHasFocus && Views.SchematicCanvas.KeypadIndex(key, shift: false) is not null && _viewModel.OnKeypadKeyUp())
         {
             e.Handled = true;
         }
@@ -540,6 +548,15 @@ public partial class MainWindow : Window
             case Key.Up or Key.Down when field.Step(e.Key == Key.Up ? 1 : -1):
                 e.Handled = true;
                 break;
+        }
+    }
+
+    // A name picked from a field's list counts as typed and confirmed.
+    private void OnSuggestionPicked(object? sender, EventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: PropertyField field })
+        {
+            field.Commit();
         }
     }
 

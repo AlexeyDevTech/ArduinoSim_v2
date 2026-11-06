@@ -59,6 +59,7 @@ public sealed partial class TransitionRow : ObservableObject
 {
     private readonly ScreensViewModel _owner;
     private bool _loaded;
+    private ActionList? _actions;
 
     public TransitionRow(ScreensViewModel owner, string? from, int index)
     {
@@ -108,11 +109,21 @@ public sealed partial class TransitionRow : ObservableObject
     [ObservableProperty]
     public partial OptionItem? SelectedTarget { get; set; }
 
-    /// <summary>A timeout's milliseconds or an event's name.</summary>
+    /// <summary>A timeout's milliseconds, an event's name or a condition.</summary>
     [ObservableProperty]
     public partial string TriggerValue { get; set; } = "";
 
-    public bool NeedsValue => SelectedTrigger?.Value is ScreensViewModel.TimeoutOption or ScreensViewModel.EventOption;
+    public bool NeedsValue => SelectedTrigger?.Value is ScreensViewModel.TimeoutOption or ScreensViewModel.EventOption or ScreensViewModel.ConditionOption;
+
+    /// <summary>It happens only while this is true, in a generated project.</summary>
+    [ObservableProperty]
+    public partial string When { get; set; } = "";
+
+    [ObservableProperty]
+    public partial bool IsGenerated { get; private set; }
+
+    /// <summary>What it does first.</summary>
+    public ActionList Actions => _actions ??= new ActionList(_owner, list => _owner.SetTransitionActions(this, list));
 
     /// <summary>Takes what the model says now, without treating it as an edit.</summary>
     public void Update(ScreenTransition transition, ScreenNode? from, IReadOnlyList<OptionItem> triggers, IReadOnlyList<OptionItem> targets, bool generated)
@@ -121,7 +132,7 @@ public sealed partial class TransitionRow : ObservableObject
         Transition = transition;
         TriggerText = ScreensViewModel.TriggerText(transition.Trigger, from);
         TargetText = transition.Target;
-        Tip = ScreensViewModel.TipOf(transition);
+        Tip = generated ? "" : ScreensViewModel.TipOf(transition);
         Triggers = triggers;
         Targets = targets;
         CanEditTrigger = generated || transition.KeySpan is not null;
@@ -129,8 +140,15 @@ public sealed partial class TransitionRow : ObservableObject
         CanRemove = generated || transition.RemoveSpans.Count > 0;
         HasCode = transition.Location is not null;
         TriggerValue = transition.Trigger.Value;
+        When = transition.Trigger.When;
+        IsGenerated = generated;
         SelectedTrigger = triggers.FirstOrDefault(o => o.Value == ScreensViewModel.OptionOf(transition.Trigger) || o.Value == ScreensViewModel.OptionOf(transition.Trigger with { Part = "" }));
         SelectedTarget = targets.FirstOrDefault(o => o.Value == transition.Target);
+        if (generated)
+        {
+            Actions.Update(transition.Actions);
+        }
+
         _loaded = true;
     }
 
@@ -139,6 +157,8 @@ public sealed partial class TransitionRow : ObservableObject
     partial void OnSelectedTargetChanged(OptionItem? value) => Edited(value is not null);
 
     partial void OnTriggerValueChanged(string value) => Edited(value != Transition.Trigger.Value);
+
+    partial void OnWhenChanged(string value) => Edited(value != Transition.Trigger.When);
 
     private void Edited(bool changed)
     {
@@ -154,6 +174,7 @@ public sealed partial class MenuRow : ObservableObject
 {
     private readonly ScreensViewModel _owner;
     private bool _loaded;
+    private ActionList? _actions;
 
     public MenuRow(ScreensViewModel owner, int index)
     {
@@ -191,11 +212,30 @@ public sealed partial class MenuRow : ObservableObject
     [NotifyPropertyChangedFor(nameof(NeedsAction))]
     public partial OptionItem? SelectedTarget { get; set; }
 
-    public bool NeedsAction => CanEditTarget && SelectedTarget is { Value: "" };
+    /// <summary>The older way of saying what an item runs, shown for an item that says it that way; a step among its actions does the same.</summary>
+    public bool NeedsAction => CanEditTarget && SelectedTarget is { Value: "" } && Item.Action.Length > 0;
+
+    /// <summary>What shows at the row's right edge.</summary>
+    [ObservableProperty]
+    public partial string ItemValue { get; set; } = "";
+
+    /// <summary>A star shows there while this is true.</summary>
+    [ObservableProperty]
+    public partial string Mark { get; set; } = "";
+
+    /// <summary>What choosing it does first.</summary>
+    public ActionList Actions => _actions ??= new ActionList(_owner, list => _owner.SetMenuItemActions(this, list));
 
     public void Update(ScreenMenuItem item, IReadOnlyList<OptionItem> targets, bool generated)
     {
         _loaded = false;
+        ItemValue = item.Value;
+        Mark = item.Mark;
+        if (generated)
+        {
+            Actions.Update(item.Actions);
+        }
+
         Item = item;
         Targets = targets;
         CanEditText = generated || item.TextSpan is not null;
@@ -215,6 +255,10 @@ public sealed partial class MenuRow : ObservableObject
 
     partial void OnActionChanged(string value) => Edited(value != Item.Action);
 
+    partial void OnItemValueChanged(string value) => Edited(value != Item.Value);
+
+    partial void OnMarkChanged(string value) => Edited(value != Item.Mark);
+
     private void Edited(bool changed)
     {
         if (_loaded && changed)
@@ -232,6 +276,7 @@ public sealed partial class ScreensViewModel : ObservableObject
 {
     public const string TimeoutOption = "timeout";
     public const string EventOption = "event";
+    public const string ConditionOption = ConditionKey;
     private const string NoTarget = "";
 
     private static readonly string[] KeypadKeys = ["1", "2", "3", "A", "4", "5", "6", "B", "7", "8", "9", "C", "*", "0", "#", "D"];
@@ -318,10 +363,10 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     public ScreenRow? SelectedRow
     {
-        get => Rows.FirstOrDefault(r => r.Id == SelectedScreenId);
+        get => IsAboutScreen ? Rows.FirstOrDefault(r => r.Id == SelectedScreenId) : null;
         set
         {
-            if (value is not null && value.Id != SelectedScreenId)
+            if (value is not null && (value.Id != SelectedScreenId || !IsAboutScreen))
             {
                 SelectScreen(value.Id);
             }
@@ -338,7 +383,9 @@ public sealed partial class ScreensViewModel : ObservableObject
     public bool CanAddElements => IsFace && SelectedScreen is { } screen && (IsGenerated || screen.DrawInsert is not null);
 
     public bool CanRemoveSelected =>
-        IsGenerated ? SelectedElementId is not null || SelectedTransition is not null || SelectedScreen is not null
+        SelectedVariableName is not null ? IsGenerated
+        : SelectedGlyphName is { } glyph ? IsGenerated && Document?.Glyphs.Any(g => g.Name == glyph) == true
+        : IsGenerated ? SelectedElementId is not null || SelectedTransition is not null || SelectedScreen is not null
         : SelectedElement is { } element ? element.RemoveSpans.Count > 0
         : SelectedTransition is { } picked ? TransitionAt(picked)?.RemoveSpans.Count > 0
         : SelectedScreen?.RemoveSpans.Count > 0;
@@ -350,7 +397,7 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     public bool CanAddTransition => CanConnect && SelectedScreen is not null && SelectedElementId is null;
 
-    public bool CanDuplicate => SelectedElement is not null ? CanAddElements : IsGenerated && SelectedScreen is not null;
+    public bool CanDuplicate => IsAboutScreen && (SelectedElement is not null ? CanAddElements : IsGenerated && SelectedScreen is not null);
 
     public bool ShowsMapHint => IsMap && (CanAddScreens || CanConnect);
 
@@ -358,23 +405,53 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     public bool CanAddMenuItem => IsGenerated && SelectedScreen?.Menu is not null && SelectedElementId is null;
 
-    public bool ShowsScreenPanel => SelectedScreen is not null && SelectedElementId is null;
+    public bool ShowsScreenPanel => IsAboutScreen && SelectedScreen is not null && SelectedElementId is null;
 
     public bool HasTransitions => TransitionRows.Count > 0;
 
     public bool HasAnywhere => AnywhereRows.Count > 0;
 
-    public bool ShowsAnywhere => (IsGenerated || HasAnywhere) && SelectedElementId is null;
+    public bool ShowsAnywhere => IsAboutScreen && (IsGenerated || HasAnywhere) && SelectedElementId is null;
 
-    public bool HasMenu => SelectedScreen?.Menu is not null && SelectedElementId is null;
+    public bool HasMenu => IsAboutScreen && SelectedScreen?.Menu is not null && SelectedElementId is null;
 
-    public bool HasSourceLink => SelectedElement?.Location is not null || (SelectedElementId is null && SelectedScreen?.Location is not null);
+    public bool HasSourceLink => IsAboutScreen && (SelectedElement?.Location is not null || (SelectedElementId is null && SelectedScreen?.Location is not null));
 
     /// <summary>Why a selected thing cannot be edited here: what is computed at run time, a screen that draws itself.</summary>
     public string ElementNote
     {
         get
         {
+            if (SelectedVariable is { } variable)
+            {
+                return variable.Kind is VariableKind.Stopwatch or VariableKind.Countdown ? Strings.Format("Screens_TimerNote", variable.Name) : Strings.Format("Screens_VariableNote", variable.Name);
+            }
+
+            if (SelectedGlyphName is { } glyph)
+            {
+                return Strings.Format("Screens_GlyphNote", glyph);
+            }
+
+            if (IsGenerated && SelectedElement is { Kind: ElementKind.Value or ElementKind.BigNumber or ElementKind.Bar } shown)
+            {
+                return NamesNote + (shown.Kind == ElementKind.Bar ? "" : "\n" + Strings.Get("Screens_HookNote"));
+            }
+
+            if (IsGenerated && SelectedElement is { Kind: ElementKind.Input })
+            {
+                return Strings.Get("Screens_InputNote");
+            }
+
+            if (IsGenerated && SelectedElement is { Kind: ElementKind.Text })
+            {
+                return Strings.Get("Screens_TextNote");
+            }
+
+            if (IsGenerated && SelectedElement is { Kind: ElementKind.Drawn })
+            {
+                return Strings.Get("Screens_DrawnNote");
+            }
+
             string general =
                 SelectedElement is { Kind: ElementKind.Value, ExpressionSpan: null } && IsFromCode ? Strings.Get("Screens_ComputedNote")
                 : SelectedElement is { IsConditional: true } ? Strings.Get("Screens_ConditionalNote")
@@ -530,6 +607,7 @@ public sealed partial class ScreensViewModel : ObservableObject
             SelectedScreenId = null;
         }
 
+        RebuildData(document);
         SelectedScreenId ??= document?.Find(document.Start)?.Id ?? (document is { Screens.Count: > 0 } ? document.Screens[0].Id : null);
         if (SelectedElementId is not null && SelectedElement is null)
         {
@@ -546,6 +624,7 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     private void RaiseAll()
     {
+        RebuildElementRows();
         OnPropertyChanged(string.Empty);
         RebuildPanel();
         RaiseCommands();
@@ -564,6 +643,8 @@ public sealed partial class ScreensViewModel : ObservableObject
         AddAnywhereCommand.NotifyCanExecuteChanged();
         AddMenuItemCommand.NotifyCanExecuteChanged();
         AddElementCommand.NotifyCanExecuteChanged();
+        AddVariableCommand.NotifyCanExecuteChanged();
+        AddGlyphCommand.NotifyCanExecuteChanged();
         DuplicateSelectedCommand.NotifyCanExecuteChanged();
         CenterSelectedCommand.NotifyCanExecuteChanged();
         GoToCodeCommand.NotifyCanExecuteChanged();
@@ -578,6 +659,8 @@ public sealed partial class ScreensViewModel : ObservableObject
         SelectedScreenId = id;
         SelectedElementId = null;
         SelectedTransition = null;
+        SelectedVariableName = null;
+        SelectedGlyphName = null;
         RaiseAll();
     }
 
@@ -585,6 +668,8 @@ public sealed partial class ScreensViewModel : ObservableObject
     {
         SelectedElementId = id;
         SelectedTransition = null;
+        SelectedVariableName = null;
+        SelectedGlyphName = null;
         RaiseAll();
     }
 
@@ -592,6 +677,8 @@ public sealed partial class ScreensViewModel : ObservableObject
     {
         SelectedTransition = (from, index);
         SelectedElementId = null;
+        SelectedVariableName = null;
+        SelectedGlyphName = null;
         if (from is not null)
         {
             SelectedScreenId = from;
@@ -620,6 +707,9 @@ public sealed partial class ScreensViewModel : ObservableObject
             TriggerKind.EncoderPress => Strings.Format("Screens_TriggerPress", trigger.Part),
             TriggerKind.Timeout => Strings.Format("Screens_TriggerTimeout", trigger.Value),
             TriggerKind.Event => trigger.Value,
+            TriggerKind.AnyKey => Strings.Get("Screens_TriggerAnyKey"),
+            TriggerKind.Condition => Strings.Format("Screens_TriggerCondition", trigger.Value),
+            TriggerKind.Finished => Strings.Format("Screens_TriggerFinished", trigger.Value),
             _ => Strings.Get("Screens_TriggerCode"),
         };
         if (trigger.MenuItem >= 0)
@@ -693,6 +783,9 @@ public sealed partial class ScreensViewModel : ObservableObject
             TriggerKind.EncoderPress => "press:" + trigger.Part,
             TriggerKind.Timeout => TimeoutOption,
             TriggerKind.Event => EventOption,
+            TriggerKind.AnyKey => AnyKeyKey,
+            TriggerKind.Condition => ConditionOption,
+            TriggerKind.Finished => "finished:" + trigger.Value,
             _ => "code",
         };
     }
@@ -708,6 +801,9 @@ public sealed partial class ScreensViewModel : ObservableObject
             "right" => new ScreenTrigger(TriggerKind.EncoderRight, parts[1]),
             "press" => new ScreenTrigger(TriggerKind.EncoderPress, parts[1]),
             TimeoutOption => new ScreenTrigger(TriggerKind.Timeout, Value: int.TryParse(value, NumberStyles.Integer, CultureInfo.CurrentCulture, out int ms) && ms > 0 ? ms.ToString(CultureInfo.InvariantCulture) : "1000"),
+            AnyKeyKey => new ScreenTrigger(TriggerKind.AnyKey),
+            ConditionOption => new ScreenTrigger(TriggerKind.Condition, Value: value.Trim()),
+            "finished" => new ScreenTrigger(TriggerKind.Finished, Value: parts[1]),
             _ => new ScreenTrigger(TriggerKind.Event, Value: value.Length > 0 && !int.TryParse(value, out _) ? ScreenCodeGenerator.Identifier(value) : "myEvent"),
         };
     }
@@ -743,7 +839,10 @@ public sealed partial class ScreensViewModel : ObservableObject
     public IReadOnlyList<OptionItem> TriggerOptions()
     {
         List<OptionItem> options = InputOptions();
+        options.Add(new OptionItem(AnyKeyKey, Strings.Get("Screens_TriggerAnyKey"), null));
         options.Add(new OptionItem(TimeoutOption, Strings.Get("Screens_OptionTimeout"), null));
+        options.Add(new OptionItem(ConditionOption, Strings.Get("Screens_OptionCondition"), null));
+        options.AddRange((Document?.Variables ?? []).Where(v => v.Kind == VariableKind.Countdown).Select(v => new OptionItem("finished:" + v.Name, Strings.Format("Screens_TriggerFinished", v.Name), null)));
         options.Add(new OptionItem(EventOption, Strings.Get("Screens_OptionEvent"), null));
         return options;
     }
@@ -768,9 +867,14 @@ public sealed partial class ScreensViewModel : ObservableObject
     private List<OptionItem> TargetOptions(bool allowNone)
     {
         var options = new List<OptionItem>();
-        if (allowNone)
+        if (allowNone || IsGenerated)
         {
             options.Add(new OptionItem(NoTarget, Strings.Get("Screens_NoTarget"), null));
+        }
+
+        if (IsGenerated)
+        {
+            options.Add(new OptionItem(ScreenDocument.Back, Strings.Get("Screens_GoBack"), null));
         }
 
         options.AddRange((Document?.Screens ?? []).Select(s => new OptionItem(s.Id, s.Title.Length > 0 ? s.Title : s.Id, null)));
@@ -781,11 +885,16 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     private void RebuildPanel()
     {
-        ScreenNode? screen = SelectedElementId is null ? SelectedScreen : null;
+        ScreenNode? screen = SelectedElementId is null && IsAboutScreen ? SelectedScreen : null;
         IReadOnlyList<OptionItem> triggers = IsGenerated ? TriggerOptions() : CanConnect ? KeyOptions() : [];
         List<OptionItem> targets = TargetOptions(allowNone: false);
         Fill(TransitionRows, screen?.Transitions ?? [], screen?.Id, screen, triggers, targets);
-        Fill(AnywhereRows, SelectedElementId is null ? Document?.FromAnywhere ?? [] : [], null, null, triggers, targets);
+        Fill(AnywhereRows, SelectedElementId is null && IsAboutScreen ? Document?.FromAnywhere ?? [] : [], null, null, triggers, targets);
+        if (IsGenerated && screen is not null)
+        {
+            EnterActions.Update(screen.OnEnter);
+        }
+
 
         IReadOnlyList<ScreenMenuItem> items = screen?.Menu?.Items ?? [];
         List<OptionItem> menuTargets = TargetOptions(allowNone: true);
@@ -809,7 +918,7 @@ public sealed partial class ScreensViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowsAnywhere));
         OnPropertyChanged(nameof(HasMenu));
         _host.ShowProperties(
-            (SelectedScreenId ?? "", SelectedElementId ?? "", IsGenerated),
+            (SelectedScreenId ?? "", SelectedElementId ?? "", IsGenerated, SelectedVariableName ?? "", SelectedGlyphName ?? "", string.Join(",", (Document?.Variables ?? []).Select(v => v.Name))),
             PanelTitle(SelectedScreen),
             PanelSubtitle(SelectedScreen),
             PanelFields(SelectedScreen));
@@ -841,6 +950,16 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     private string PanelTitle(ScreenNode? screen)
     {
+        if (SelectedVariableName is { } variable)
+        {
+            return variable;
+        }
+
+        if (SelectedGlyphName is { } glyph)
+        {
+            return glyph;
+        }
+
         if (SelectedElement is { } element)
         {
             return Strings.Get("Screens_Element_" + element.Kind);
@@ -851,6 +970,16 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     private string PanelSubtitle(ScreenNode? screen)
     {
+        if (SelectedVariable is { } variable)
+        {
+            return Strings.Get("Screens_VariableKind_" + variable.Kind);
+        }
+
+        if (SelectedGlyphName is not null)
+        {
+            return Strings.Get("Screens_SymbolSubtitle");
+        }
+
         if (SelectedElement is not null)
         {
             return screen?.Id ?? "";
@@ -862,6 +991,18 @@ public sealed partial class ScreensViewModel : ObservableObject
     private List<PropertyField> PanelFields(ScreenNode? screen)
     {
         var fields = new List<PropertyField>();
+        if (SelectedVariable is { } variable)
+        {
+            VariableFields(fields, variable);
+            return fields;
+        }
+
+        if (SelectedGlyph is { } glyph)
+        {
+            GlyphFields(fields, glyph);
+            return fields;
+        }
+
         if (screen is null)
         {
             return fields;
@@ -869,7 +1010,14 @@ public sealed partial class ScreensViewModel : ObservableObject
 
         if (SelectedElement is { } element)
         {
-            ElementFields(fields, screen.Id, element);
+            if (IsGenerated)
+            {
+                GeneratedElementFields(fields, screen.Id, element);
+            }
+            else
+            {
+                ElementFields(fields, screen.Id, element);
+            }
         }
         else if (IsFromCode && screen.UseSpans.Count > 0)
         {
@@ -887,7 +1035,10 @@ public sealed partial class ScreensViewModel : ObservableObject
                 fields.Add(MenuControl("select", "Screens_MenuSelect", menu.Select, (m, t) => m with { Select = t }));
                 fields.Add(Number("rows", Strings.Get("Screens_MenuRows"), menu.Rows, true, v => EditMenu(m => m with { Rows = Math.Clamp(v, 1, 16) })));
                 fields.Add(Number("top", Strings.Get(IsOled ? "Screens_MenuTopOled" : "Screens_MenuTop"), menu.Top, true, v => EditMenu(m => m with { Top = Math.Max(v, 0) })));
+                MenuExtraFields(fields, menu);
             }
+
+            ScreenFields(fields, screen);
         }
 
         return fields;
@@ -1015,7 +1166,13 @@ public sealed partial class ScreensViewModel : ObservableObject
     {
         if (IsGenerated)
         {
-            _editor?.UpdateElement(screen, id, e => e with { Text = ScreenCodeGenerator.Identifier(text) });
+            // A name nothing has is a value from ui_hooks.cpp; anything else has to be an expression that can be read.
+            string error = Document is { } document && ScreenExpression.IsHookName(document, text) ? "" : ExpressionError(text);
+            Notice = error;
+            if (error.Length == 0)
+            {
+                _editor?.UpdateElement(screen, id, e => e with { Text = text });
+            }
         }
         else if (text.Length > 0 && Document?.Find(screen)?.Elements.FirstOrDefault(e => e.Id == id)?.ExpressionSpan is { } span)
         {
@@ -1032,13 +1189,17 @@ public sealed partial class ScreensViewModel : ObservableObject
             return;
         }
 
-        if (element.Kind == ElementKind.Value)
+        if (element.Kind is ElementKind.Value or ElementKind.BigNumber or ElementKind.Bar)
         {
             SetValue(screen, id, text.Trim());
         }
         else if (element.Kind == ElementKind.Text && text != element.Text)
         {
             SetText(screen, id, text);
+        }
+        else if (IsGenerated && element.Kind is ElementKind.Input or ElementKind.Drawn or ElementKind.Symbol)
+        {
+            _editor?.UpdateElement(screen, id, e => e with { Text = text.Trim() });
         }
     }
 
@@ -1083,7 +1244,8 @@ public sealed partial class ScreensViewModel : ObservableObject
     public bool CanResize(ScreenElement element)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return element.Kind is ElementKind.Frame or ElementKind.Box or ElementKind.Line && (IsGenerated || element.WidthSpan is not null || element.HeightSpan is not null);
+        return element.Kind is ElementKind.Bar or ElementKind.Drawn ? IsGenerated
+            : element.Kind is ElementKind.Frame or ElementKind.Box or ElementKind.Line && (IsGenerated || element.WidthSpan is not null || element.HeightSpan is not null);
     }
 
     private void RenameScreen(string id, string name)
@@ -1127,8 +1289,8 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     private void SetText(string screen, string id, string text)
     {
-        // The display's font has no Cyrillic, on real hardware as here: it draws as other characters.
-        Notice = text.Any(c => c > 127) && Document?.Display.OwnFont != true ? Strings.Get("Screens_NonAscii") : "";
+        // The display's font has no Cyrillic, on real hardware as here: it draws as other characters. Generated code brings its own.
+        Notice = !IsGenerated && text.Any(c => c > 127) && Document?.Display.OwnFont != true ? Strings.Get("Screens_NonAscii") : "";
         if (IsGenerated)
         {
             _editor?.UpdateElement(screen, id, e => e with { Text = text });
@@ -1188,7 +1350,7 @@ public sealed partial class ScreensViewModel : ObservableObject
     public bool CanMoveAcross(ScreenElement element)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return IsGenerated || element.XSpan is not null || element.CursorInsert is not null;
+        return IsGenerated ? !(element.Align == ElementAlign.Right && element.Width == 0 && element.Kind is ElementKind.Text or ElementKind.Value) : element.XSpan is not null || element.CursorInsert is not null;
     }
 
     /// <summary>Whether a drag can change its row or Y.</summary>
@@ -1205,7 +1367,7 @@ public sealed partial class ScreensViewModel : ObservableObject
         if (IsGenerated)
         {
             ScreenTrigger trigger = row.SelectedTrigger is { } option ? TriggerOf(option.Value, row.TriggerValue) : row.Transition.Trigger;
-            _editor?.UpdateTransition(row.From, row.Index, row.Transition with { Trigger = trigger, Target = target });
+            _editor?.UpdateTransition(row.From, row.Index, row.Transition with { Trigger = trigger with { When = row.When.Trim() }, Target = target });
         }
         else if (target != row.Transition.Target)
         {
@@ -1216,6 +1378,20 @@ public sealed partial class ScreensViewModel : ObservableObject
         {
             ApplyToCode(new SourceEdit(span, ScreenCodeEdits.KeyText(shape, key.Value[5..])));
         }
+    }
+
+    /// <summary>What a transition does first.</summary>
+    public void SetTransitionActions(TransitionRow row, IReadOnlyList<ScreenAction> actions)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        _editor?.UpdateTransition(row.From, row.Index, row.Transition with { Actions = actions });
+    }
+
+    /// <summary>What choosing a menu item does first.</summary>
+    public void SetMenuItemActions(MenuRow row, IReadOnlyList<ScreenAction> actions)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        EditMenu(menu => menu with { Items = [.. menu.Items.Select((item, i) => i == row.Index ? item with { Actions = actions } : item)] });
     }
 
     public void ChangeMenuItem(MenuRow row)
@@ -1230,7 +1406,7 @@ public sealed partial class ScreensViewModel : ObservableObject
         {
             string target = row.SelectedTarget?.Value ?? "";
             ScreenMenuItem[] items = [.. menu.Items];
-            items[row.Index] = items[row.Index] with { Text = row.Text, Target = target, Action = target.Length == 0 && row.Action.Trim().Length > 0 ? ScreenCodeGenerator.Identifier(row.Action.Trim()) : "" };
+            items[row.Index] = items[row.Index] with { Text = row.Text, Target = target, Action = target.Length == 0 && row.Action.Trim().Length > 0 ? ScreenCodeGenerator.Identifier(row.Action.Trim()) : "", Value = row.ItemValue.Trim(), Mark = row.Mark.Trim() };
             _editor?.SetMenu(screen.Id, menu with { Items = items });
         }
         else if (row.Text != menu.Items[row.Index].Text)
@@ -1527,7 +1703,10 @@ public sealed partial class ScreensViewModel : ObservableObject
 
     private double NextY() => ((Document?.Screens.Count ?? 0) / 4) * ScreenMapLayout.RowStep;
 
-    private bool CanAddElementNow(string? kind) => CanAddElements && (IsOled || kind is nameof(ElementKind.Text) or nameof(ElementKind.Value));
+    private bool CanAddElementNow(string? kind) => CanAddElements
+        && (kind is nameof(ElementKind.Text) or nameof(ElementKind.Value)
+            || (kind is nameof(ElementKind.Line) or nameof(ElementKind.Frame) or nameof(ElementKind.Box) && IsOled)
+            || (kind is nameof(ElementKind.BigNumber) or nameof(ElementKind.Bar) or nameof(ElementKind.Symbol) or nameof(ElementKind.Input) or nameof(ElementKind.Drawn) && IsGenerated));
 
     /// <summary>Adds an element to the screen on view: at the first free row of a character display, or below the last one on an OLED.</summary>
     [RelayCommand(CanExecute = nameof(CanAddElementNow))]
@@ -1551,8 +1730,7 @@ public sealed partial class ScreensViewModel : ObservableObject
         y = Math.Clamp(y, 0, Math.Max(0, document.Display.Height - 1));
         if (_editor is not null)
         {
-            string written = text ?? (kind == ElementKind.Text ? Strings.Get("Screens_NewText") : kind == ElementKind.Value ? "value" : "");
-            ScreenElement element = _editor.AddElement(screen.Id, kind, x, y, written);
+            ScreenElement element = _editor.AddElement(screen.Id, kind, x, y, text ?? NewElementText(kind));
             if (size != 1)
             {
                 _editor.UpdateElement(screen.Id, element.Id, e => e with { Size = size }, checkpoint: false);
@@ -1580,6 +1758,11 @@ public sealed partial class ScreensViewModel : ObservableObject
         {
             bool lcd = document.Display.Family == DisplayFamily.CharLcd;
             AddElementAt(element.Kind, element.X, element.Y + (lcd ? 1 : Math.Max(8 * element.Size, 8)), element.Text, element.Size);
+            if (_editor is not null && SelectedScreenId is { } owner && SelectedElementId is { } copy)
+            {
+                // All it says comes along, not only its text.
+                _editor.UpdateElement(owner, copy, e => e with { Width = element.Width, Height = element.Height, Align = element.Align, Format = element.Format, Options = element.Options, When = element.When, Maximum = element.Maximum }, checkpoint: false);
+            }
         }
         else if (_editor is not null && SelectedScreen is { } screen)
         {
@@ -1597,6 +1780,23 @@ public sealed partial class ScreensViewModel : ObservableObject
             int across = document.Display.Family == DisplayFamily.CharLcd ? length : length * 6 * element.Size;
             MoveElement(element.Id, Math.Max(0, (document.Display.Width - across) / 2), element.Y);
         }
+    }
+
+    // What a new element starts by showing: the project's first variable where there is one, so that it shows something real.
+    private string NewElementText(ElementKind kind)
+    {
+        string? first = Document is { Variables.Count: > 0 } document ? document.Variables[0].Name : null;
+        return kind switch
+        {
+            ElementKind.Text => Strings.Get("Screens_NewText"),
+            ElementKind.Value => first ?? "value",
+            ElementKind.BigNumber => first ?? "clock",
+            ElementKind.Bar => first ?? "50",
+            ElementKind.Input => first ?? "clock",
+            ElementKind.Symbol => SelectedGlyphName ?? "bell",
+            ElementKind.Drawn => "drawing",
+            _ => "",
+        };
     }
 
     private int NextFree(ScreenNode screen)
@@ -1629,7 +1829,17 @@ public sealed partial class ScreensViewModel : ObservableObject
             return;
         }
 
-        if (SelectedElementId is { } element && SelectedScreenId is { } owner)
+        if (SelectedVariableName is { } variable)
+        {
+            SelectedVariableName = null;
+            _editor.RemoveVariable(variable);
+        }
+        else if (SelectedGlyphName is { } glyph)
+        {
+            SelectedGlyphName = null;
+            _editor.RemoveGlyph(glyph);
+        }
+        else if (SelectedElementId is { } element && SelectedScreenId is { } owner)
         {
             SelectedElementId = null;
             _editor.RemoveElement(owner, element);

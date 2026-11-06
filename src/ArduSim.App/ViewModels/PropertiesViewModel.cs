@@ -179,10 +179,13 @@ public sealed partial class PropertyField : ObservableObject
 
     public bool IsKey => Name == "key";
 
-    /// <summary>The editor kind (docs/UI.md §2.4): "swatches", "segmented" (≤ 4 choices), "dropdown", "key" or "text".</summary>
+    /// <summary>A text field that also offers names to pick from.</summary>
+    public IReadOnlyList<string> Suggestions { get; init; } = [];
+
+    /// <summary>The editor kind (docs/UI.md §2.4): "swatches", "segmented" (≤ 4 choices), "dropdown", "key", "suggest" or "text".</summary>
     public string Editor => IsChoice
         ? HasSwatches ? "swatches" : Options.Count <= 4 && !AsDropdown ? "segmented" : "dropdown"
-        : IsKey ? "key" : "text";
+        : IsKey ? "key" : Suggestions.Count > 0 ? "suggest" : "text";
 
     [ObservableProperty]
     public partial string Text { get; set; }

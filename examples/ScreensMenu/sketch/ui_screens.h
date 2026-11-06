@@ -31,6 +31,16 @@ void uiSend(UiEvent event);
 void uiRedraw();
 UiScreen uiCurrent();
 
+// For code that draws: where the next text goes, then uiOut.print(...). It takes UTF-8.
+class UiOut : public Print {
+public:
+  size_t write(uint8_t ch) override;
+  using Print::write;
+};
+
+extern UiOut uiOut;
+void uiAt(int x, int y, int size = 1);
+
 // Written in ui_hooks.cpp: what the screens show and do.
 void uiValue_uptime(char* out, uint8_t size);
 void uiValue_adc(char* out, uint8_t size);

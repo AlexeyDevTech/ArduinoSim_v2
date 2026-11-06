@@ -25,21 +25,6 @@ public static class ScreenPreview
     // The ROM's centered dot, for what a value cannot be named by.
     private const char ValueDot = '\u00A5';
 
-    // Cyrillic capitals: the ones shaped like Latin letters, and the ones in the A02 ROM from code 0x80.
-    private const string LikeLatin = "АВЕЁКМНОРСТХ";
-    private const string AsLatin = "ABEEKMHOPCTX";
-    private const string InA02 = "БДЖЗИЙЛПУЦЧШЩЪЫЭ";
-
-    // And the ones neither has, in the same 5 x 7.
-    private static readonly Dictionary<char, byte[]> OtherCapitals = new()
-    {
-        ['Г'] = [0b11111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0],
-        ['Ф'] = [0b00100, 0b01110, 0b10101, 0b10101, 0b10101, 0b01110, 0b00100, 0],
-        ['Ь'] = [0b10000, 0b10000, 0b10000, 0b11110, 0b10001, 0b10001, 0b11110, 0],
-        ['Ю'] = [0b10010, 0b10101, 0b10101, 0b11101, 0b10101, 0b10101, 0b10010, 0],
-        ['Я'] = [0b01111, 0b10001, 0b10001, 0b01111, 0b00101, 0b01001, 0b10001, 0],
-    };
-
     /// <summary>Dots across and down for a display.</summary>
     public static (int Width, int Height) DotSize(ScreenDisplay display)
     {
@@ -48,32 +33,87 @@ public static class ScreenPreview
     }
 
     /// <summary>Where an element lies, in dots of the bitmap.</summary>
-    public static Rect BoundsOf(ScreenElement element, ScreenDisplay display)
+    public static Rect BoundsOf(ScreenElement element, ScreenDisplay display, ScreenDocument? document = null)
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(display);
-        int characters = element.Kind == ElementKind.Value ? Math.Max(element.Width, 1) : Math.Max(element.Text.Length, 1);
-        if (display.Family == DisplayFamily.CharLcd)
+        bool lcd = display.Family == DisplayFamily.CharLcd;
+        bool generated = document is { Source: ScreenSource.Generated };
+        int characters = element.Kind switch
         {
-            return new Rect((element.X * 6) + 1, (element.Y * 9) + 1, Math.Max((characters * 6) - 1, 5), 8);
+            ElementKind.Value => FieldOf(element, display),
+            ElementKind.Input => ScreenSample.Mask(element).Length,
+            ElementKind.Symbol => 1,
+            ElementKind.Text when generated => Math.Max(ScreenFont.CellsOf(document!, element.Text), 1),
+            _ => Math.Max(element.Text.Length, 1),
+        };
+        int shift = element.Kind == ElementKind.Text && generated ? ShiftOf(element, characters, display) : 0;
+        if (element.Kind == ElementKind.BigNumber && generated)
+        {
+            string big = BigText(element, document!);
+            return lcd
+                ? new Rect((element.X * 6) + 1, (element.Y * 9) + 1, Math.Max((BigCells(big) * 6) - 1, 5), 17)
+                : new Rect(element.X, TextTop(element, display), big.Length * 6 * Math.Max(element.Size, 2), 8 * Math.Max(element.Size, 2));
+        }
+
+        if (element.Kind is ElementKind.Bar or ElementKind.Drawn)
+        {
+            return lcd
+                ? new Rect((element.X * 6) + 1, (element.Y * 9) + 1, Math.Max((element.Width * 6) - 1, 5), Math.Max((Math.Max(element.Kind == ElementKind.Drawn ? element.Height : 1, 1) * 9) - 1, 8))
+                : new Rect(element.X, element.Y, Math.Max(element.Width, 1), Math.Max(element.Height, 1));
+        }
+
+        if (lcd)
+        {
+            return new Rect(((element.X + shift) * 6) + 1, (element.Y * 9) + 1, Math.Max((characters * 6) - 1, 5), 8);
         }
 
         return element.Kind switch
         {
             ElementKind.Line => new Rect(new Point(element.X, element.Y), new Point(element.Width, element.Height)),
             ElementKind.Frame or ElementKind.Box => new Rect(element.X, element.Y, Math.Max(element.Width, 1), Math.Max(element.Height, 1)),
-            _ => new Rect(element.X, TextTop(element, display), characters * 6 * element.Size, 8 * element.Size),
+            _ => new Rect(element.X + (shift * 6 * element.Size), TextTop(element, display), characters * 6 * element.Size, 8 * element.Size),
         };
     }
 
+    // A field's width in cells: what it says, or to the display's edge.
+    private static int FieldOf(ScreenElement element, ScreenDisplay display) =>
+        element.Width > 0 ? element.Width : Math.Max(1, (display.Width - element.X) / (display.Family == DisplayFamily.CharLcd ? 1 : 6 * Math.Max(element.Size, 1)));
+
+    private static int ShiftOf(ScreenElement element, int cells, ScreenDisplay display)
+    {
+        int room = Math.Max(FieldOf(element, display) - cells, 0);
+        return element.Align switch
+        {
+            ElementAlign.Center => room / 2,
+            ElementAlign.Right => room,
+            _ => 0,
+        };
+    }
+
+    private static string BigText(ScreenElement element, ScreenDocument document) =>
+        ScreenSample.Text(document, element.Text, element.Format, []) is { Length: > 0 } sample ? sample : "00";
+
+    // A digit is three cells and a gap, anything else one and a gap, and the last has no gap after it.
+    private static int BigCells(string text) => text.Sum(c => char.IsAsciiDigit(c) ? 4 : 2) - 1;
     private static int TextTop(ScreenElement element, ScreenDisplay display) => display.TextFromBaseline ? element.Y - 7 : element.Y;
 
     /// <summary>What a screen's picture shows: not what only shares a place with something else, and what the code could not place only where it hides nothing.</summary>
-    public static IReadOnlyList<ScreenElement> Shown(ScreenNode screen, ScreenDisplay display)
+    /// <param name="document">In a generated project, of what hangs on different conditions in one place only one can be drawn: <paramref name="selected"/>, or the first.</param>
+    public static IReadOnlyList<ScreenElement> Shown(ScreenNode screen, ScreenDisplay display, ScreenDocument? document = null, string? selected = null)
     {
         ArgumentNullException.ThrowIfNull(screen);
         ArgumentNullException.ThrowIfNull(display);
         ScreenElement[] drawn = [.. screen.Elements.Where(e => !e.IsAlternative)];
+        if (document is { Source: ScreenSource.Generated })
+        {
+            ScreenElement[] all = drawn;
+            bool Gives(int i, int j) =>
+                all[j].When.Length > 0 && all[j].When != all[i].When && BoundsOf(all[i], display, document).IntersectsWith(BoundsOf(all[j], display, document))
+                && (all[j].Id == selected || (j < i && all[i].Id != selected));
+            drawn = [.. all.Where((e, i) => e.When.Length == 0 || !Enumerable.Range(0, all.Length).Any(j => j != i && Gives(i, j)))];
+        }
+
         Rect[] sure = [.. drawn.Where(IsSure).Select(e => BoundsOf(e, display))];
         return [.. drawn.Where(e => IsSure(e) || !sure.Any(r => r.IntersectsWith(BoundsOf(e, display))))];
     }
@@ -89,44 +129,35 @@ public static class ScreenPreview
         return isName ? last : new string(ValueDot, 8);
     }
 
-    // A glyph for a character: from the ROM, or, for text that a class of the sketch's own draws, its Cyrillic.
-    private static void Glyph(char c, bool ownFont, Span<byte> rows)
+    // A glyph for a character: from the ROM, or from the font of what a generated project or a class of the sketch's own draws.
+    private static void Glyph(char c, bool font, Span<byte> rows)
     {
-        if (!ownFont || c is < '\u0400' or > '\u045F')
+        if (font && c >= 0x80)
         {
-            Hd44780Font.A00(c < 256 ? (byte)c : (byte)'?', rows);
-            return;
-        }
-
-        char capital = char.ToUpperInvariant(c);
-        int latin = LikeLatin.IndexOf(capital, StringComparison.Ordinal);
-        int rom = InA02.IndexOf(capital, StringComparison.Ordinal);
-        if (latin >= 0)
-        {
-            Hd44780Font.A00((byte)AsLatin[latin], rows);
-        }
-        else if (rom >= 0)
-        {
-            // This ROM's capitals start a row lower than the other's unless they need the top.
-            Hd44780Font.A02((byte)(0x80 + rom), rows);
-            if (rows[0] == 0)
+            if (ScreenFont.LookAlike(c) is { } ascii)
             {
-                rows[1..].CopyTo(rows);
-                rows[7] = 0;
+                Hd44780Font.A00((byte)ascii, rows);
+                return;
+            }
+
+            if (ScreenFont.Shape(c) is { } shape)
+            {
+                for (int i = 0; i < 8; i++)
+                {
+                    rows[i] = shape[i];
+                }
+
+                return;
             }
         }
-        else if (OtherCapitals.TryGetValue(capital, out byte[]? drawn))
-        {
-            drawn.CopyTo(rows);
-        }
-        else
-        {
-            Hd44780Font.A00((byte)'?', rows);
-        }
+
+        Hd44780Font.A00(c < 256 ? (byte)c : (byte)'?', rows);
     }
 
     /// <summary>One screen, frozen so that it can be kept and drawn at any scale.</summary>
-    public static BitmapSource Render(ScreenNode screen, ScreenDisplay display)
+    /// <param name="document">Its project: variables and symbols. Without one it shows text and shapes only.</param>
+    /// <param name="selected">The element being worked on, which is drawn even if it hides under another with a condition.</param>
+    public static BitmapSource Render(ScreenNode screen, ScreenDisplay display, ScreenDocument? document = null, string? selected = null)
     {
         ArgumentNullException.ThrowIfNull(screen);
         ArgumentNullException.ThrowIfNull(display);
@@ -145,14 +176,15 @@ public static class ScreenPreview
             }
         }
 
-        foreach (ScreenElement element in Shown(screen, display))
+        var canvas = new Canvas(pixels, width, height, display, document);
+        foreach (ScreenElement element in Shown(screen, display, document, selected))
         {
-            Draw(pixels, width, height, element, display);
+            Draw(canvas, element);
         }
 
         if (screen.Menu is { } menu)
         {
-            DrawMenu(pixels, width, height, menu, display);
+            DrawMenu(canvas, menu);
         }
 
         var bitmap = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, width * 4);
@@ -160,83 +192,234 @@ public static class ScreenPreview
         return bitmap;
     }
 
-    private static void Draw(uint[] pixels, int width, int height, ScreenElement element, ScreenDisplay display)
+    private sealed record Canvas(uint[] Pixels, int Width, int Height, ScreenDisplay Display, ScreenDocument? Document)
     {
-        bool lcd = display.Family == DisplayFamily.CharLcd;
-        uint text = element.IsConditional ? (lcd ? DimLcd : DimOled) : (lcd ? LcdText : OledText);
+        public bool IsLcd => Display.Family == DisplayFamily.CharLcd;
+
+        public bool IsGenerated => Document is { Source: ScreenSource.Generated };
+
+        public bool HasFont => IsGenerated || Display.OwnFont;
+    }
+
+    private static void Draw(Canvas c, ScreenElement element)
+    {
+        bool lcd = c.IsLcd;
+        bool dim = element.IsConditional || element.When.Length > 0;
+        uint text = dim ? (lcd ? DimLcd : DimOled) : (lcd ? LcdText : OledText);
+        uint value = dim ? (lcd ? DimLcd : DimOled) : ValueColor;
         switch (element.Kind)
         {
             case ElementKind.Text:
-                DrawText(pixels, width, height, element.Text, element.X, TextTop(element, display), element.Size, text, display);
+                int cells = c.IsGenerated ? ScreenFont.CellsOf(c.Document!, element.Text) : element.Text.Length;
+                int shift = c.IsGenerated ? ShiftOf(element, cells, c.Display) * (lcd ? 1 : 6 * element.Size) : 0;
+                DrawText(c, element.Text, element.X + shift, TextTop(element, c.Display), element.Size, text);
                 break;
             case ElementKind.Value:
-                string sample = element.Sample ?? ValueLook(element.Text);
-                int field = Math.Max(element.Width, 1);
-                string shown = sample.Length >= field ? sample[..field] : sample.PadRight(field);
-                DrawText(pixels, width, height, shown, element.X, TextTop(element, display), element.Size, ValueColor, display);
+                string sample = element.Sample ?? (c.IsGenerated ? ScreenSample.Text(c.Document!, element.Text, element.Format, element.Options) : null) ?? ValueLook(element.Text);
+                int field = FieldOf(element, c.Display);
+                string shown = sample.Length >= field ? sample[..field] : sample;
+                int room = c.IsGenerated ? ShiftOf(element with { Width = field }, shown.Length, c.Display) * (lcd ? 1 : 6 * element.Size) : 0;
+                DrawText(c, shown, element.X + room, TextTop(element, c.Display), element.Size, value);
+                break;
+            case ElementKind.BigNumber when c.IsGenerated:
+                DrawBig(c, element, value);
+                break;
+            case ElementKind.Bar:
+                DrawBar(c, element, value);
+                break;
+            case ElementKind.Symbol when c.IsGenerated && ScreenFont.Find(c.Document!, element.Text) is { } glyph:
+                DrawRows(c, glyph.Rows, lcd ? (element.X * 6) + 1 : element.X, lcd ? (element.Y * 9) + 1 : element.Y, lcd ? 1 : element.Size, text);
+                break;
+            case ElementKind.Input:
+                string mask = ScreenSample.Mask(element);
+                DrawText(c, element.Align == ElementAlign.Right ? mask.Replace('_', '0') : mask, element.X, TextTop(element, c.Display), element.Size, value);
+                break;
+            case ElementKind.Drawn:
+                DrawHatch(c, BoundsOf(element, c.Display, c.Document), dim ? text : value);
                 break;
             case ElementKind.Line when !lcd:
-                DrawLine(pixels, width, height, element.X, element.Y, element.Width, element.Height, text);
+                DrawLine(c.Pixels, c.Width, c.Height, element.X, element.Y, element.Width, element.Height, text);
                 break;
             case ElementKind.Frame when !lcd:
-                Fill(pixels, width, height, element.X, element.Y, element.Width, 1, text);
-                Fill(pixels, width, height, element.X, element.Y + element.Height - 1, element.Width, 1, text);
-                Fill(pixels, width, height, element.X, element.Y, 1, element.Height, text);
-                Fill(pixels, width, height, element.X + element.Width - 1, element.Y, 1, element.Height, text);
+                DrawFrame(c, element.X, element.Y, element.Width, element.Height, text);
                 break;
             case ElementKind.Box when !lcd:
-                Fill(pixels, width, height, element.X, element.Y, element.Width, element.Height, text);
+                Fill(c.Pixels, c.Width, c.Height, element.X, element.Y, element.Width, element.Height, text);
                 break;
             default:
                 break;
         }
     }
 
-    private static void DrawMenu(uint[] pixels, int width, int height, ScreenMenu menu, ScreenDisplay display)
+    private static void DrawFrame(Canvas c, int x, int y, int width, int height, uint color)
     {
-        bool lcd = display.Family == DisplayFamily.CharLcd;
-        uint text = lcd ? LcdText : OledText;
-        for (int row = 0; row < menu.Rows && row < menu.Items.Count; row++)
+        Fill(c.Pixels, c.Width, c.Height, x, y, width, 1, color);
+        Fill(c.Pixels, c.Width, c.Height, x, y + height - 1, width, 1, color);
+        Fill(c.Pixels, c.Width, c.Height, x, y, 1, height, color);
+        Fill(c.Pixels, c.Width, c.Height, x + width - 1, y, 1, height, color);
+    }
+
+    private static void DrawBig(Canvas c, ScreenElement element, uint color)
+    {
+        string text = BigText(element, c.Document!);
+        if (!c.IsLcd)
         {
-            int y = menu.Top + (row * (lcd ? 1 : 8));
-            DrawText(pixels, width, height, (row == 0 ? ">" : " ") + menu.Items[row].Text, 0, y, 1, text, display);
+            DrawText(c, text, element.X, TextTop(element, c.Display), Math.Max(element.Size, 2), color);
+            return;
+        }
+
+        int x = element.X;
+        foreach (char digit in text)
+        {
+            if (char.IsAsciiDigit(digit))
+            {
+                string parts = ScreenFont.BigDigits[digit - '0'];
+                for (int i = 0; i < 6; i++)
+                {
+                    int left = ((x + (i % 3)) * 6) + 1;
+                    int top = ((element.Y + (i / 3)) * 9) + 1;
+                    if (parts[i] == 'F')
+                    {
+                        Fill(c.Pixels, c.Width, c.Height, left, top, 5, 8, color);
+                    }
+                    else if (ScreenFont.BigPart(parts[i]) is { } rows)
+                    {
+                        DrawRows(c, rows, left, top, 1, color);
+                    }
+                }
+
+                x += 4;
+            }
+            else
+            {
+                DrawText(c, ".", x, element.Y, 1, color);
+                DrawText(c, ".", x, element.Y + 1, 1, color);
+                x += 2;
+            }
         }
     }
 
-    private static void DrawText(uint[] pixels, int width, int height, string text, int x, int y, int size, uint color, ScreenDisplay display)
+    private static void DrawBar(Canvas c, ScreenElement element, uint color)
     {
-        bool lcd = display.Family == DisplayFamily.CharLcd;
-        Span<byte> rows = stackalloc byte[8];
-        for (int i = 0; i < text.Length; i++)
+        double full = c.Document is { } document && element.Maximum.Length > 0 ? ScreenSample.Number(document, element.Maximum) : 100;
+        double part = c.Document is { } known ? ScreenSample.Number(known, element.Text) : 50;
+        double share = full > 0 ? Math.Clamp(part / full, 0, 1) : 0;
+        if (c.IsLcd)
         {
-            char c = text[i];
-            if (c == ' ')
+            for (int i = 0; i < (int)(share * element.Width); i++)
             {
-                continue;
+                Fill(c.Pixels, c.Width, c.Height, ((element.X + i) * 6) + 1, (element.Y * 9) + 1, 5, 8, color);
             }
+        }
+        else
+        {
+            DrawFrame(c, element.X, element.Y, Math.Max(element.Width, 1), Math.Max(element.Height, 1), color);
+            Fill(c.Pixels, c.Width, c.Height, element.X + 1, element.Y + 1, (int)(share * (element.Width - 2)), element.Height - 2, color);
+        }
+    }
 
-            Glyph(c, display.OwnFont, rows);
-            int left = lcd ? ((x + i) * 6) + 1 : x + (i * 6 * size);
-            int top = lcd ? (y * 9) + 1 : y;
-            int scale = lcd ? 1 : size;
-            if (lcd && x + i >= display.Width)
+    // What the project's own code draws: there is no knowing what, only where.
+    private static void DrawHatch(Canvas c, Rect bounds, uint color)
+    {
+        for (int y = (int)bounds.Top; y < (int)bounds.Bottom; y++)
+        {
+            for (int x = (int)bounds.Left; x < (int)bounds.Right; x++)
             {
-                break;
-            }
-
-            for (int dy = 0; dy < 8; dy++)
-            {
-                for (int dx = 0; dx < 5; dx++)
+                if ((x + y) % 4 == 0)
                 {
-                    if ((rows[dy] & (0x10 >> dx)) != 0)
-                    {
-                        Fill(pixels, width, height, left + (dx * scale), top + (dy * scale), scale, scale, color);
-                    }
+                    Fill(c.Pixels, c.Width, c.Height, x, y, 1, 1, color);
                 }
             }
         }
     }
 
+    private static void DrawMenu(Canvas c, ScreenMenu menu)
+    {
+        bool lcd = c.IsLcd;
+        uint text = lcd ? LcdText : OledText;
+        int step = lcd ? 1 : 8;
+        int across = lcd ? c.Display.Width : c.Display.Width / 6;
+        int unit = lcd ? 1 : 6;
+        string marker = menu.Marker.Length > 0 ? menu.Marker : ">";
+        int markerCells = c.IsGenerated ? ScreenFont.CellsOf(c.Document!, marker) : marker.Length;
+        if (menu.Counter && menu.Top - step >= 0)
+        {
+            string counter = "1/" + menu.Items.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            DrawText(c, counter, (across - counter.Length) * unit, menu.Top - step, 1, text);
+        }
+
+        for (int row = 0; row < menu.Rows && row < menu.Items.Count; row++)
+        {
+            int y = menu.Top + (row * step);
+            ScreenMenuItem item = menu.Items[row];
+            DrawText(c, row == 0 ? marker : new string(' ', markerCells), 0, y, 1, text);
+            DrawText(c, item.Text, markerCells * unit, y, 1, text);
+            string? right = !c.IsGenerated ? null
+                : item.Value.Length > 0 ? ScreenSample.Text(c.Document!, item.Value, item.Format, []) ?? ValueLook(item.Value)
+                : item.Mark.Length > 0 && ScreenSample.Number(c.Document!, item.Mark) != 0 ? "*"
+                : null;
+            if (right is not null)
+            {
+                DrawText(c, right, (across - right.Length) * unit, y, 1, ValueColor);
+            }
+        }
+    }
+
+    private static void DrawRows(Canvas c, IReadOnlyList<byte> rows, int left, int top, int scale, uint color)
+    {
+        for (int dy = 0; dy < 8 && dy < rows.Count; dy++)
+        {
+            for (int dx = 0; dx < 5; dx++)
+            {
+                if ((rows[dy] & (0x10 >> dx)) != 0)
+                {
+                    Fill(c.Pixels, c.Width, c.Height, left + (dx * scale), top + (dy * scale), scale, scale, color);
+                }
+            }
+        }
+    }
+
+    // A text, with the symbols it names in a generated project.
+    private static void DrawText(Canvas c, string text, int x, int y, int size, uint color)
+    {
+        bool lcd = c.IsLcd;
+        Span<byte> rows = stackalloc byte[8];
+        int scale = lcd ? 1 : size;
+        int top = lcd ? (y * 9) + 1 : y;
+        int at = 0;
+        foreach (ScreenFont.TextPart part in c.IsGenerated ? ScreenFont.Split(c.Document!, text) : [new ScreenFont.TextPart(text, null)])
+        {
+            foreach (char letter in part.Letters ?? "\0")
+            {
+                int left = lcd ? ((x + at) * 6) + 1 : x + (at * 6 * size);
+                if (lcd && x + at >= c.Display.Width)
+                {
+                    return;
+                }
+
+                if (part.Symbol is { } symbol)
+                {
+                    DrawRows(c, symbol.Rows, left, top, scale, color);
+                }
+                else if (letter != ' ')
+                {
+                    Glyph(letter, c.HasFont, rows);
+                    for (int dy = 0; dy < 8; dy++)
+                    {
+                        for (int dx = 0; dx < 5; dx++)
+                        {
+                            if ((rows[dy] & (0x10 >> dx)) != 0)
+                            {
+                                Fill(c.Pixels, c.Width, c.Height, left + (dx * scale), top + (dy * scale), scale, scale, color);
+                            }
+                        }
+                    }
+                }
+
+                at++;
+            }
+        }
+    }
     private static void Fill(uint[] pixels, int width, int height, int x, int y, int w, int h, uint color)
     {
         int right = Math.Min(x + w, width);

@@ -1,6 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace ArduSim.Core.Screens;
 
@@ -61,7 +62,155 @@ public enum ElementKind
 
     /// <summary>A filled rectangle.</summary>
     Box,
+
+    /// <summary>A value in digits two rows high on a character display, in a large text size on an OLED.</summary>
+    BigNumber,
+
+    /// <summary>How full something is: <see cref="ScreenElement.Text"/> out of <see cref="ScreenElement.Maximum"/>.</summary>
+    Bar,
+
+    /// <summary>One symbol, named by <see cref="ScreenElement.Text"/>.</summary>
+    Symbol,
+
+    /// <summary>Digits typed on a keypad, for the variable named by <see cref="ScreenElement.Text"/>.</summary>
+    Input,
+
+    /// <summary>Drawn by the project's own code: <see cref="ScreenElement.Text"/> names the hook.</summary>
+    Drawn,
 }
+
+/// <summary>Where text lies in its field. On an input, left means digits fill from the left, right that they come in from the right.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ElementAlign>))]
+public enum ElementAlign
+{
+    Left,
+    Center,
+    Right,
+}
+
+/// <summary>How a number reads on a screen.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ValueFormat>))]
+public enum ValueFormat
+{
+    /// <summary>What suits the variable: a flag's or a choice's word, a time, otherwise the number.</summary>
+    Auto,
+
+    /// <summary>At least two digits: 07.</summary>
+    TwoDigits,
+
+    /// <summary>Seconds as 12:34 (hours and minutes).</summary>
+    HourMinute,
+
+    /// <summary>Seconds as 12:34:56.</summary>
+    HourMinuteSecond,
+
+    /// <summary>Seconds as 34:56 (minutes and seconds).</summary>
+    MinuteSecond,
+
+    /// <summary>Milliseconds as 34:56.78.</summary>
+    MinuteSecondCentis,
+
+    /// <summary>A date written as yyyymmdd, as 31.12.2026.</summary>
+    DateDayFirst,
+
+    /// <summary>A date written as yyyymmdd, as 12.31.2026.</summary>
+    DateMonthFirst,
+
+    /// <summary>A date written as yyyymmdd, as 2026-12-31.</summary>
+    DateYearFirst,
+
+    /// <summary>The element's own list of words, by number from 0.</summary>
+    List,
+}
+
+/// <summary>What a variable of a generated project holds.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<VariableKind>))]
+public enum VariableKind
+{
+    /// <summary>A whole number between <see cref="ScreenVariable.Min"/> and <see cref="ScreenVariable.Max"/>.</summary>
+    Number,
+
+    /// <summary>On or off; its options are the two words for that.</summary>
+    Flag,
+
+    /// <summary>One of its options, by number from 0.</summary>
+    Choice,
+
+    /// <summary>A time of day in seconds.</summary>
+    Time,
+
+    /// <summary>Counts up while running; reads as seconds, and in expressions <c>name_ms</c> and <c>name_on</c>.</summary>
+    Stopwatch,
+
+    /// <summary>Counts down to zero while running, and says when it gets there; reads as seconds.</summary>
+    Countdown,
+}
+
+/// <summary>A piece of a generated project's data.</summary>
+public sealed record ScreenVariable
+{
+    public string Name { get; init; } = "";
+
+    public VariableKind Kind { get; init; }
+
+    /// <summary>What it starts as: a number, 0 or 1, an option's number, or seconds.</summary>
+    public int Initial { get; init; }
+
+    public int Min { get; init; }
+
+    public int Max { get; init; } = 100;
+
+    /// <summary>Going past one end comes back at the other, instead of stopping there.</summary>
+    public bool Wrap { get; init; }
+
+    public IReadOnlyList<string> Options { get; init; } = [];
+
+    /// <summary>Kept in EEPROM: it is still there after a power cut.</summary>
+    public bool Saved { get; init; }
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<ActionKind>))]
+public enum ActionKind
+{
+    /// <summary>The variable <see cref="ScreenAction.Target"/> takes the expression <see cref="ScreenAction.Value"/>.</summary>
+    Set,
+
+    /// <summary>The expression is added to the variable.</summary>
+    Add,
+
+    /// <summary>A flag flips; a choice goes to its next option.</summary>
+    Toggle,
+
+    Start,
+    Stop,
+
+    /// <summary>A stopwatch or countdown that runs stops, and one that is stopped runs.</summary>
+    StartStop,
+
+    Reset,
+
+    /// <summary>What the screen's input holds goes to its variable. If it makes no sense the input empties, and nothing after this happens.</summary>
+    InputCommit,
+
+    /// <summary>The input's last digit goes.</summary>
+    InputErase,
+
+    InputClear,
+
+    /// <summary>A buzzer part sounds: <see cref="ScreenAction.Value"/> is the hertz and the milliseconds.</summary>
+    Beep,
+
+    /// <summary>An LED, relay or other output part follows the expression: on when it is not zero.</summary>
+    Output,
+
+    /// <summary>Runs <c>uiAction_name()</c> in <c>ui_hooks.cpp</c>.</summary>
+    Hook,
+}
+
+/// <summary>One step of what a transition, a menu item or entering a screen does.</summary>
+/// <param name="Target">A variable, a part or a hook; see <see cref="ActionKind"/>.</param>
+/// <param name="Value">An expression; see <see cref="ActionKind"/>.</param>
+public sealed record ScreenAction(ActionKind Kind, string Target = "", string Value = "");
 
 /// <summary>Characters of source that a scan read: what an in-place edit may replace.</summary>
 /// <param name="Offset">Characters from the start of the file.</param>
@@ -161,6 +310,21 @@ public sealed record ScreenElement
     /// <summary>The position could not be worked out from the code.</summary>
     public bool IsPlaced { get; init; } = true;
 
+    /// <summary>Where a text or value lies in its field, which starts at X and is <see cref="Width"/> wide, or to the display's edge when that is 0.</summary>
+    public ElementAlign Align { get; init; }
+
+    /// <summary>How a value, big number or input reads.</summary>
+    public ValueFormat Format { get; init; }
+
+    /// <summary>The words of <see cref="ValueFormat.List"/>.</summary>
+    public IReadOnlyList<string> Options { get; init; } = [];
+
+    /// <summary>Drawn only while this expression is not zero, in a generated project; empty for always.</summary>
+    public string When { get; init; } = "";
+
+    /// <summary>A bar's full value: an expression.</summary>
+    public string Maximum { get; init; } = "";
+
     [JsonIgnore]
     public SourceSpan? TextSpan { get; init; }
 
@@ -236,6 +400,15 @@ public enum TriggerKind
 
     /// <summary>A condition in code that was read, as written there.</summary>
     Code,
+
+    /// <summary>Any key, button or encoder press that nothing else on the screen took.</summary>
+    AnyKey,
+
+    /// <summary>The expression <see cref="ScreenTrigger.Value"/> becomes true.</summary>
+    Condition,
+
+    /// <summary>The countdown named by <see cref="ScreenTrigger.Value"/> reaches zero.</summary>
+    Finished,
 }
 
 /// <summary>What makes a transition happen.</summary>
@@ -250,8 +423,11 @@ public sealed record ScreenTransition
 {
     public ScreenTrigger Trigger { get; init; } = new(TriggerKind.Code);
 
-    /// <summary>The screen it leads to.</summary>
+    /// <summary>The screen it leads to; <see cref="ScreenDocument.Back"/> for the one before; empty to stay.</summary>
     public string Target { get; init; } = "";
+
+    /// <summary>What it does first, in a generated project.</summary>
+    public IReadOnlyList<ScreenAction> Actions { get; init; } = [];
 
     [JsonIgnore]
     public SourceSpan? TargetSpan { get; init; }
@@ -278,6 +454,18 @@ public sealed record ScreenMenuItem
     /// <summary>The hook it runs, in generated projects.</summary>
     public string Action { get; init; } = "";
 
+    /// <summary>What choosing it does first, in generated projects.</summary>
+    public IReadOnlyList<ScreenAction> Actions { get; init; } = [];
+
+    /// <summary>What shows at the row's right edge: an expression or a variable; empty for nothing.</summary>
+    public string Value { get; init; } = "";
+
+    /// <summary>How <see cref="Value"/> reads.</summary>
+    public ValueFormat Format { get; init; }
+
+    /// <summary>A star shows at the row's right edge while this expression is not zero; empty for never.</summary>
+    public string Mark { get; init; } = "";
+
     [JsonIgnore]
     public SourceSpan? TextSpan { get; init; }
 }
@@ -298,6 +486,12 @@ public sealed record ScreenMenu
     public ScreenTrigger? Down { get; init; }
 
     public ScreenTrigger? Select { get; init; }
+
+    /// <summary>The row above the list says which item this is, as 3/7.</summary>
+    public bool Counter { get; init; }
+
+    /// <summary>What marks the current item, a symbol's <c>{name}</c> included; empty for &gt;.</summary>
+    public string Marker { get; init; } = "";
 }
 
 public sealed record ScreenNode
@@ -311,6 +505,15 @@ public sealed record ScreenNode
     public ScreenMenu? Menu { get; init; }
 
     public IReadOnlyList<ScreenTransition> Transitions { get; init; } = [];
+
+    /// <summary>What arriving here does, unless it is coming back from a screen further on.</summary>
+    public IReadOnlyList<ScreenAction> OnEnter { get; init; } = [];
+
+    /// <summary>Keys nothing else took on this screen go to <c>uiKey_id(key)</c> in <c>ui_hooks.cpp</c>.</summary>
+    public bool KeyHook { get; init; }
+
+    /// <summary><c>uiTick_id()</c> in <c>ui_hooks.cpp</c> runs on every pass while this screen shows.</summary>
+    public bool TickHook { get; init; }
 
     /// <summary>Where it lies on the map.</summary>
     public double MapX { get; init; }
@@ -344,7 +547,10 @@ public sealed record ScreenNode
 public sealed record ScreenDocument
 {
     public const string FileName = "screens.json";
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
+
+    /// <summary>A transition's target that means the screen it came from.</summary>
+    public const string Back = "@back";
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -352,7 +558,35 @@ public sealed record ScreenDocument
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { OmitWhatIsEmpty } },
     };
+
+    // A file says what was decided: what no one has set stays out of it, and reads back as its default.
+    private static void OmitWhatIsEmpty(JsonTypeInfo type)
+    {
+        foreach (JsonPropertyInfo property in type.Properties)
+        {
+            if (property.PropertyType == typeof(string))
+            {
+                property.ShouldSerialize = static (_, value) => value is not "";
+            }
+            else if (property.PropertyType == typeof(ElementAlign) || property.PropertyType == typeof(ValueFormat) || property.PropertyType == typeof(bool))
+            {
+                property.ShouldSerialize = OnlyIfNotDefault(property);
+            }
+            else if (property.PropertyType.IsGenericType && property.PropertyType.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
+            {
+                property.ShouldSerialize = static (_, value) => value is not System.Collections.ICollection { Count: 0 };
+            }
+        }
+    }
+
+    // The same, for an enum or a flag; IsPlaced is the one whose default is true.
+    private static Func<object, object?, bool> OnlyIfNotDefault(JsonPropertyInfo property)
+    {
+        object? plain = property.Name == "isPlaced" ? true : Activator.CreateInstance(property.PropertyType);
+        return (_, value) => !Equals(value, plain);
+    }
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
 
@@ -367,6 +601,12 @@ public sealed record ScreenDocument
 
     /// <summary>Transitions that work from any screen.</summary>
     public IReadOnlyList<ScreenTransition> FromAnywhere { get; init; } = [];
+
+    /// <summary>A generated project's data.</summary>
+    public IReadOnlyList<ScreenVariable> Variables { get; init; } = [];
+
+    /// <summary>A generated project's own symbols. <see cref="ScreenFont.BuiltIn"/> are there without being here.</summary>
+    public IReadOnlyList<ScreenGlyph> Glyphs { get; init; } = [];
 
     /// <summary>In a project from code, how to add to it.</summary>
     [JsonIgnore]
