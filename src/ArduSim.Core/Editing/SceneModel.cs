@@ -80,8 +80,12 @@ public sealed class SceneModel
         foreach (WireDocument w in document.Wires)
         {
             var wire = new WireModel(w.Id, w.From, w.To) { Color = w.Color, Unknown = w.Unknown };
-            wire.Waypoints.AddRange(w.Waypoints.Where(p => p.Count >= 2).Select(p => (p[0], p[1])));
-            wire.IsAuto = w.AutoRouted || wire.Waypoints.Count == 0;
+            if (w.ByHand || w.AutoRouted)
+            {
+                wire.Waypoints.AddRange(w.Waypoints.Where(p => p.Count >= 2).Select(p => (p[0], p[1])));
+            }
+
+            wire.IsAuto = !w.ByHand || wire.Waypoints.Count == 0;
             scene.Wires.Add(wire);
         }
 
@@ -114,6 +118,7 @@ public sealed class SceneModel
                 To = w.To,
                 Waypoints = w.IsAuto && !keepRoutes ? [] : w.Waypoints.Select(p => (IReadOnlyList<double>)[p.X, p.Y]).ToList(),
                 AutoRouted = w.IsAuto && keepRoutes,
+                ByHand = !w.IsAuto && w.Waypoints.Count > 0,
                 Color = w.Color,
                 Unknown = w.Unknown,
             }).ToList(),

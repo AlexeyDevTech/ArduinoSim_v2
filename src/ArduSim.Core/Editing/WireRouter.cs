@@ -9,7 +9,7 @@ namespace ArduSim.Core.Editing;
 /// length, bends, crossings and what must not happen, so that it always finds something. Wires keep to the
 /// 0.1" grid and take the lines halfway between only where it gets crowded: between two rows of pins a
 /// tenth of an inch apart, that is what fits a bundle. Wires of one net may share a track: that reads as
-/// the connection it is.
+/// the connection it is. Wires between two rows of pins that face each other go first, as a bundle (<see cref="WireChannel"/>).
 /// </summary>
 internal sealed class WireRouter(SceneEditor editor)
 {
@@ -60,7 +60,8 @@ internal sealed class WireRouter(SceneEditor editor)
         // During a drag an answer now beats the very best one: the search leans towards the goal.
         _haste = thorough ? 10 : 15;
         Prepare(wires);
-        List<WireModel> order = [.. wires.OrderBy(Span).ThenBy(w => w.Id, StringComparer.Ordinal)];
+        HashSet<WireModel> bundled = LayBundles(wires);
+        List<WireModel> order = [.. wires.Where(w => !bundled.Contains(w)).OrderBy(Span).ThenBy(w => w.Id, StringComparer.Ordinal)];
         foreach (WireModel wire in order)
         {
             LayOne(wire);
@@ -93,6 +94,9 @@ internal sealed class WireRouter(SceneEditor editor)
         _nets[wire] = net != 0 ? net : (short)(_nets.Count + 1);
         return Search(wire) ?? [];
     }
+
+    /// <summary>Whether a wire leaves this pin up or down rather than sideways.</summary>
+    public bool LeavesVertically(PinReference pin) => ExitOf(pin) is { Direction: 1 or 3 };
 
     private double Span(WireModel wire) =>
         editor.PinPosition(wire.From) is { } a && editor.PinPosition(wire.To) is { } b ? Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) : 0;
@@ -366,6 +370,118 @@ internal sealed class WireRouter(SceneEditor editor)
 
     private static double Clear(double edge, int outward) =>
         (outward > 0 ? Math.Ceiling((edge + SceneEditor.Grid) / SceneEditor.Grid) : Math.Floor((edge - SceneEditor.Grid) / SceneEditor.Grid)) * SceneEditor.Grid;
+
+    // ---- bundles -------------------------------------------------------------------------------------
+
+    private readonly record struct BundleKey(string NearPart, string FarPart, int Direction, double NearRow, double FarRow);
+
+    private readonly record struct BundleWire(WireModel Wire, bool Reversed, double Near, double Far);
+
+    private HashSet<WireModel> LayBundles(IReadOnlyCollection<WireModel> free)
+    {
+        var groups = new Dictionary<BundleKey, List<BundleWire>>();
+        foreach (WireModel wire in free.OrderBy(w => w.Id, StringComparer.Ordinal))
+        {
+            if (wire.From.Component == wire.To.Component || Exits(wire) is not { } exits)
+            {
+                continue;
+            }
+
+            // Either way round: it is the two parts that make a bundle.
+            bool reversed = string.CompareOrdinal(wire.From.Component, wire.To.Component) > 0;
+            (Exit near, Exit far) = reversed ? (exits.To, exits.From) : (exits.From, exits.To);
+            if (far.Direction != (near.Direction + 2) % 4)
+            {
+                continue;
+            }
+
+            bool vertical = near.Direction % 2 == 1;
+            double nearRow = vertical ? near.Pin.Y : near.Pin.X;
+            double farRow = vertical ? far.Pin.Y : far.Pin.X;
+            if ((farRow - nearRow) * (near.Direction is 0 or 1 ? 1 : -1) <= 0)
+            {
+                continue;
+            }
+
+            var key = new BundleKey(reversed ? wire.To.Component : wire.From.Component, reversed ? wire.From.Component : wire.To.Component, near.Direction, nearRow, farRow);
+            if (!groups.TryGetValue(key, out List<BundleWire>? group))
+            {
+                groups[key] = group = [];
+            }
+
+            group.Add(new BundleWire(wire, reversed, vertical ? near.Pin.X : near.Pin.Y, vertical ? far.Pin.X : far.Pin.Y));
+        }
+
+        var laid = new HashSet<WireModel>();
+        foreach ((BundleKey key, List<BundleWire> group) in groups)
+        {
+            // A pin with two wires is a net of its own making: the search shares its track.
+            List<BundleWire> wires = [.. group.Where(w => group.Count(o => o.Near == w.Near) == 1 && group.Count(o => o.Far == w.Far) == 1)];
+            if (wires.Count >= 2)
+            {
+                LayBundle(key, wires, free, laid);
+            }
+        }
+
+        return laid;
+    }
+
+    private void LayBundle(BundleKey key, List<BundleWire> wires, IReadOnlyCollection<WireModel> free, HashSet<WireModel> laid)
+    {
+        if (editor.Scene.FindPart(key.NearPart) is not { } nearPart || editor.Scene.FindPart(key.FarPart) is not { } farPart)
+        {
+            return;
+        }
+
+        (double Left, double Top, double Right, double Bottom) near = editor.Bounds(nearPart);
+        (double Left, double Top, double Right, double Bottom) far = editor.Bounds(farPart);
+        bool vertical = key.Direction % 2 == 1;
+        (double first, double last) = key.Direction switch
+        {
+            0 => (near.Right + Cell, far.Left - Cell),
+            1 => (near.Bottom + Cell, far.Top - Cell),
+            2 => (near.Left - Cell, far.Right + Cell),
+            _ => (near.Top - Cell, far.Bottom + Cell),
+        };
+        double low = wires.Min(w => Math.Min(w.Near, w.Far)) - Cell;
+        double high = wires.Max(w => Math.Max(w.Near, w.Far)) + Cell;
+        (double Left, double Top, double Right, double Bottom) channel = vertical
+            ? (low, Math.Min(first, last), high, Math.Max(first, last))
+            : (Math.Min(first, last), low, Math.Max(first, last), high);
+        bool taken = editor.Scene.Parts.Any(p => p != nearPart && p != farPart && Meets(editor.Bounds(p), channel))
+            || editor.Scene.Wires.Any(w => (!free.Contains(w) || laid.Contains(w)) && Runs(editor.Route(w), channel));
+        if (taken || (last - first) * (key.Direction is 0 or 1 ? 1 : -1) < 0
+            || WireChannel.Lay([.. wires.Select(w => new WireChannel.Ends(w.Near, w.Far))], first, last) is not { } corners)
+        {
+            return;
+        }
+
+        for (int i = 0; i < wires.Count; i++)
+        {
+            WireModel wire = wires[i].Wire;
+            IEnumerable<(double X, double Y)> route = corners[i].Select(c => vertical ? (c.Along, c.Across) : (c.Across, c.Along));
+            wire.Waypoints.Clear();
+            wire.Waypoints.AddRange(wires[i].Reversed ? route.Reverse() : route);
+            Mark(editor.Route(wire), _nets.GetValueOrDefault(wire));
+            laid.Add(wire);
+        }
+    }
+
+    private static bool Meets((double Left, double Top, double Right, double Bottom) a, (double Left, double Top, double Right, double Bottom) b) =>
+        a.Left <= b.Right && b.Left <= a.Right && a.Top <= b.Bottom && b.Top <= a.Bottom;
+
+    private static bool Runs(IReadOnlyList<(double X, double Y)> route, (double Left, double Top, double Right, double Bottom) box)
+    {
+        for (int i = 0; i + 1 < route.Count; i++)
+        {
+            if (Meets((Math.Min(route[i].X, route[i + 1].X), Math.Min(route[i].Y, route[i + 1].Y), Math.Max(route[i].X, route[i + 1].X), Math.Max(route[i].Y, route[i + 1].Y)), box))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     // ---- the search --------------------------------------------------------------------------------
 

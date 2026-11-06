@@ -83,25 +83,22 @@ public sealed partial class SceneEditor
         Trim(_undo);
     }
 
-    /// <summary>
-    /// Wires a file brought without a route are laid out now. So are corners nobody could have set by hand:
-    /// off the grid (another tool wrote them), or the one bend the editor used to choose by itself.
-    /// </summary>
-    private void LayOutWhatHasNoRoute()
-    {
-        foreach (WireModel wire in Scene.Wires.Where(w => !w.IsAuto))
-        {
-            bool offGrid = wire.Waypoints.Any(c => c.X != Snap(c.X) || c.Y != Snap(c.Y));
-            bool plainBend = wire.Waypoints.Count == 1 && PinPosition(wire.From) is { } a && PinPosition(wire.To) is { } b && wire.Waypoints[0] == (a.X, b.Y);
-            wire.IsAuto = offGrid || plainBend;
-        }
+    /// <summary>Wires that came without a route are laid out now: a file's, and an undo step keeps the routes it has.</summary>
+    private void LayOutWhatHasNoRoute() => _router.Lay([.. Scene.Wires.Where(w => w.IsAuto && w.Waypoints.Count == 0)], thorough: true);
 
-        _router.Lay([.. Scene.Wires.Where(w => w.IsAuto)], thorough: true);
+    // A finished edit leaves every wire of the editor's where a fresh layout puts it, so that what is on screen does not depend on the way here.
+    private void Settle() => _router.Lay([.. Scene.Wires.Where(w => w.IsAuto)], thorough: true);
+
+    /// <summary>A drag of parts has ended: the quick routes it used give way to the real layout, in the drag's own undo step.</summary>
+    public void SettleWires()
+    {
+        Settle();
+        Changed?.Invoke();
     }
 
     // After parts changed place or shape: a wire with one end on them is laid out anew, since no corner
     // of its old route still means anything, and so is a laid-out wire they now lie over.
-    private void RerouteAround(IReadOnlyCollection<string> moved, bool bothEndsToo = false)
+    private void RerouteAround(IReadOnlyCollection<string> moved, bool bothEndsToo = false, bool dragging = false)
     {
         var boxes = Scene.Parts.Where(p => moved.Contains(p.Id)).Select(Bounds).ToList();
         var dirty = new List<WireModel>();
@@ -124,7 +121,14 @@ public sealed partial class SceneEditor
             }
         }
 
-        _router.Lay(dirty, thorough: false);
+        if (dragging)
+        {
+            _router.Lay(dirty, thorough: false);
+        }
+        else
+        {
+            Settle();
+        }
     }
 
     /// <summary>Разложить провода: every wire laid out anew, corners set by hand too. One undo step.</summary>
@@ -141,7 +145,7 @@ public sealed partial class SceneEditor
             wire.IsAuto = true;
         }
 
-        _router.Lay(Scene.Wires, thorough: true);
+        Settle();
         Changed?.Invoke();
     }
 
@@ -152,7 +156,7 @@ public sealed partial class SceneEditor
         {
             Checkpoint();
             wire.IsAuto = true;
-            _router.Lay([wire], thorough: false);
+            Settle();
             Changed?.Invoke();
         }
     }
@@ -203,7 +207,7 @@ public sealed partial class SceneEditor
         return part;
     }
 
-    /// <summary>Moves parts: wires between them go along, wires with one end on them are laid out anew. Pass checkpoint=false while a drag continues.</summary>
+    /// <summary>Moves parts: wires between them go along, wires with one end on them are laid out anew. Pass checkpoint=false while a drag continues, and call <see cref="SettleWires"/> when it ends.</summary>
     public void MoveParts(IReadOnlyCollection<string> ids, double dx, double dy, bool checkpoint = true)
     {
         if (ids.Count == 0 || (dx == 0 && dy == 0))
@@ -230,7 +234,7 @@ public sealed partial class SceneEditor
             }
         }
 
-        RerouteAround(ids);
+        RerouteAround(ids, dragging: !checkpoint);
         Changed?.Invoke();
     }
 
@@ -296,6 +300,7 @@ public sealed partial class SceneEditor
         Checkpoint();
         Scene.Parts.RemoveAll(p => parts.Contains(p.Id));
         Scene.Wires.RemoveAll(w => wireIds.Contains(w.Id) || parts.Contains(w.From.Component) || parts.Contains(w.To.Component));
+        Settle();
         Changed?.Invoke();
     }
 
@@ -311,11 +316,7 @@ public sealed partial class SceneEditor
         wire.Waypoints.AddRange(waypoints);
         wire.IsAuto = wire.Waypoints.Count == 0;
         Scene.Wires.Add(wire);
-        if (wire.IsAuto)
-        {
-            _router.Lay([wire], thorough: false);
-        }
-
+        Settle();
         Changed?.Invoke();
         return wire;
     }
@@ -357,7 +358,7 @@ public sealed partial class SceneEditor
         }
 
         wire.IsAuto = true;
-        _router.Lay([wire], thorough: false);
+        Settle();
         Changed?.Invoke();
         return true;
     }
@@ -627,8 +628,7 @@ public sealed partial class SceneEditor
             Scene.Wires.Add(wire);
         }
 
-        _router.Lay([.. Scene.Wires.Where(w => w.IsAuto && w.Waypoints.Count == 0 && ids.ContainsValue(w.From.Component))], thorough: true);
-        RerouteAround([.. ids.Values]);
+        Settle();
         Changed?.Invoke();
         return [.. ids.Values];
     }
@@ -676,7 +676,27 @@ public sealed partial class SceneEditor
             return [];
         }
 
-        return Route(from, wire.Waypoints, to);
+        // A corner off the pin's line, set by hand: still straight out of the pin, not along its row of pins.
+        return Route(from, wire.Waypoints, to, _router.LeavesVertically(wire.From), _router.LeavesVertically(wire.To));
+    }
+
+    private static List<(double X, double Y)> Route((double X, double Y) from, List<(double X, double Y)> corners, (double X, double Y) to, bool leaveVertically, bool arriveVertically)
+    {
+        var points = new List<(double X, double Y)> { from };
+        for (int i = 0; i <= corners.Count; i++)
+        {
+            (double X, double Y) a = points[^1];
+            (double X, double Y) b = i < corners.Count ? corners[i] : to;
+            if (a.X != b.X && a.Y != b.Y)
+            {
+                bool verticalFirst = (i == 0 && leaveVertically) || (i == corners.Count && i > 0 && !arriveVertically);
+                points.Add(verticalFirst ? (a.X, b.Y) : (b.X, a.Y));
+            }
+
+            points.Add(b);
+        }
+
+        return points.Where((p, i) => i == 0 || p != points[i - 1]).ToList();
     }
 
     public static IReadOnlyList<(double X, double Y)> Route((double X, double Y) from, IEnumerable<(double X, double Y)> corners, (double X, double Y) to, bool verticalFirst = false)

@@ -1,5 +1,24 @@
 # Changelog
 
+## Wires: old corners gone, bundles laid out together (2026-11-06)
+
+The owner's two pictures from NanoOS (ADR-020).
+
+**Wires running along rows of pins.** The LCD's wires still used corners from the project file, written for pins 30 units apart on a part whose pins are 10 apart. The editor took on-grid corners for a person's, so it kept them: wires ran over RST, GND and VIN, and up the LCD's header over SDA and SCL.
+
+- Corners a person sets are now marked in the file (`"byHand": true`). Anything else in a file is laid out on opening. **Corners set by hand in earlier versions are laid out too**: nothing told them apart.
+- Whoever set a corner, a wire leaves a pin straight out of it, never along its row.
+
+**The keypad's tangle.** A bundle was laid out one wire at a time, and the first ones took the good tracks. NanoOS wires it in reverse order (R1 to D2 and so on to C4 to D9), the hardest case.
+
+- Wires between two rows of pins that face each other are now laid out together, each on its own track, in the order with the fewest crossings. Same order: no crossings. In line: straight. Reverse order: each pair crosses once, in a regular pattern. Eight wires in reverse order make 28 crossings whatever the router does; wiring them in the board's order makes them straight lines.
+
+**The layout no longer depends on the way there.** Each finished edit and the end of a drag lay out all of the editor's wires from scratch, so what is on screen is what reopening gives, and a wire pushed aside comes back. Under 50 ms on the busiest example in a Debug build.
+
+Tests check every example: right angles, no wire along another net's, none over another net's pin.
+
+How to try it: open NanoOS_v1, or any project of yours with old wires, and look at the schematic; press and drag a part and let go. Saving drops the old corners from the file.
+
 ## Part drawings checked against their pins (2026-11-06)
 
 The owner found the keypad's pin names squeezed to one side, away from its pins. The names were one line of text spaced by hand, on about a dozen parts. All 54 layouts were rendered with their real pin positions over the art.

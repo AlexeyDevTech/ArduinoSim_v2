@@ -717,6 +717,7 @@ public partial class SchematicCanvas : UserControl
         if (_gesture == Gesture.MoveParts && _checkpointed)
         {
             scene.Editor.JoinCoincidingPins([.. scene.SelectedParts]);
+            scene.Editor.SettleWires();
         }
 
         switch (_gesture)

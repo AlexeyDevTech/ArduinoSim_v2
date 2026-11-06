@@ -141,8 +141,12 @@ public sealed record WireDocument
 
     public PinReference To { get; init; } = new("", "");
 
-    /// <summary>Corners set by hand; none means the editor lays the wire out (ADR-020).</summary>
+    /// <summary>The route's corners, kept only with <see cref="ByHand"/> (ADR-020).</summary>
     public IReadOnlyList<IReadOnlyList<double>> Waypoints { get; init; } = [];
+
+    /// <summary>Someone set these corners, and they stay. Corners without it came from an older version or another tool, and the editor lays the wire out.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ByHand { get; init; }
 
     /// <summary>In an undo step only: these corners are the editor's. Never in a file.</summary>
     [JsonIgnore]

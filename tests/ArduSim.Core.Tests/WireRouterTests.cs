@@ -1,4 +1,5 @@
 using ArduSim.Boards;
+using ArduSim.Core.Components;
 using ArduSim.Core.Editing;
 using ArduSim.Core.Projects;
 
@@ -238,7 +239,9 @@ public sealed class WireRouterTests
         SceneDocument document = editor.Scene.ToDocument(Scenes.Registry);
 
         Assert.Empty(document.Wires.Single(w => w.Id == auto.Id).Waypoints);
+        Assert.False(document.Wires.Single(w => w.Id == auto.Id).ByHand);
         Assert.Single(document.Wires.Single(w => w.Id == manual.Id).Waypoints);
+        Assert.True(document.Wires.Single(w => w.Id == manual.Id).ByHand);
 
         var reopened = new SceneEditor(SceneModel.FromDocument(document), Scenes.Registry);
         Assert.Equal(editor.Route(auto), reopened.Route(reopened.Scene.FindWire(auto.Id)!));
@@ -246,27 +249,246 @@ public sealed class WireRouterTests
     }
 
     [Fact]
-    public void Corners_off_the_grid_or_the_old_single_bend_are_laid_out_on_opening()
+    public void Corners_in_a_file_stay_only_if_marked_as_set_by_hand()
     {
         SceneEditor editor = NewEditor();
         PartModel led = editor.AddPart("led", 300, 100);
-        (double X, double Y) a = editor.PinPosition(new("board", "D2"))!.Value;
-        (double X, double Y) b = editor.PinPosition(new(led.Id, "A"))!.Value;
         SceneDocument document = editor.Scene.ToDocument(Scenes.Registry) with
         {
             Wires =
             [
-                new WireDocument { Id = "w1", From = new("board", "D2"), To = new(led.Id, "A"), Waypoints = [[a.X, b.Y]] },
-                new WireDocument { Id = "w2", From = new("board", "D3"), To = new(led.Id, "A"), Waypoints = [[55, -80], [55, -70]] },
-                new WireDocument { Id = "w3", From = new("board", "D4"), To = new(led.Id, "A"), Waypoints = [[50, -80], [60, -80]] },
+                new WireDocument { Id = "old", From = new("board", "D3"), To = new(led.Id, "A"), Waypoints = [[50, -80], [60, -80]] },
+                new WireDocument { Id = "hand", From = new("board", "D4"), To = new(led.Id, "C"), Waypoints = [[50, -90], [60, -90]], ByHand = true },
             ],
         };
 
         var opened = new SceneEditor(SceneModel.FromDocument(document), Scenes.Registry);
 
-        Assert.True(opened.Scene.FindWire("w1")!.IsAuto);
-        Assert.True(opened.Scene.FindWire("w2")!.IsAuto);
-        Assert.False(opened.Scene.FindWire("w3")!.IsAuto);
+        Assert.True(opened.Scene.FindWire("old")!.IsAuto);
+        Assert.DoesNotContain((50.0, -80.0), opened.Scene.FindWire("old")!.Waypoints);
+        Assert.False(opened.Scene.FindWire("hand")!.IsAuto);
+        Assert.Equal([(50.0, -90.0), (60.0, -90.0)], opened.Scene.FindWire("hand")!.Waypoints);
+
+        // And the mark goes back into the file with them, only for them.
+        SceneDocument saved = opened.Scene.ToDocument(Scenes.Registry);
+        Assert.True(saved.Wires.Single(w => w.Id == "hand").ByHand);
+        Assert.False(saved.Wires.Single(w => w.Id == "old").ByHand);
+        Assert.Empty(saved.Wires.Single(w => w.Id == "old").Waypoints);
+    }
+
+    [Fact]
+    public void A_corner_set_by_hand_off_a_pins_line_still_leaves_the_pin_straight()
+    {
+        SceneEditor editor = NewEditor();
+        PartModel led = editor.AddPart("led", 500, 100);
+        WireModel wire = editor.AddWire(new("board", "5V"), new(led.Id, "A"), [(400, 450)])!;
+
+        IReadOnlyList<(double X, double Y)> route = editor.Route(wire);
+
+        // The board's bottom row: down, not along the row over the pins beside it. The LED's lead: from below.
+        AssertOrthogonal(route);
+        Assert.Equal(route[0].X, route[1].X);
+        Assert.Equal(route[^1].X, route[^2].X);
+    }
+
+    // The owner's project: a keypad above the board, wired in reverse order, R1 to D2 and so on to C4 to D9.
+    private static SceneEditor KeypadOverBoard(double keypadX, params string[] boardPins)
+    {
+        var scene = new SceneModel();
+        scene.Parts.Add(new PartModel("board", Nano.Id) { X = 0, Y = -20 });
+        var editor = new SceneEditor(scene, Scenes.Registry);
+        PartModel keypad = editor.AddPart("keypad", keypadX, -220);
+        for (int i = 0; i < KeypadPins.Length; i++)
+        {
+            editor.AddWire(new(keypad.Id, KeypadPins[i]), new("board", boardPins[i]), []);
+        }
+
+        return editor;
+    }
+
+    private static int Crossings(IReadOnlyList<(double X, double Y)> one, IReadOnlyList<(double X, double Y)> two)
+    {
+        int crossings = 0;
+        foreach (((double X, double Y) A, (double X, double Y) B) a in Segments(one))
+        {
+            foreach (((double X, double Y) A, (double X, double Y) B) b in Segments(two))
+            {
+                ((double X, double Y) A, (double X, double Y) B) across = a.A.Y == a.B.Y ? a : b;
+                ((double X, double Y) A, (double X, double Y) B) down = a.A.Y == a.B.Y ? b : a;
+                if (across.A.Y == across.B.Y && down.A.X == down.B.X
+                    && down.A.X > Math.Min(across.A.X, across.B.X) && down.A.X < Math.Max(across.A.X, across.B.X)
+                    && across.A.Y > Math.Min(down.A.Y, down.B.Y) && across.A.Y < Math.Max(down.A.Y, down.B.Y))
+                {
+                    crossings++;
+                }
+            }
+        }
+
+        return crossings;
+    }
+
+    [Fact]
+    public void A_bundle_wired_in_reverse_order_gets_a_track_for_each_wire()
+    {
+        SceneEditor editor = KeypadOverBoard(30, "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9");
+        var routes = editor.Scene.Wires.Select(editor.Route).ToList();
+
+        foreach (IReadOnlyList<(double X, double Y)> route in routes)
+        {
+            AssertOrthogonal(route);
+            Assert.True(route.Count <= 6, $"{route.Count - 2} corners");
+
+            // Straight out of both pins, and between the parts all the way.
+            Assert.Equal(route[0].X, route[1].X);
+            Assert.Equal(route[^1].X, route[^2].X);
+            Assert.All(route, p => Assert.InRange(p.Y, -70, -10));
+        }
+
+        for (int i = 0; i < routes.Count; i++)
+        {
+            for (int j = i + 1; j < routes.Count; j++)
+            {
+                foreach (((double X, double Y) A, (double X, double Y) B) one in Segments(routes[i]))
+                {
+                    Assert.DoesNotContain(Segments(routes[j]), two => Overlap(one, two));
+                }
+
+                // Every pair has to cross once, and none more.
+                Assert.Equal(1, Crossings(routes[i], routes[j]));
+            }
+        }
+    }
+
+    [Fact]
+    public void A_bundle_in_the_same_order_runs_side_by_side_without_a_crossing()
+    {
+        SceneEditor editor = KeypadOverBoard(50, BoardPins);
+        var routes = editor.Scene.Wires.Select(editor.Route).ToList();
+
+        foreach (IReadOnlyList<(double X, double Y)> route in routes)
+        {
+            Assert.Equal(4, route.Count);
+            Assert.All(routes, other => Assert.Equal(0, Crossings(route, other)));
+        }
+    }
+
+    [Fact]
+    public void A_bundle_with_its_pins_in_line_runs_straight()
+    {
+        SceneEditor editor = KeypadOverBoard(30, BoardPins);
+
+        Assert.All(editor.Scene.Wires, wire => Assert.Empty(wire.Waypoints));
+    }
+
+    [Fact]
+    public void A_part_in_the_channel_leaves_the_bundle_to_the_search()
+    {
+        SceneEditor editor = KeypadOverBoard(30, "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9");
+        editor.MoveParts([editor.Scene.Parts.Single(p => p.Type == "keypad").Id], 0, -200);
+        PartModel resistor = editor.AddPart("resistor", 60, -140);
+
+        foreach (WireModel wire in editor.Scene.Wires)
+        {
+            AssertOrthogonal(editor.Route(wire));
+            Assert.False(CrossesBody(editor, editor.Route(wire), resistor), wire.Id);
+        }
+    }
+
+    [Fact]
+    public void What_is_laid_out_does_not_depend_on_the_way_there()
+    {
+        SceneEditor editor = WithKeypad();
+        PartModel keypad = editor.Scene.Parts.Single(p => p.Type == "keypad");
+
+        // A drag there and back through other places, and its end.
+        editor.Checkpoint();
+        editor.MoveParts([keypad.Id], 300, 40, checkpoint: false);
+        editor.MoveParts([keypad.Id], -500, -20, checkpoint: false);
+        editor.MoveParts([keypad.Id], 200, -20, checkpoint: false);
+        editor.SettleWires();
+
+        var opened = new SceneEditor(SceneModel.FromDocument(editor.Scene.ToDocument(Scenes.Registry)), Scenes.Registry);
+        foreach (WireModel wire in editor.Scene.Wires)
+        {
+            Assert.Equal(opened.Route(opened.Scene.FindWire(wire.Id)!), editor.Route(wire));
+        }
+    }
+
+    [Fact]
+    public void Every_example_comes_out_clean()
+    {
+        string examples = Path.Combine(RepositoryRoot(), "examples");
+        var problems = new List<string>();
+        foreach (string folder in Directory.EnumerateDirectories(examples))
+        {
+            var editor = new SceneEditor(SceneModel.FromDocument(ProjectFile.Load(folder).Scene), Scenes.Registry);
+            string name = Path.GetFileName(folder);
+            var net = new Dictionary<PinReference, int>();
+            int number = 0;
+            foreach (IReadOnlyList<WireModel> group in editor.WireNets())
+            {
+                number++;
+                foreach (WireModel wire in group)
+                {
+                    net[wire.From] = number;
+                    net[wire.To] = number;
+                }
+            }
+
+            List<(WireModel Wire, IReadOnlyList<(double X, double Y)> Route)> routes = [.. editor.Scene.Wires.Select(w => (w, editor.Route(w)))];
+            foreach ((WireModel wire, IReadOnlyList<(double X, double Y)> route) in routes)
+            {
+                int own = net[wire.From];
+                if (Segments(route).Any(s => s.A.X != s.B.X && s.A.Y != s.B.Y))
+                {
+                    problems.Add($"{name}: {wire.Id} is not at right angles");
+                }
+
+                foreach ((WireModel other, IReadOnlyList<(double X, double Y)> theirs) in routes)
+                {
+                    if (net[other.From] != own && string.CompareOrdinal(wire.Id, other.Id) < 0
+                        && Segments(route).Any(one => Segments(theirs).Any(two => Overlap(one, two))))
+                    {
+                        problems.Add($"{name}: {wire.Id} runs along {other.Id}");
+                    }
+                }
+
+                foreach (PartModel part in editor.Scene.Parts)
+                {
+                    foreach (PinDefinition pin in editor.Definition(part)?.Pins ?? [])
+                    {
+                        var reference = new PinReference(part.Id, pin.Name);
+                        if (net.GetValueOrDefault(reference) != own && editor.PinPosition(reference) is { } at
+                            && Segments(route).Any(s => Passes(s, at)))
+                        {
+                            problems.Add($"{name}: {wire.Id} runs over {part.Id}.{pin.Name}");
+                        }
+                    }
+                }
+            }
+        }
+
+        Assert.True(problems.Count == 0, string.Join("\n", problems));
+    }
+
+    private static bool Passes(((double X, double Y) A, (double X, double Y) B) segment, (double X, double Y) point)
+    {
+        double dx = Math.Max(Math.Max(Math.Min(segment.A.X, segment.B.X) - point.X, point.X - Math.Max(segment.A.X, segment.B.X)), 0);
+        double dy = Math.Max(Math.Max(Math.Min(segment.A.Y, segment.B.Y) - point.Y, point.Y - Math.Max(segment.A.Y, segment.B.Y)), 0);
+        return (dx * dx) + (dy * dy) < 9;
+    }
+
+    private static string RepositoryRoot()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "ArduSim.sln")))
+            {
+                return dir.FullName;
+            }
+        }
+
+        throw new InvalidOperationException("ArduSim.sln not found above " + AppContext.BaseDirectory);
     }
 
     [Fact]
