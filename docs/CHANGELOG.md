@@ -1,5 +1,20 @@
 # Changelog
 
+## M12 — Electrical DC solver (2026-11-06)
+
+Voltages and currents are now calculated, on every change of the circuit (ADR-017). Virtual time does not move, and sketches run at the same speed as before: a bare pin slightly faster, a pin with an LED toggled in a tight loop 25 % slower in real time, still 7 times faster than real time.
+
+- Nodal analysis of what is connected: resistors, potentiometers and joysticks as real dividers, so a load pulls a wiper or a divider down as on the bench. MCU outputs have an output resistance, so a loaded pin droops.
+- LEDs have a forward voltage and a series resistance, and their brightness follows their current: 220 Ω looks full, 1 kΩ dimmer, 10 kΩ or an `INPUT_PULLUP` glows faintly. Series and parallel LEDs behave: three white ones stay dark on 5 V; of a red and a blue in parallel only the red lights.
+- New warnings: a pin above its limit (40 mA, ESP8266 12 mA), an LED above 30 mA, which is what no resistor looks like. A short circuit keeps its own warning.
+- Currents on the schematic: LEDs and resistors show them while running (Параметры can hide this); pin and wire tooltips and the Свойства pin rows give voltage and current, a board pin says whether it gives or takes it, and PWM gives the average and the peak.
+- Runner: `--dump-circuit <file>` writes every pin's voltage and current and every wire's current.
+- Fixed: what was reported while the scene is built (a part the registry does not know, a bad wire, an LED across the rails) never reached the log or the headless output, because they subscribed only after it.
+- Example LedCurrents: 220 Ω, 4.7 kΩ and no resistor side by side, and a divider on A0.
+- Not modelled: capacitance and transients; the load of modules, servos, relays and buzzers; limits on the rails; seven-segment displays stay logic-level. О точности симуляции says so.
+
+How to try it: open the example «Токи и светодиоды» and press Запуск: compare the two LEDs and the milliamps above them, hover over a wire, hold the button to overload D6.
+Headless: `src/ArduSim.Runner/bin/Debug/net10.0/ArduSim.Runner.exe --project examples/LedCurrents --run-for 1200 --input 600:btn1:pressed=1 --dump-circuit circuit.txt`
 ## Usability pass (2026-11-05)
 
 An audit of the interface against Wokwi, Tinkercad, SimulIDE, Arduino IDE 2, VS Code and the Windows guidelines (ADR-016).

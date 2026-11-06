@@ -1,3 +1,4 @@
+using ArduSim.Core.Circuits;
 using System.Diagnostics;
 using ArduSim.Core.Components;
 using ArduSim.Core.Diagnostics;
@@ -23,6 +24,8 @@ internal sealed class SessionServer
     private readonly List<byte> _serial = [];
     private readonly Dictionary<int, List<byte>> _otherSerial = [];
     private readonly List<LogEntry> _logs = [];
+    private readonly Dictionary<string, double> _sentCircuit = new(StringComparer.Ordinal);
+    private long _circuitRevision = -1;
     private long _lastSent;
     private bool _first = true;
 
@@ -50,7 +53,14 @@ internal sealed class SessionServer
             }
         }
 
-        host.Engine.Log.Reported += d => _logs.Add(new LogEntry(d.Time, (byte)d.Severity, d.Code, d.Message, d.ComponentId, d.Key, d.Args));
+        // The scene was built before anyone could listen, and that is when a wrong part or an LED
+        // across the rails is reported.
+        foreach (SimDiagnostic diagnostic in host.Engine.Log.Entries)
+        {
+            _logs.Add(Entry(diagnostic));
+        }
+
+        host.Engine.Log.Reported += d => _logs.Add(Entry(d));
         host.Tick = () => Publish(force: false);
         host.RunStateChanged = () => Publish(force: true);
         host.Busy = () =>
@@ -107,6 +117,8 @@ internal sealed class SessionServer
         }
     }
 
+    private static LogEntry Entry(SimDiagnostic d) => new(d.Time, (byte)d.Severity, d.Code, d.Message, d.ComponentId, d.Key, d.Args);
+
     private static DisplayData? Display(SimComponent component) =>
         component.Display is { } frame
             ? new DisplayData((byte)frame.Kind, frame.Columns, frame.Rows, (byte)frame.Status, (float)frame.Contrast, frame.Dots.ToArray())
@@ -151,6 +163,29 @@ internal sealed class SessionServer
         return new TraceBlock(pinTimes, pinData, pinValues, busTimes, busDurations, busData, overflowed);
     }
 
+    // Only what changed since the last snapshot; between snapshots the view costs the simulation nothing.
+    private ComponentUpdate? DrainCircuit()
+    {
+        Circuit circuit = _host.Simulation.Circuit;
+        if (circuit.Revision == _circuitRevision)
+        {
+            return null;
+        }
+
+        _circuitRevision = circuit.Revision;
+        var changed = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach ((string key, double value) in CircuitState.ToState(circuit.Read()))
+        {
+            if (!_sentCircuit.TryGetValue(key, out double sent) || !sent.Equals(value))
+            {
+                _sentCircuit[key] = value;
+                changed[key] = value;
+            }
+        }
+
+        return changed.Count == 0 ? null : new ComponentUpdate(CircuitState.ComponentId, changed);
+    }
+
     private void Publish(bool force)
     {
         long now = Stopwatch.GetTimestamp();
@@ -159,7 +194,8 @@ internal sealed class SessionServer
             return;
         }
 
-        bool empty = _pins.Count == 0 && _components.Count == 0 && _serial.Count == 0 && _logs.Count == 0 && !_host.Mcu.Recorder.HasData && _otherSerial.Values.All(b => b.Count == 0);
+        bool empty = _pins.Count == 0 && _components.Count == 0 && _serial.Count == 0 && _logs.Count == 0 && !_host.Mcu.Recorder.HasData && _otherSerial.Values.All(b => b.Count == 0)
+            && _host.Simulation.Circuit.Revision == _circuitRevision;
         if (!force && !_first && empty && now - _lastSent < 4 * Interval)
         {
             return; // nothing new: keep the clock readout fresh at 15 Hz only
@@ -169,12 +205,18 @@ internal sealed class SessionServer
             ? _host.Mcu.Board.Pins.Select(p => _host.Mcu.DriveOf(p.Number)).Zip(_host.Mcu.Board.Pins, (d, p) => new PinUpdate(p.Number, (byte)d.Kind, d.Value))
             : _pins.Values;
         IEnumerable<SimComponent> components = _first ? _host.Simulation.Components : _components;
+        List<ComponentUpdate> updates = components.Select(c => new ComponentUpdate(c.Id, new Dictionary<string, double>(c.State), Display(c))).ToList();
+        if (DrainCircuit() is { } circuitUpdate)
+        {
+            updates.Add(circuitUpdate);
+        }
+
         var snapshot = new Snapshot(
             _host.Engine.Clock.Now,
             _host.WallTime.TotalSeconds,
             _host.IsPaused ? RunState.Paused : RunState.Running,
             pins.ToList(),
-            components.Select(c => new ComponentUpdate(c.Id, new Dictionary<string, double>(c.State), Display(c))).ToList(),
+            updates,
             [.. _serial],
             [.. _logs],
             _otherSerial.Where(p => p.Value.Count > 0).Select(p => new SerialOutput(p.Key, [.. p.Value])).ToList(),

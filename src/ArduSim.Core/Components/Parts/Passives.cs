@@ -24,13 +24,14 @@ public sealed class Resistor : SimComponent
 }
 
 /// <summary>
-/// A potentiometer: the wiper W sits at <c>value</c> (0..1) of the way from pin 1 to pin 2 and
-/// acts as a source with the divider's Thevenin resistance.
+/// A potentiometer: two resistors whose junction, the wiper W, sits at <c>value</c> (0..1) of the
+/// way from pin 1 to pin 2. A load on the wiper pulls it as it does on the bench.
 /// </summary>
 [SimComponent]
 public sealed class Potentiometer : SimComponent
 {
-    private Driver _wiper = null!;
+    private CircuitResistor _toEnd1 = null!;
+    private CircuitResistor _toEnd2 = null!;
     private double _resistance;
     private double _value;
 
@@ -55,8 +56,8 @@ public sealed class Potentiometer : SimComponent
     {
         _resistance = Properties.Number("resistance");
         _value = Properties.Number("value");
-        _wiper = Circuit.AddDriver(Pin("W"), Id);
-        WatchPins("1", "2");
+        _toEnd1 = Circuit.AddResistor(Pin("1"), Pin("W"), Math.Max(_resistance * _value, 1), Id);
+        _toEnd2 = Circuit.AddResistor(Pin("W"), Pin("2"), Math.Max(_resistance * (1 - _value), 1), Id);
     }
 
     public override void ApplyInput(string name, double value)
@@ -69,29 +70,10 @@ public sealed class Potentiometer : SimComponent
 
         _value = Math.Clamp(value, 0, 1);
         Refresh();
+        Circuit.SetDivider(_toEnd1, Math.Max(_resistance * _value, 1), _toEnd2, Math.Max(_resistance * (1 - _value), 1));
     }
 
-    protected override void Refresh()
-    {
-        SetState("value", _value);
-        NetState end1 = Net("1");
-        NetState end2 = Net("2");
-        double toEnd1 = Math.Max(_resistance * _value, 1);
-        double toEnd2 = Math.Max(_resistance * (1 - _value), 1);
-        if (end1.HasVoltage && end2.HasVoltage)
-        {
-            double voltage = end1.AverageVoltage + ((end2.AverageVoltage - end1.AverageVoltage) * _value);
-            _wiper.Set(NetDrive.Weak(voltage, Math.Max(toEnd1 * toEnd2 / (toEnd1 + toEnd2), 1)));
-        }
-        else if (end1.HasVoltage || end2.HasVoltage)
-        {
-            _wiper.Set(end1.HasVoltage ? NetDrive.Weak(end1.AverageVoltage, toEnd1) : NetDrive.Weak(end2.AverageVoltage, toEnd2));
-        }
-        else
-        {
-            _wiper.Set(NetDrive.None);
-        }
-    }
+    protected override void Refresh() => SetState("value", _value);
 }
 
 /// <summary>A passive piezo buzzer: shows the tone frequency on pin 1 while pin 2 is grounded.</summary>

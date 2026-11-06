@@ -166,8 +166,10 @@ public sealed class Joystick : SimComponent
 {
     private const double Track = 10_000;
 
-    private Driver _x = null!;
-    private Driver _y = null!;
+    private CircuitResistor _xLow = null!;
+    private CircuitResistor _xHigh = null!;
+    private CircuitResistor _yLow = null!;
+    private CircuitResistor _yHigh = null!;
     private CircuitSwitch _button = null!;
     private double _horizontal;
     private double _vertical;
@@ -194,10 +196,11 @@ public sealed class Joystick : SimComponent
 
     protected override void OnAttach()
     {
-        _x = Circuit.AddDriver(Pin("VRX"), Id);
-        _y = Circuit.AddDriver(Pin("VRY"), Id);
+        _xLow = Circuit.AddResistor(Pin("GND"), Pin("VRX"), Half(0.5), Id);
+        _xHigh = Circuit.AddResistor(Pin("VRX"), Pin("VCC"), Half(0.5), Id);
+        _yLow = Circuit.AddResistor(Pin("GND"), Pin("VRY"), Half(0.5), Id);
+        _yHigh = Circuit.AddResistor(Pin("VRY"), Pin("VCC"), Half(0.5), Id);
         _button = Circuit.AddSwitch(Pin("SW"), Pin("GND"), closed: false);
-        WatchPins("VCC", "GND");
     }
 
     public override void OnCircuitReady()
@@ -205,7 +208,6 @@ public sealed class Joystick : SimComponent
         SetState("x", 0);
         SetState("y", 0);
         SetState("pressed", 0);
-        Refresh();
     }
 
     /// <summary><c>x</c> and <c>y</c>: -1…1 (0 = centre); <c>pressed</c>: the stick's button.</summary>
@@ -216,12 +218,12 @@ public sealed class Joystick : SimComponent
             case "x":
                 _horizontal = Math.Clamp(value, -1, 1);
                 SetState("x", _horizontal);
-                Refresh();
+                Circuit.SetDivider(_xLow, Half((1 + _horizontal) / 2), _xHigh, Half((1 - _horizontal) / 2));
                 break;
             case "y":
                 _vertical = Math.Clamp(value, -1, 1);
                 SetState("y", _vertical);
-                Refresh();
+                Circuit.SetDivider(_yLow, Half((1 + _vertical) / 2), _yHigh, Half((1 - _vertical) / 2));
                 break;
             case "pressed":
                 SetState("pressed", value != 0 ? 1 : 0);
@@ -233,25 +235,6 @@ public sealed class Joystick : SimComponent
         }
     }
 
-    protected override void Refresh()
-    {
-        NetState vcc = Net("VCC");
-        NetState gnd = Net("GND");
-        _x.Set(Wiper(vcc, gnd, (1 + _horizontal) / 2));
-        _y.Set(Wiper(vcc, gnd, (1 + _vertical) / 2));
-    }
-
-    // As the potentiometer part: the wiper is a source behind the divider's Thevenin resistance.
-    private static NetDrive Wiper(NetState high, NetState low, double fraction)
-    {
-        if (!high.HasVoltage || !low.HasVoltage)
-        {
-            return NetDrive.None;
-        }
-
-        double toLow = Math.Max(Track * fraction, 1);
-        double toHigh = Math.Max(Track * (1 - fraction), 1);
-        double voltage = low.AverageVoltage + ((high.AverageVoltage - low.AverageVoltage) * fraction);
-        return NetDrive.Weak(voltage, Math.Max(toLow * toHigh / (toLow + toHigh), 1));
-    }
+    // As on the potentiometer part: each axis is a real divider.
+    private static double Half(double fraction) => Math.Max(Track * fraction, 1);
 }

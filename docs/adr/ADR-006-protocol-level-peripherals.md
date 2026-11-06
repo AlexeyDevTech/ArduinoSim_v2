@@ -1,6 +1,6 @@
 # ADR-006: Protocol-level peripheral simulation
 
-- Status: Accepted (fixed by the brief, §3.5; full SSD1306 scrolling and the single LCD component confirmed by the owner on 2026-11-02).
+- Status: Accepted (fixed by the brief, §3.5; full SSD1306 scrolling and the single LCD component confirmed by the owner on 2026-11-02). "Nets" is refined by ADR-017: how a net's voltage is worked out is now a DC solution with currents; the conditions, warnings and everything about buses and displays stand.
 - Date: 2026-11-02
 
 ## Decision

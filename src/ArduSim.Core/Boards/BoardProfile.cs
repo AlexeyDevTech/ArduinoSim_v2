@@ -82,6 +82,8 @@ public sealed record UartPins(int Rx, int Tx);
 /// <param name="PwmConfigurable">PWM frequency and resolution can be set (ESP32 LEDC); otherwise PWM is fixed at 8 bits.</param>
 /// <param name="PullResistance">Internal pull-up (and pull-down) resistance.</param>
 /// <param name="Uarts">Default pins of each UART, for the logic analyzer; null when unknown.</param>
+/// <param name="PinOutputResistance">Ohms behind an output pin (from the datasheet's VOH and VOL against current).</param>
+/// <param name="PinCurrentLimit">Amps a pin may carry before the simulation warns (the absolute maximum rating).</param>
 public sealed record BoardProfile(
     string Id,
     string DisplayName,
@@ -104,7 +106,9 @@ public sealed record BoardProfile(
     bool BusPinsAnywhere = false,
     bool PwmConfigurable = false,
     double PullResistance = 35_000,
-    IReadOnlyList<UartPins>? Uarts = null)
+    IReadOnlyList<UartPins>? Uarts = null,
+    double PinOutputResistance = 25,
+    double PinCurrentLimit = 0.040)
 {
     public BoardPin? FindPin(int number) => Pins.FirstOrDefault(p => p.Number == number);
 

@@ -532,6 +532,14 @@
       <Path Data="M 5,40 L 5,18 A 15,15 0 0 1 35,18 L 35,40 Z" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}" Opacity="{Binding Brightness}" />
       <Rectangle Canvas.Left="2" Canvas.Top="38" Width="36" Height="4" RadiusX="1" RadiusY="1" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}" Opacity="0.6" />
       <TextBlock Canvas.Left="6" Canvas.Top="58" FontSize="6" Foreground="#FF8A93A6" Text="+" />
+      <TextBlock Canvas.Left="-30" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" RenderTransformOrigin="0.5,0.5">
+        <TextBlock.RenderTransform>
+          <TransformGroup>
+            <RotateTransform Angle="{Binding ReadoutAngle}" />
+            <ScaleTransform ScaleX="{Binding FlipScale}" />
+          </TransformGroup>
+        </TextBlock.RenderTransform>
+      </TextBlock>
     </Canvas>
   </DataTemplate>
 
@@ -563,6 +571,15 @@
       <Rectangle Canvas.Left="31" Canvas.Top="4" Width="2.5" Height="12" Fill="#FF6E4B2A" />
       <Rectangle Canvas.Left="40" Canvas.Top="4" Width="2.5" Height="12" Fill="#FFD4AF37" />
       <TextBlock Canvas.Left="0" Canvas.Top="-10" Width="60" TextAlignment="Center" FontSize="6" Foreground="#FF9BA3B4" Text="{Binding ResistanceText}" />
+      <TextBlock Canvas.Left="-20" Canvas.Top="19" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" RenderTransformOrigin="0.5,0.5">
+        <TextBlock.RenderTransform>
+          <TransformGroup>
+            <TranslateTransform X="{Binding ReadoutShift}" />
+            <RotateTransform Angle="{Binding ReadoutAngle}" />
+            <ScaleTransform ScaleX="{Binding FlipScale}" />
+          </TransformGroup>
+        </TextBlock.RenderTransform>
+      </TextBlock>
     </Canvas>
   </DataTemplate>
 

@@ -199,6 +199,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         LeftTab = Math.Clamp(layout.LeftTab, 0, 1);
         SplitView = layout.SplitView;
         CanvasHints = layout.CanvasHints;
+        CanvasCurrents = layout.CanvasCurrents;
         Palette.SetCollapsed(layout.CollapsedCategories);
         WheelPans = layout.WheelPans;
         InitializeStartView();
@@ -459,6 +460,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             SplitRatio = splitRatio,
             CollapsedCategories = Palette.CollapsedCategories,
             CanvasHints = CanvasHints,
+            CanvasCurrents = CanvasCurrents,
             WheelPans = WheelPans,
             Window = window,
         };

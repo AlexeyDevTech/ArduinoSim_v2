@@ -1,4 +1,3 @@
-using System.Globalization;
 using ArduSim.Core.Diagnostics;
 
 namespace ArduSim.Core.Circuits;
@@ -13,22 +12,29 @@ public enum DriveStrength
 {
     None,
 
-    /// <summary>A source behind a resistance: pull-ups, a potentiometer wiper.</summary>
+    /// <summary>A source behind a resistance: a pull-up, say.</summary>
     Weak,
 
     /// <summary>An output or a supply rail.</summary>
     Strong,
 }
 
-/// <summary>What one source contributes to a net (ADR-006). PWM and tone are state, not edges.</summary>
-/// <param name="Duty">Fraction of time at <paramref name="Voltage"/> (1 = steady).</param>
+/// <summary>What one source contributes to a net (ADR-017). PWM and tone are state, not edges.</summary>
+/// <param name="Resistance">Ohms behind the source. A strong source with none is ideal: it fixes the net's voltage.</param>
+/// <param name="Duty">Fraction of time at <paramref name="Voltage"/>, the rest at 0 V (1 = steady).</param>
 public readonly record struct NetDrive(DriveStrength Strength, double Voltage, double Resistance, double Duty, int ToneHz)
 {
     public static NetDrive None => default;
 
-    public static NetDrive Strong(double voltage, double duty = 1, int toneHz = 0) => new(DriveStrength.Strong, voltage, 0, duty, toneHz);
+    public static NetDrive Strong(double voltage, double duty = 1, int toneHz = 0, double resistance = 0) => new(DriveStrength.Strong, voltage, resistance, duty, toneHz);
 
     public static NetDrive Weak(double voltage, double resistance) => new(DriveStrength.Weak, voltage, resistance, 1, 0);
+
+    internal bool Toggles => Strength != DriveStrength.None && ((Duty > 0 && Duty < 1) || ToneHz > 0);
+
+    internal bool IsIdeal => Strength == DriveStrength.Strong && Resistance <= 0 && !Toggles;
+
+    internal double Conductance => 1 / Math.Max(Resistance, 1);
 }
 
 public enum NetCondition
@@ -46,22 +52,22 @@ public enum NetCondition
     Conflict,
 }
 
-/// <param name="SourceResistance">Ohms between the net and its sources (0 for a strong drive).</param>
-public readonly record struct NetState(NetCondition Condition, double Voltage, double SourceResistance, double Duty, int ToneHz)
+/// <param name="Voltage">The net's voltage; while PWM or a tone moves it, the voltage of its high phase.</param>
+/// <param name="Duty">Fraction of time at <paramref name="Voltage"/> (1 = steady).</param>
+/// <param name="AverageVoltage">Voltage averaged over the PWM period.</param>
+public readonly record struct NetState(NetCondition Condition, double Voltage, double Duty, int ToneHz, double AverageVoltage)
 {
     public bool HasVoltage => Condition is NetCondition.Driven or NetCondition.Pulled;
-
-    /// <summary>Voltage averaged over the PWM period.</summary>
-    public double AverageVoltage => Voltage * Duty;
 }
 
 /// <summary>A set of pins joined by wires (and closed switches).</summary>
 public sealed class Net
 {
-    internal Net(int index, IReadOnlyList<PinRef> pins)
+    internal Net(int index, IReadOnlyList<PinRef> pins, int[] nodes)
     {
         Index = index;
         Pins = pins;
+        Nodes = nodes;
     }
 
     public int Index { get; }
@@ -72,11 +78,21 @@ public sealed class Net
 
     public string Name => string.Join(", ", Pins.Take(3)) + (Pins.Count > 3 ? ", ..." : "");
 
+    internal int[] Nodes { get; }
+
     internal List<Driver> Drivers { get; } = [];
 
-    internal List<ResistorLink> Resistors { get; } = [];
+    internal List<CircuitElement> Elements { get; } = [];
 
-    internal int Group { get; set; }
+    // The solver's working state for this net.
+    internal int Visit { get; set; }
+
+    /// <summary>The net's unknown in its island, or -1 when its voltage is known.</summary>
+    internal int Slot { get; set; }
+
+    internal double Known { get; set; }
+
+    internal bool Reached { get; set; }
 }
 
 /// <summary>A component's contribution to the net of one of its pins.</summary>
@@ -84,11 +100,13 @@ public sealed class Driver
 {
     private readonly Circuit _circuit;
 
-    internal Driver(Circuit circuit, PinRef pin, string owner)
+    internal Driver(Circuit circuit, PinRef pin, string owner, double currentLimit, int order)
     {
         _circuit = circuit;
         Pin = pin;
         Owner = owner;
+        CurrentLimit = currentLimit;
+        Order = order;
     }
 
     public PinRef Pin { get; }
@@ -98,6 +116,23 @@ public sealed class Driver
 
     public NetDrive Drive { get; private set; }
 
+    /// <summary>Amps above which a warning says the pin is overloaded; 0 for no limit.</summary>
+    public double CurrentLimit { get; }
+
+    /// <summary>Amps out of the source into the net, averaged over PWM. Rails: see <see cref="Circuit.Read"/>.</summary>
+    public double Current { get; internal set; }
+
+    /// <summary>The amps of largest magnitude in any PWM phase.</summary>
+    public double PeakCurrent { get; internal set; }
+
+    internal Net Net { get; set; } = null!;
+
+    /// <summary>Its place among the circuit's drivers: a stable order to choose by.</summary>
+    internal int Order { get; }
+
+    /// <summary>The source's voltage in the phase being solved.</summary>
+    internal double Source { get; set; }
+
     public void Set(NetDrive drive)
     {
         if (drive == Drive)
@@ -106,7 +141,7 @@ public sealed class Driver
         }
 
         Drive = drive;
-        _circuit.Invalidate(this);
+        _circuit.Invalidate(Pin);
     }
 }
 
@@ -141,37 +176,120 @@ public sealed class CircuitSwitch
     }
 }
 
-internal sealed record ResistorLink(PinRef A, PinRef B, double Ohms, string Owner);
+/// <summary>A two-terminal part of the solved circuit.</summary>
+public abstract class CircuitElement
+{
+    private protected CircuitElement(PinRef a, PinRef b, string owner)
+    {
+        A = a;
+        B = b;
+        Owner = owner;
+    }
+
+    public PinRef A { get; }
+
+    public PinRef B { get; }
+
+    public string Owner { get; }
+
+    /// <summary>Amps from <see cref="A"/> to <see cref="B"/>, averaged over PWM.</summary>
+    public double Current { get; internal set; }
+
+    /// <summary>The amps of largest magnitude in any PWM phase.</summary>
+    public double PeakCurrent { get; internal set; }
+
+    internal Net NetA { get; set; } = null!;
+
+    internal Net NetB { get; set; } = null!;
+
+    internal int Visit { get; set; }
+
+    internal Net Other(Net net) => net == NetA ? NetB : NetA;
+
+    /// <summary>The current with this voltage across it, when both of its nets are known.</summary>
+    internal abstract double DirectCurrent(double across);
+}
+
+/// <summary>A resistor couples two nets; its value can change at run time (a potentiometer's track).</summary>
+public sealed class CircuitResistor : CircuitElement
+{
+    private readonly Circuit _circuit;
+
+    internal CircuitResistor(Circuit circuit, PinRef a, PinRef b, double ohms, string owner)
+        : base(a, b, owner)
+    {
+        _circuit = circuit;
+        Ohms = ohms;
+    }
+
+    public double Ohms { get; private set; }
+
+    public void Set(double ohms)
+    {
+        Assign(ohms);
+        _circuit.Invalidate(A);
+    }
+
+    internal void Assign(double ohms) => Ohms = Math.Max(ohms, Circuit.MinResistance);
+
+    internal override double DirectCurrent(double across) => across / Ohms;
+}
 
 /// <summary>
-/// The scene's electrical model (ADR-006): pins joined into nets by wires and closed switches,
-/// resistors coupling nets, and drivers on pins. Resolution follows simple rules instead of
-/// circuit simulation: strong drivers win (and must agree, or it is a short circuit); otherwise
-/// weak sources and sources behind resistors combine like a Thevenin equivalent; with no source
-/// a net floats. Only the resistor-coupled group around a change is re-resolved, and pin watchers
-/// hear about every net whose state changed.
+/// A piecewise-linear diode from A (anode) to B (cathode): nearly open below its knee, a series
+/// resistance above it (ADR-017).
 /// </summary>
-public sealed class Circuit
+public sealed class CircuitDiode : CircuitElement
 {
+    internal CircuitDiode(PinRef anode, PinRef cathode, double knee, double seriesResistance, string owner)
+        : base(anode, cathode, owner)
+    {
+        Knee = knee;
+        OnConductance = 1 / seriesResistance;
+    }
+
+    public double Knee { get; }
+
+    internal double OnConductance { get; }
+
+    /// <summary>Conducting in the phase being solved; kept as the first guess for the next solve.</summary>
+    internal bool On { get; set; }
+
+    internal bool EverOn { get; set; }
+
+    internal double OnCurrent(double across) => ((across - Knee) * OnConductance) + (Circuit.DiodeOffConductance * Knee);
+
+    internal override double DirectCurrent(double across) => across > Knee ? OnCurrent(across) : 0;
+}
+
+/// <summary>
+/// The scene's electrical model: pins joined into nets by wires and closed switches, drivers on
+/// pins, and resistors and diodes coupling nets. Every change is solved by nodal analysis around
+/// it (ADR-017, the solving is in Circuit.Solve.cs); pin watchers hear about every net whose state
+/// changed, in the same host call, and the simulation's time does not move.
+/// </summary>
+public sealed partial class Circuit
+{
+    internal const double MinResistance = 0.001;
+    internal const double DiodeOffConductance = OffConductance;
     private const double AgreementTolerance = 0.5;
-    private const double StrongSourceResistance = 25;
     private const int SettleLimit = 10_000;
 
     private readonly SimulationLog _log;
     private readonly Dictionary<PinRef, int> _nodes = [];
     private readonly List<PinRef> _nodePins = [];
     private readonly List<List<Action>> _watchers = [];
-    private readonly List<(int A, int B)> _wires = [];
+    private readonly List<(int A, int B, string? Wire)> _wires = [];
     private readonly List<CircuitSwitch> _switches = [];
     private readonly List<Driver> _drivers = [];
-    private readonly List<ResistorLink> _resistors = [];
+    private readonly List<CircuitElement> _elements = [];
     private readonly Queue<int> _dirty = new();
     private readonly HashSet<int> _dirtySet = [];
     private List<Net> _nets = [];
     private int[] _netOfNode = [];
-    private List<List<Net>> _groups = [];
     private bool _built;
     private bool _resolving;
+    private bool _repartition;
 
     public Circuit(SimulationLog log)
     {
@@ -184,10 +302,11 @@ public sealed class Circuit
 
     public void AddPin(PinRef pin) => Node(pin);
 
-    public void Connect(PinRef a, PinRef b)
+    /// <param name="wire">The scene's id of this wire, when it is one (its current is then reported under it).</param>
+    public void Connect(PinRef a, PinRef b, string? wire = null)
     {
         RequireUnbuilt();
-        _wires.Add((Node(a), Node(b)));
+        _wires.Add((Node(a), Node(b), wire));
     }
 
     public CircuitSwitch AddSwitch(PinRef a, PinRef b, bool closed)
@@ -200,21 +319,46 @@ public sealed class Circuit
         return connection;
     }
 
-    public Driver AddDriver(PinRef pin, string owner)
+    /// <param name="currentLimit">Amps above which a warning says the pin is overloaded; 0 for no limit.</param>
+    public Driver AddDriver(PinRef pin, string owner, double currentLimit = 0)
     {
         RequireUnbuilt();
         Node(pin);
-        var driver = new Driver(this, pin, owner);
+        var driver = new Driver(this, pin, owner, currentLimit, _drivers.Count);
         _drivers.Add(driver);
         return driver;
     }
 
-    public void AddResistor(PinRef a, PinRef b, double ohms, string owner)
+    public CircuitResistor AddResistor(PinRef a, PinRef b, double ohms, string owner)
     {
         RequireUnbuilt();
         Node(a);
         Node(b);
-        _resistors.Add(new ResistorLink(a, b, Math.Max(ohms, 0.001), owner));
+        var resistor = new CircuitResistor(this, a, b, Math.Max(ohms, MinResistance), owner);
+        _elements.Add(resistor);
+        return resistor;
+    }
+
+    /// <param name="knee">Volts across it below which it does not conduct.</param>
+    /// <param name="seriesResistance">Ohms above the knee.</param>
+    public CircuitDiode AddDiode(PinRef anode, PinRef cathode, double knee, double seriesResistance, string owner)
+    {
+        RequireUnbuilt();
+        Node(anode);
+        Node(cathode);
+        var diode = new CircuitDiode(anode, cathode, knee, seriesResistance, owner);
+        _elements.Add(diode);
+        return diode;
+    }
+
+    /// <summary>Changes the two halves of a divider at once, so that nothing sees it in between.</summary>
+    public void SetDivider(CircuitResistor first, double firstOhms, CircuitResistor second, double secondOhms)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(second);
+        first.Assign(firstOhms);
+        second.Assign(secondOhms);
+        Invalidate(second.A);
     }
 
     /// <summary>Calls <paramref name="onChange"/> whenever the state of <paramref name="pin"/>'s net changes.</summary>
@@ -231,14 +375,19 @@ public sealed class Circuit
 
     public NetState StateOf(PinRef pin) => NetOf(pin).State;
 
-    internal void Invalidate(Driver driver)
+    internal void Invalidate(PinRef pin)
     {
         if (!_built)
         {
             return;
         }
 
-        MarkDirty(_nets[_netOfNode[_nodes[driver.Pin]]].Group);
+        int net = _netOfNode[_nodes[pin]];
+        if (_dirtySet.Add(net))
+        {
+            _dirty.Enqueue(net);
+        }
+
         Settle();
     }
 
@@ -249,21 +398,7 @@ public sealed class Circuit
             return;
         }
 
-        NetState[] before = _netOfNode.Length == 0 ? [] : Enumerable.Range(0, _nodePins.Count).Select(n => _nets[_netOfNode[n]].State).ToArray();
-        Partition();
-        foreach (List<Net> group in _groups)
-        {
-            Resolve(group, notify: false);
-        }
-
-        for (int node = 0; node < _nodePins.Count; node++)
-        {
-            if (before.Length == 0 || node >= before.Length || before[node] != _nets[_netOfNode[node]].State)
-            {
-                Notify(node);
-            }
-        }
-
+        _repartition = true;
         Settle();
     }
 
@@ -306,7 +441,7 @@ public sealed class Circuit
 
         void Union(int a, int b) => parent[Find(a)] = Find(b);
 
-        foreach ((int a, int b) in _wires)
+        foreach ((int a, int b, string? _) in _wires)
         {
             Union(a, b);
         }
@@ -318,6 +453,7 @@ public sealed class Circuit
 
         var netOfRoot = new Dictionary<int, int>();
         var members = new List<List<PinRef>>();
+        var nodes = new List<List<int>>();
         _netOfNode = new int[count];
         for (int node = 0; node < count; node++)
         {
@@ -327,71 +463,54 @@ public sealed class Circuit
                 net = members.Count;
                 netOfRoot[root] = net;
                 members.Add([]);
+                nodes.Add([]);
             }
 
             _netOfNode[node] = net;
             members[net].Add(_nodePins[node]);
+            nodes[net].Add(node);
         }
 
-        _nets = members.Select((pins, i) => new Net(i, pins)).ToList();
+        _nets = members.Select((pins, i) => new Net(i, pins, nodes[i].ToArray())).ToList();
         foreach (Driver driver in _drivers)
         {
-            _nets[_netOfNode[_nodes[driver.Pin]]].Drivers.Add(driver);
+            driver.Net = _nets[_netOfNode[_nodes[driver.Pin]]];
+            driver.Net.Drivers.Add(driver);
         }
 
-        int[] groupParent = Enumerable.Range(0, _nets.Count).ToArray();
-        int FindGroup(int x)
+        foreach (CircuitElement element in _elements)
         {
-            while (groupParent[x] != x)
+            element.NetA = _nets[_netOfNode[_nodes[element.A]]];
+            element.NetB = _nets[_netOfNode[_nodes[element.B]]];
+            element.Current = element.PeakCurrent = 0;
+            if (element.NetA != element.NetB)
             {
-                x = groupParent[x] = groupParent[groupParent[x]];
+                element.NetA.Elements.Add(element);
+                element.NetB.Elements.Add(element);
             }
-
-            return x;
-        }
-
-        foreach (ResistorLink r in _resistors)
-        {
-            Net a = _nets[_netOfNode[_nodes[r.A]]];
-            Net b = _nets[_netOfNode[_nodes[r.B]]];
-            if (a != b)
-            {
-                a.Resistors.Add(r);
-                b.Resistors.Add(r);
-                groupParent[FindGroup(a.Index)] = FindGroup(b.Index);
-            }
-        }
-
-        var groupOfRoot = new Dictionary<int, int>();
-        _groups = [];
-        foreach (Net net in _nets)
-        {
-            int root = FindGroup(net.Index);
-            if (!groupOfRoot.TryGetValue(root, out int group))
-            {
-                group = _groups.Count;
-                groupOfRoot[root] = group;
-                _groups.Add([]);
-            }
-
-            net.Group = group;
-            _groups[group].Add(net);
         }
 
         _dirty.Clear();
         _dirtySet.Clear();
     }
 
-    private void MarkDirty(int group)
+    // The nets changed shape: solve everything, and tell the watchers of what differs.
+    private void RebuildNets()
     {
-        if (_dirtySet.Add(group))
+        NetState[] before = _netOfNode.Length == 0 ? [] : Enumerable.Range(0, _nodePins.Count).Select(n => _nets[_netOfNode[n]].State).ToArray();
+        Partition();
+        ResolveAll();
+        for (int node = 0; node < _nodePins.Count; node++)
         {
-            _dirty.Enqueue(group);
+            if (before.Length == 0 || before[node] != _nets[_netOfNode[node]].State)
+            {
+                Notify(node);
+            }
         }
     }
 
-    // Watchers may change drivers (a pot wiper follows its end nets); those changes are queued and
-    // resolved here until the circuit is stable.
+    // Watchers may change drivers and switches; those changes are queued and solved here until the
+    // circuit is stable.
     private void Settle()
     {
         if (_resolving)
@@ -403,20 +522,39 @@ public sealed class Circuit
         try
         {
             int rounds = 0;
-            while (_dirty.TryDequeue(out int group))
+            while (true)
             {
-                _dirtySet.Remove(group);
+                int net;
+                if (_repartition)
+                {
+                    net = -1;
+                }
+                else if (!_dirty.TryDequeue(out net))
+                {
+                    break;
+                }
+                else if (!_dirtySet.Remove(net))
+                {
+                    continue;
+                }
+
                 if (++rounds > SettleLimit)
                 {
                     _log.ReportOnce("circuit-settle", SimSeverity.Error, "circuit-unstable", $"The circuit does not settle (components keep changing each other); resolution was stopped.");
+                    _repartition = false;
                     _dirty.Clear();
                     _dirtySet.Clear();
                     break;
                 }
 
-                if (group < _groups.Count)
+                if (net < 0)
                 {
-                    Resolve(_groups[group], notify: true);
+                    _repartition = false;
+                    RebuildNets();
+                }
+                else
+                {
+                    ResolveAround(_nets[net]);
                 }
             }
         }
@@ -426,30 +564,11 @@ public sealed class Circuit
         }
     }
 
-    private void Resolve(List<Net> group, bool notify)
+    private void NotifyNet(Net net)
     {
-        var states = new NetState[group.Count];
-        for (int i = 0; i < group.Count; i++)
+        foreach (int node in net.Nodes)
         {
-            states[i] = ResolveNet(group[i]);
-        }
-
-        for (int i = 0; i < group.Count; i++)
-        {
-            Net net = group[i];
-            if (net.State == states[i])
-            {
-                continue;
-            }
-
-            net.State = states[i];
-            if (notify)
-            {
-                foreach (PinRef pin in net.Pins)
-                {
-                    Notify(_nodes[pin]);
-                }
-            }
+            Notify(node);
         }
     }
 
@@ -459,100 +578,5 @@ public sealed class Circuit
         {
             watcher();
         }
-    }
-
-    private readonly record struct Source(double Voltage, double Resistance, double Duty, int ToneHz);
-
-    private NetState ResolveNet(Net net)
-    {
-        List<Driver> strong = net.Drivers.Where(d => d.Drive.Strength == DriveStrength.Strong).ToList();
-        if (strong.Count > 0)
-        {
-            NetDrive first = strong[0].Drive;
-            Driver? disagreeing = strong.FirstOrDefault(d => Math.Abs(d.Drive.Voltage - first.Voltage) > AgreementTolerance);
-            if (disagreeing is not null)
-            {
-                ReportShort(net, strong[0], disagreeing);
-                return new NetState(NetCondition.Conflict, (first.Voltage + disagreeing.Drive.Voltage) / 2, 0, 1, 0);
-            }
-
-            Driver steady = strong.FirstOrDefault(d => d.Drive.Duty >= 1 && d.Drive.ToneHz == 0) ?? strong[0];
-            return new NetState(NetCondition.Driven, steady.Drive.Voltage, 0, steady.Drive.Duty, steady.Drive.ToneHz);
-        }
-
-        List<Source> sources = OwnSources(net, includeStrong: false).ToList();
-        sources.AddRange(SourcesThroughResistors(net));
-        if (sources.Count == 0)
-        {
-            return default;
-        }
-
-        double conductance = sources.Sum(s => 1 / s.Resistance);
-        double voltage = sources.Sum(s => s.Voltage / s.Resistance) / conductance;
-        Source dominant = sources.MinBy(s => s.Resistance);
-        return new NetState(NetCondition.Pulled, voltage, 1 / conductance, dominant.Duty, dominant.ToneHz);
-    }
-
-    private static IEnumerable<Source> OwnSources(Net net, bool includeStrong) =>
-        net.Drivers
-            .Select(d => d.Drive)
-            .Where(d => d.Strength == DriveStrength.Weak || (includeStrong && d.Strength == DriveStrength.Strong))
-            .Select(d => new Source(d.Voltage, d.Strength == DriveStrength.Strong ? StrongSourceResistance : Math.Max(d.Resistance, 1), d.Duty, d.ToneHz));
-
-    // Shortest resistor path from this net to every other net with sources; a strongly driven net
-    // is a source and stops the search (it clamps whatever lies behind it).
-    private IEnumerable<Source> SourcesThroughResistors(Net start)
-    {
-        if (start.Resistors.Count == 0)
-        {
-            yield break;
-        }
-
-        var distance = new Dictionary<Net, double> { [start] = 0 };
-        var queue = new PriorityQueue<Net, double>();
-        queue.Enqueue(start, 0);
-        while (queue.TryDequeue(out Net? net, out double path))
-        {
-            if (path > distance[net])
-            {
-                continue;
-            }
-
-            if (net != start)
-            {
-                bool clamped = net.Drivers.Any(d => d.Drive.Strength == DriveStrength.Strong);
-                foreach (Source s in OwnSources(net, includeStrong: true))
-                {
-                    yield return s with { Resistance = s.Resistance + path };
-                }
-
-                if (clamped)
-                {
-                    continue;
-                }
-            }
-
-            foreach (ResistorLink r in net.Resistors)
-            {
-                Net other = _nets[_netOfNode[_nodes[r.A]]] == net ? _nets[_netOfNode[_nodes[r.B]]] : _nets[_netOfNode[_nodes[r.A]]];
-                double next = path + r.Ohms;
-                if (!distance.TryGetValue(other, out double known) || next < known)
-                {
-                    distance[other] = next;
-                    queue.Enqueue(other, next);
-                }
-            }
-        }
-    }
-
-    private void ReportShort(Net net, Driver a, Driver b)
-    {
-        string component = a.Owner != b.Owner ? b.Owner : a.Owner;
-        _log.ReportOnce(
-            "short-" + net.Pins[0],
-            SimSeverity.Warning,
-            "short-circuit",
-            $"Short circuit on net {net.Name}: {a.Owner} drives {a.Drive.Voltage:0.#} V while {b.Owner} drives {b.Drive.Voltage:0.#} V.",
-            component);
     }
 }

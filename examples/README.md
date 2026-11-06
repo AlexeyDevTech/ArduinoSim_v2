@@ -54,4 +54,5 @@ One folder per example project (ADR-008 layout). Every example is built and run 
 | Mega2560Ports | a Mega 2560: a running light written to PORTA, the pot on A15 on Serial, steps on Serial1 (pick the port in the Monitor) |
 | ProMini3v3 | a Pro Mini at 3.3 V and 8 MHz: F_CPU, the pot in volts |
 | BuzzerMelody | tone() plays a scale on a buzzer: listen with sound on |
+| LedCurrents | Ohm's law at work: LEDs through 220 Ω, 4.7 kΩ and no resistor, a voltage divider |
 | LogicAnalyzerDemo | I2C, SPI, Serial and bit-banged traffic to look at on the Диаграмма tab |

@@ -229,7 +229,8 @@ public static class ProMini
         I2c: [new I2cPins(Sda: 18, Scl: 19)],
         Spi: [new SpiPins(Mosi: 11, Miso: 12, Sck: 13, Ss: 10)],
         CpuHz: cpuHz,
-        Uarts: [new UartPins(Rx: 0, Tx: 1)]);
+        Uarts: [new UartPins(Rx: 0, Tx: 1)],
+        PinOutputResistance: volts < 4 ? 40 : 25);
 
     private static (double X, double Y) Position(string name)
     {

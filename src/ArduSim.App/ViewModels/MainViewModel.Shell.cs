@@ -139,6 +139,18 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>Currents on LEDs and resistors while running (Параметры).</summary>
+    [ObservableProperty]
+    public partial bool CanvasCurrents { get; set; }
+
+    partial void OnCanvasCurrentsChanged(bool value)
+    {
+        if (Scene is not null)
+        {
+            Scene.CurrentsShown = value;
+        }
+    }
+
     // ---- left panel, code beside the schematic ------------------------------------------------------
 
     /// <summary>The left panel's page: Детали or Проект.</summary>

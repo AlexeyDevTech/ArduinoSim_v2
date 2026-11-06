@@ -109,7 +109,7 @@ public sealed class Mcu
         foreach (BoardPin pin in board.Pins)
         {
             var reference = new PinRef(boardId, pin.Name);
-            var state = new PinState(pin, reference, circuit.AddDriver(reference, boardId));
+            var state = new PinState(pin, reference, circuit.AddDriver(reference, boardId, board.PinCurrentLimit));
             _pins[pin.Number] = state;
             circuit.Watch(reference, () => OnNetChanged(state));
         }
@@ -1208,16 +1208,17 @@ public sealed class Mcu
     private void Update(PinState state)
     {
         double vcc = Board.LogicVoltage;
+        double output = Board.PinOutputResistance;
         (PinDrive drive, NetDrive net) = state.Mode switch
         {
             Simulation.PinMode.InputPullup => (new PinDrive(DriveKind.None, 0), NetDrive.Weak(vcc, Board.PullResistance)),
             Simulation.PinMode.InputPulldown => (new PinDrive(DriveKind.None, 0), NetDrive.Weak(0, Board.PullResistance)),
             Simulation.PinMode.Input => (new PinDrive(DriveKind.None, 0), NetDrive.None),
             Simulation.PinMode.OutputOpenDrain when state.PortBit => (new PinDrive(DriveKind.None, 0), NetDrive.None),
-            _ when state.DacValue >= 0 => (new PinDrive(DriveKind.Analog, state.DacValue), NetDrive.Strong(vcc * state.DacValue / 255.0)),
-            _ when state.ToneHz > 0 => (new PinDrive(DriveKind.Tone, state.ToneHz), NetDrive.Strong(vcc, 0.5, state.ToneHz)),
-            _ when state.PwmDuty > 0 => (PwmDrive(state), NetDrive.Strong(vcc, state.PwmDuty / (double)((1 << state.PwmBits) - 1))),
-            _ => (new PinDrive(state.PortBit ? DriveKind.High : DriveKind.Low, 0), NetDrive.Strong(state.PortBit ? vcc : 0)),
+            _ when state.DacValue >= 0 => (new PinDrive(DriveKind.Analog, state.DacValue), NetDrive.Strong(vcc * state.DacValue / 255.0, resistance: output)),
+            _ when state.ToneHz > 0 => (new PinDrive(DriveKind.Tone, state.ToneHz), NetDrive.Strong(vcc, 0.5, state.ToneHz, output)),
+            _ when state.PwmDuty > 0 => (PwmDrive(state), NetDrive.Strong(vcc, state.PwmDuty / (double)((1 << state.PwmBits) - 1), resistance: output)),
+            _ => (new PinDrive(state.PortBit ? DriveKind.High : DriveKind.Low, 0), NetDrive.Strong(state.PortBit ? vcc : 0, resistance: output)),
         };
 
         bool changed = drive != state.Drive;

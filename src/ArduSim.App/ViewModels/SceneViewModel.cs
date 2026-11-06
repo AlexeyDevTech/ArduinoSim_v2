@@ -1,3 +1,4 @@
+using ArduSim.Core.Circuits;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
@@ -26,6 +27,7 @@ public sealed partial class SceneViewModel : ObservableObject
     private readonly Action<string, string, double> _sendInput;
     private readonly HashSet<string> _selected = new(StringComparer.Ordinal);
     private readonly Dictionary<int, (int Kind, int Value)> _boardPins = [];
+    private readonly Dictionary<string, double> _meters = new(StringComparer.Ordinal);
     private readonly List<(double X, double Y)> _corners = [];
     private PinReference? _wireStart;
     private PinReference? _hoverPin;
@@ -93,6 +95,12 @@ public sealed partial class SceneViewModel : ObservableObject
     public WireEndHandle? WireEndAt(Point p, double radius) => WireEnds.FirstOrDefault(e => (new Point(e.X, e.Y) - p).Length <= radius);
 
     partial void OnHintsEnabledChanged(bool value) => OnPropertyChanged(nameof(Hint));
+
+    /// <summary>LEDs and resistors show their current while running (Параметры).</summary>
+    [ObservableProperty]
+    public partial bool CurrentsShown { get; set; } = true;
+
+    partial void OnCurrentsShownChanged(bool value) => RefreshMeterReadouts();
 
     partial void OnIsLockedChanged(bool value)
     {
@@ -713,7 +721,7 @@ public sealed partial class SceneViewModel : ObservableObject
         string[] pins = [.. wire.Net.Select(Editor.Scene.FindWire).OfType<WireModel>()
             .SelectMany(w => (PinReference[])[w.From, w.To]).Distinct().Select(p => $"{p.Component}.{p.Pin}")];
         string text = string.Join(", ", pins);
-        return Editor.Scene.FindWire(wire.Id) is { } model && LevelText(model.From) is { Length: > 0 } level ? text + " · " + level : text;
+        return Editor.Scene.FindWire(wire.Id) is { } model && WireLevelText(model) is { Length: > 0 } level ? text + " · " + level : text;
     }
 
     /// <summary>The buses this pin serves on this board.</summary>
@@ -785,8 +793,83 @@ public sealed partial class SceneViewModel : ObservableObject
         return null;
     }
 
-    /// <summary>The level a pin's net carries while running, as text; empty when stopped or unknown.</summary>
-    public string LevelText(PinReference pin)
+    /// <summary>What a pin carries while running, as text: its net's level, its voltage and its current; empty when stopped.</summary>
+    public string LevelText(PinReference pin) => Joined(DriveText(pin), PinMeterText(pin));
+
+    private string WireLevelText(WireModel wire)
+    {
+        string voltage = _meters.TryGetValue(CircuitState.VoltageKey(wire.From.Component, wire.From.Pin), out double volts)
+            ? double.IsNaN(volts) ? Strings.Get("Pin_Floating") : MeterFormat.Volts(volts)
+            : "";
+        string current = _meters.TryGetValue(CircuitState.WireKey(wire.Id), out double amps) && MeterFormat.IsVisible(amps) ? MeterFormat.Amps(amps) : "";
+        return Joined(DriveText(wire.From), voltage, current);
+    }
+
+    private static string Joined(params string[] parts) => string.Join(" · ", parts.Where(p => p.Length > 0));
+
+    private string PinMeterText(PinReference pin)
+    {
+        if (!_meters.TryGetValue(CircuitState.VoltageKey(pin.Component, pin.Pin), out double volts))
+        {
+            return "";
+        }
+
+        if (double.IsNaN(volts))
+        {
+            return Strings.Get("Pin_Floating");
+        }
+
+        double amps = _meters.GetValueOrDefault(CircuitState.CurrentKey(pin.Component, pin.Pin));
+        double peak = _meters.GetValueOrDefault(CircuitState.PeakKey(pin.Component, pin.Pin));
+        if (!MeterFormat.IsVisible(amps) && !MeterFormat.IsVisible(peak))
+        {
+            return MeterFormat.Volts(volts);
+        }
+
+        string current = MeterFormat.Amps(amps);
+        if (peak > Math.Abs(amps) * MeterFormat.PeakRatio)
+        {
+            current = Strings.Format("Pin_Peak", current, MeterFormat.Amps(peak));
+        }
+
+        // A board pin's direction says something (sourcing or sinking); a part's is obvious from the wiring.
+        if (Find(pin.Component)?.Type == "board")
+        {
+            current = Strings.Format(amps < 0 ? "Pin_Sources" : "Pin_Sinks", current);
+        }
+
+        return Joined(MeterFormat.Volts(volts), current);
+    }
+
+    /// <summary>The label above a part while running: an LED's current, a resistor's voltage and current.</summary>
+    internal string MeterReadout(string part, string type)
+    {
+        if (!CurrentsShown || !_meters.TryGetValue(CircuitState.CurrentKey(part, type == "led" ? "A" : "1"), out double amps) || !MeterFormat.IsVisible(amps))
+        {
+            return "";
+        }
+
+        if (type == "led")
+        {
+            return MeterFormat.Amps(amps);
+        }
+
+        double across = _meters.GetValueOrDefault(CircuitState.VoltageKey(part, "1")) - _meters.GetValueOrDefault(CircuitState.VoltageKey(part, "2"));
+        return Joined(MeterFormat.Volts(Math.Abs(across)), MeterFormat.Amps(amps));
+    }
+
+    private void RefreshMeterReadouts()
+    {
+        foreach (PartViewModel part in Parts)
+        {
+            if (part.Type is "led" or "resistor")
+            {
+                part.RefreshReadout();
+            }
+        }
+    }
+
+    private string DriveText(PinReference pin)
     {
         if (_boardPins.Count == 0 || BoardPinOf(pin) is not { } number || !_boardPins.TryGetValue(number, out var drive))
         {
@@ -807,7 +890,18 @@ public sealed partial class SceneViewModel : ObservableObject
 
     public void ApplyComponent(string id, IReadOnlyDictionary<string, double> state, DisplayData? display = null)
     {
-        if (Find(id) is { } part)
+        ArgumentNullException.ThrowIfNull(state);
+        if (id == CircuitState.ComponentId)
+        {
+            foreach ((string key, double value) in state)
+            {
+                _meters[key] = value;
+            }
+
+            RefreshMeterReadouts();
+            LevelsChanged?.Invoke();
+        }
+        else if (Find(id) is { } part)
         {
             part.Apply(state);
             if (display is not null)
@@ -868,7 +962,9 @@ public sealed partial class SceneViewModel : ObservableObject
     public void ResetRuntime(bool clearWarnings)
     {
         _boardPins.Clear();
+        _meters.Clear();
         UpdateLevelMarkers();
+        RefreshMeterReadouts();
         LevelsChanged?.Invoke();
         foreach (PartViewModel part in Parts)
         {
@@ -1313,8 +1409,17 @@ public sealed partial class PartViewModel : ObservableObject
         "dht" => string.Create(CultureInfo.CurrentCulture, $"{LiveValue("temperature"):0.0} °C  {LiveValue("humidity"):0} %"),
         "ds18b20" or "ds3231" => string.Create(CultureInfo.CurrentCulture, $"{LiveValue("temperature"):0.0#} °C"),
         "hc-sr04" => string.Create(CultureInfo.CurrentCulture, $"{LiveValue("distance"):0} {Strings.Get("Unit_cm")}"),
+        "led" or "resistor" => _scene.MeterReadout(Id, Type),
         _ => "",
     };
+
+    /// <summary>The readout stays upright and unmirrored however the part is turned.</summary>
+    public double ReadoutAngle => -Model.Rotation;
+
+    /// <summary>On a resistor standing upright, the centered text would lie across its body: it moves off to the side it is on.</summary>
+    public double ReadoutShift => Type != "resistor" ? 0 : Model.Rotation switch { 90 => -26, 270 => 26, _ => 0 };
+
+    internal void RefreshReadout() => OnPropertyChanged(nameof(Readout));
 
     /// <summary>The property a vertical drag on the part changes (Shift: the second one, DHT humidity).</summary>
     public string? LiveDragProperty(bool second) =>

@@ -1,3 +1,4 @@
+using ArduSim.Core.Circuits;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -336,8 +337,15 @@ internal static class HeadlessRun
             };
         }
 
-        host.Engine.Log.Reported += d =>
-            output.WriteLine($"{Stamp()} {d.Severity.ToString().ToLowerInvariant()}: {d.Message}");
+        void Print(SimDiagnostic d) => output.WriteLine($"{Stamp()} {d.Severity.ToString().ToLowerInvariant()}: {d.Message}");
+
+        // The scene was built before anyone could listen.
+        foreach (SimDiagnostic diagnostic in host.Engine.Log.Entries)
+        {
+            Print(diagnostic);
+        }
+
+        host.Engine.Log.Reported += Print;
 
         StreamWriter? traceFile = options.DumpTrace is null ? null : new StreamWriter(options.DumpTrace);
         if (traceFile is not null)
@@ -376,6 +384,11 @@ internal static class HeadlessRun
             if (options.DumpDisplay is { } dumpPath)
             {
                 DumpDisplays(host, dumpPath, output);
+            }
+
+            if (options.DumpCircuit is { } circuitPath)
+            {
+                File.WriteAllLines(circuitPath, CircuitState.ToLines(host.Simulation.Circuit.Read()));
             }
 
             double wall = host.WallTime.TotalSeconds;

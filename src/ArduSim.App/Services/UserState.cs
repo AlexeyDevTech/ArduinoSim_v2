@@ -38,6 +38,8 @@ public sealed record PanelLayout
     /// <summary>Show the one-line hint at the bottom of the schematic.</summary>
     public bool CanvasHints { get; init; } = true;
 
+    public bool CanvasCurrents { get; init; } = true;
+
     /// <summary>The wheel moves the schematic, for a touchpad; Ctrl+wheel zooms.</summary>
     public bool WheelPans { get; init; }
 

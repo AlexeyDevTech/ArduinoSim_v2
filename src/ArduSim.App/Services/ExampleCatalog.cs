@@ -19,6 +19,7 @@ public static class ExampleCatalog
         ["Button"] = ("start", 1, SerialPanel),
         ["Potentiometer"] = ("start", 2, PlotterPanel),
         ["BuzzerMelody"] = ("start", 3, SerialPanel),
+        ["LedCurrents"] = ("start", 4, SerialPanel),
         ["Relay"] = ("output", 0, SerialPanel),
         ["ServoKnob"] = ("output", 1, SerialPanel),
         ["NeoPixelRing"] = ("output", 2, SerialPanel),

@@ -20,6 +20,41 @@ public sealed class ToolsRunTests
     }
 
     [Fact]
+    public async Task LedCurrents_example_shows_what_each_resistor_lets_through_and_warns_without_one()
+    {
+        string project = RunnerProcess.CopyProject("examples/LedCurrents");
+        string table = Path.Combine(project, "circuit.txt");
+
+        RunResult result = await RunnerProcess.RunProjectAsync(project, "--run-for", "1200", "--input", "600:btn1:pressed=1", "--dump-circuit", table);
+
+        Assert.True(result.ExitCode == 0, result.ToString());
+        Assert.Contains("Divider: 1.60 V", result.SerialLines);
+        string[] lines = await File.ReadAllLinesAsync(table, TestContext.Current.CancellationToken);
+        Assert.Contains("led1.A 1.733 V 13.333 mA peak 13.333 mA", lines);
+        Assert.Contains("led2.A 1.607 V 0.718 mA peak 0.718 mA", lines);
+        Assert.Contains("led3.A 2.571 V 97.143 mA peak 97.143 mA", lines);
+        Assert.Contains(result.Timeline, e => e.Text == "led1 brightness=1");
+        Assert.Contains(result.Timeline, e => e.Text == "led2 brightness=0.379");
+        Assert.Contains("warning: D6 carries 97 mA", result.Stdout, StringComparison.Ordinal);
+        Assert.Contains("warning: led3 carries 97 mA", result.Stdout, StringComparison.Ordinal);
+    }
+
+    // Reported while the scene is built, before the Runner listens: it used to be lost.
+    [Fact]
+    public async Task An_led_across_the_rails_warns_from_the_very_start()
+    {
+        string project = RunnerProcess.CopyProject("examples/LedCurrents");
+        string file = Path.Combine(project, "project.simproj.json");
+        string text = await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(file, text.Replace("\"pin\": \"D6\"", "\"pin\": \"5V\"", StringComparison.Ordinal), TestContext.Current.CancellationToken);
+
+        RunResult result = await RunnerProcess.RunProjectAsync(project, "--run-for", "10");
+
+        Assert.True(result.ExitCode == 0, result.ToString());
+        Assert.Contains("warning: led3 carries 340 mA", result.Stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task An_uno_sketch_cannot_use_a6()
     {
         string project = RunnerProcess.CopyProject("examples/UnoBlink");

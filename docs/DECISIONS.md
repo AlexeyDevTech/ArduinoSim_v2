@@ -165,3 +165,9 @@ Small defaults chosen without asking (brief §1). One line each; anything expens
 - 2026-11-05 — A file changed on both sides stops Save, Build and Run at its tab; this replaces docs/UI.md's earlier wording, on the owner's choice.
 - 2026-11-05 — A sketch that is not valid UTF-8 is read as Windows-1251, said in a toast, and saved as UTF-8.
 - 2026-11-05 — Windows text size scales the interface through top-level `FontSize.*` resources; the code editor keeps 13.
+- 2026-11-06 — MCU pin output resistance (ADR-017, read off the datasheets' VOH/VOL curves): 25 Ω AVR at 5 V, 40 Ω AVR at 3.3 V, 20 Ω ESP32, 40 Ω ESP8266. Pin limit 40 mA, ESP8266 12 mA (its datasheet's figure, stricter than the 40 mA the owner named for the Arduino boards).
+- 2026-11-06 — LED model: the color's forward voltage is at 20 mA, 10 Ω in series, so the knee is 0.2 V lower. Brightness = duty × sqrt(min(I / 5 mA, 1)), keeping PWM linear as before. `led-overcurrent` above 30 mA, not 20: a 150 Ω resistor on 5 V should not warn.
+- 2026-11-06 — An LED with too much current warns and stays lit; burning out would be a state to reset, which the owner did not ask for.
+- 2026-11-06 — The readout on the schematic is on LEDs and resistors only, and Параметры can hide it; every other current is in tooltips and the Свойства pin rows, so that busy schematics stay readable.
+- 2026-11-06 — Pin rows in Свойства put level, voltage and current on a second line while running: on one line they squeezed the connection down to a dot.
+- 2026-11-06 — Electrical readings travel as the state of the reserved component id `~circuit`, not as a new field of `Snapshot`: no IPC change, and the same delta rules as parts.

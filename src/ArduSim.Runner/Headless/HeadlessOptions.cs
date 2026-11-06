@@ -14,7 +14,8 @@ internal sealed record HeadlessOptions(
     IReadOnlyList<ScheduledInput> Inputs,
     string? DumpDisplay = null,
     bool NoNetwork = false,
-    string? DumpTrace = null)
+    string? DumpTrace = null,
+    string? DumpCircuit = null)
 {
     public const string Usage = """
         Usage: ArduSim.Runner --project <folder> [options]
@@ -25,6 +26,7 @@ internal sealed record HeadlessOptions(
           --dump-serial <file>   write everything the sketch sends on Serial to a file
           --dump-display <file>  at the end, write the display as a PNG (several displays: <file>-<part>.png)
           --dump-trace <file>    write what the logic analyzer records: pin changes and hardware bus bytes, as text
+          --dump-circuit <file>  at the end, write every pin's voltage and current and every wire's current, as text
           --seed <n>             seed for floating inputs and analog noise (default: 1)
           --input <ms>:<part>:<name>=<value>
                                  apply a part input at a virtual time, e.g. 500:btn1:pressed=1 (repeatable)
@@ -42,6 +44,7 @@ internal sealed record HeadlessOptions(
         string? dumpSerial = null;
         string? dumpDisplay = null;
         string? dumpTrace = null;
+        string? dumpCircuit = null;
         int seed = 1;
         bool trace = true;
         string? buildDirectory = null;
@@ -70,6 +73,9 @@ internal sealed record HeadlessOptions(
                     break;
                 case "--dump-trace":
                     dumpTrace = Path.GetFullPath(Value(args, ref i, arg));
+                    break;
+                case "--dump-circuit":
+                    dumpCircuit = Path.GetFullPath(Value(args, ref i, arg));
                     break;
                 case "--seed":
                     seed = (int)Number(Value(args, ref i, arg), arg);
@@ -101,7 +107,7 @@ internal sealed record HeadlessOptions(
             throw new UsageException("--run-for and --speed must be positive.");
         }
 
-        return new HeadlessOptions(Path.GetFullPath(project), runFor, speed, dumpSerial is null ? null : Path.GetFullPath(dumpSerial), seed, trace, buildDirectory, inputs, dumpDisplay, noNetwork, dumpTrace);
+        return new HeadlessOptions(Path.GetFullPath(project), runFor, speed, dumpSerial is null ? null : Path.GetFullPath(dumpSerial), seed, trace, buildDirectory, inputs, dumpDisplay, noNetwork, dumpTrace, dumpCircuit);
     }
 
     private static string Value(IReadOnlyList<string> args, ref int i, string name) =>

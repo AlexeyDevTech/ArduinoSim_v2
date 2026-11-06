@@ -108,7 +108,8 @@ The toolbar has a speaker toggle next to the speed selector: buzzers sound or no
 │ Клавиша   [ Пробел  ]      │   key capture field: "press a key"
 ├────────────────────────────┤
 │ Пины                       │
-│  A   → board.D13   HIGH    │   live level while running; click a row → highlights that net
+│  A   → board.D13           │   click a row → highlights that net
+│        HIGH · 4,67 В · 13 мА │   while running, on a line of its own: level, voltage, current
 │  C   → board.GND   0 В     │
 ├────────────────────────────┤
 │ [⟳ Повернуть] [⇋ Отразить] [🗑] │
@@ -253,10 +254,11 @@ Fluent UI System Icons, Regular, 20 px in the toolbar's build-and-run group and 
 - Parts are flat, slightly stylized drawings of the real part (Wokwi-like, not schematic symbols), drawn from vector art in their definitions (ADR-007), crisp at every zoom.
 - Board pins: gold rings with labels, which grow a little at far zoom; other parts' pins appear as small rings on hover and while wiring.
 - While running: a dot on every driven board pin (grey LOW, green HIGH, accent PWM, amber tone), wires of a HIGH net with a bright core, of a LOW net dimmed, of a PWM or tone net with dashes; a 2 px bar in the status color above the center.
+- Currents on the schematic *(M12)*: while running, an LED shows its current above it and a resistor its voltage and current below it, upright however the part is turned, when any flows; Параметры → Токи на схеме hides them. Everything else with a current says so where the voltage is said: pin and wire tooltips and the Свойства pin rows.
 - **One line of hint** at the bottom left, chosen by the state: only the board placed, wiring, a wire selected, a part selected, running. It can be switched off in Параметры.
 - Live state: LED glow scaled by brightness, pushbutton cap pressed, slide-switch knob position, pot knob angle, buzzer frequency label, encoder knob angle, keypad and remote keys held, joystick cap leaning, sensor readings above the part *(M8)*, servo horn angle, relay LED and contact, seven-segment and TM1637 digits, MAX7219 matrices and WS2812 LEDs from their frames *(M9)*, displays from framebuffers *(M4/M5)*, color TFTs dimmed by their backlight, the Nokia 5110 glass darkening with its contrast, grayscale OLED levels *(M10)*: LCD with a visible 5×8 dot grid and backlight variants, OLED with pixel glow and color variants, nearest-neighbor scaling.
 - Selection: 1 px `Accent` outline 3 px outside the part's bounds; multi-selection draws the union box too.
-- Hover on a pin or wire: the whole net is highlighted (other wires dim to 40 %), tooltip with the pin's kind and bus role, its level while running, and what it joins.
+- Hover on a pin or wire: the whole net is highlighted (other wires dim to 40 %), tooltip with the pin's kind and bus role, while running its level, voltage and current (a board pin says whether it gives or takes it, PWM gives the average and the peak), and what it joins.
 - Zoom indicator bottom-right of the canvas: percentage (click = 100 %) and "Вписать" (fit).
 
 ## 4. Interaction rules

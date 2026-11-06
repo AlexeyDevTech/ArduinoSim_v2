@@ -63,6 +63,8 @@ internal static class Esp8266
             BusPinsAnywhere: true,
             PwmConfigurable: true,
             PullResistance: 50_000,
+            PinOutputResistance: 40,
+            PinCurrentLimit: 0.012,
         Uarts: [new UartPins(Rx: 3, Tx: 1), new UartPins(Rx: -1, Tx: 2)])
         {
             Core = "esp8266",

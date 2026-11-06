@@ -62,6 +62,10 @@
   <data name="Pin_Digital" xml:space="preserve"><value>цифровой, ШИМ нет</value></data>
   <data name="Pin_Analog" xml:space="preserve"><value>только аналоговый вход</value></data>
   <data name="Pin_Input" xml:space="preserve"><value>вход</value></data>
+  <data name="Pin_Floating" xml:space="preserve"><value>напряжение не задано</value></data>
+  <data name="Pin_Sources" xml:space="preserve"><value>отдаёт {0}</value></data>
+  <data name="Pin_Sinks" xml:space="preserve"><value>принимает {0}</value></data>
+  <data name="Pin_Peak" xml:space="preserve"><value>{0} в среднем, {1} в импульсе</value></data>
   <data name="Pin_Wires" xml:space="preserve"><value>проводов: {0}</value></data>
 
   <!-- Colors (wires and parts) -->
@@ -258,6 +262,10 @@
   <data name="Log_serial-not-begun" xml:space="preserve"><value>Запись в {0} до вызова {1}.begin(): вывод отброшен.</value></data>
   <data name="Log_serial-rx-overflow" xml:space="preserve"><value>Приёмный буфер {0} переполнен ({1} байт): входящие байты теряются, пока скетч их не прочитает.</value></data>
   <data name="Log_circuit-unstable" xml:space="preserve"><value>Схема не приходит в устойчивое состояние (детали без конца меняют друг друга); расчёт остановлен.</value></data>
+  <data name="Log_circuit-unstable.diodes" xml:space="preserve"><value>У диодов в этой схеме нет согласованного состояния; расчёт остановлен.</value></data>
+  <data name="Log_circuit-toggling" xml:space="preserve"><value>Между собой связано больше {0} источников ШИМ или tone; {1} считается по среднему напряжению.</value></data>
+  <data name="Log_pin-overload" xml:space="preserve"><value>Через вывод {0} идёт {1} мА, а допустимо {2} мА: настоящий вывод может выйти из строя. Поставьте последовательный резистор, для светодиода обычно 220 Ом.</value></data>
+  <data name="Log_led-overcurrent" xml:space="preserve"><value>Через {0} идёт {1} мА, а светодиод рассчитан на {2} мА: настоящий сгорел бы. Поставьте последовательный резистор, при 5 В обычно 220 Ом.</value></data>
   <data name="Log_short-circuit" xml:space="preserve"><value>Короткое замыкание в цепи {0}: {1} выдаёт {2} В, а {3} — {4} В.</value></data>
   <data name="Log_invalid-pin" xml:space="preserve"><value>{0}({1}): у {2} нет вывода {3}, вызов пропущен.</value></data>
   <data name="Log_invalid-pin.analog" xml:space="preserve"><value>analogRead({0}): на {1} это не аналоговый вход, результат 0.</value></data>
@@ -318,7 +326,7 @@
   <data name="Accuracy_7_Title" xml:space="preserve"><value>Шины</value></data>
   <data name="Accuracy_7_Body" xml:space="preserve"><value>I2C и SPI работают только в режиме ведущего. Программный (bit-bang) I2C не моделируется, программный SPI — моделируется. В SPI-режимах 1 и 2 выдаётся предупреждение: модели устройств читают данные по фронту, как в режимах 0 и 3.</value></data>
   <data name="Accuracy_8_Title" xml:space="preserve"><value>Схема</value></data>
-  <data name="Accuracy_8_Body" xml:space="preserve"><value>Электрическая модель упрощённая: у каждой цепи есть уровень (выход, питание, подтяжка, делитель), короткое замыкание или «плавающее» состояние; ёмкостей, переходных процессов и токов нет. ШИМ — это доля времени во включённом состоянии, а не форма сигнала.</value></data>
+  <data name="Accuracy_8_Body" xml:space="preserve"><value>Напряжения и токи считаются при каждом изменении схемы, как на постоянном токе: резисторы, потенциометры, светодиоды с падением напряжения, выводы платы с их сопротивлением и пределом 40 мА (ESP8266: 12 мА). Ёмкостей и переходных процессов нет; модули, сервоприводы, реле и пищалки цепь не нагружают, семисегментные индикаторы считаются по логическим уровням. ШИМ — это доля времени во включённом состоянии, а не форма сигнала.</value></data>
   <data name="Accuracy_9_Title" xml:space="preserve"><value>Дисплеи</value></data>
   <data name="Accuracy_9_Body" xml:space="preserve"><value>LCD: знакогенератор A00, шрифт 5×8 (режим 5×10 рисуется как 5×8). OLED: SSD1306 (128×64, 128×32, 64×48, 96×16) и SH1106; прокрутка идёт с кадровой частотой контроллера.</value></data>
   <data name="Accuracy_10_Title" xml:space="preserve"><value>Сон и сторожевой таймер</value></data>
@@ -378,6 +386,9 @@
   <data name="Property_humidity" xml:space="preserve"><value>Влажность</value></data>
   <data name="Property_distance" xml:space="preserve"><value>Расстояние</value></data>
   <data name="Unit_cm" xml:space="preserve"><value>см</value></data>
+  <data name="Unit_V" xml:space="preserve"><value>В</value></data>
+  <data name="Unit_mA" xml:space="preserve"><value>мА</value></data>
+  <data name="Unit_uA" xml:space="preserve"><value>мкА</value></data>
   <data name="Properties_LiveHint" xml:space="preserve"><value>Меняется сразу, во время запуска. Также: тяните деталь на схеме или вращайте колесо над ней</value></data>
   <data name="Log_timer-invalid" xml:space="preserve"><value>Прерывания таймера {0} нет (есть 0–{1}); вызов пропущен.</value></data>
   <data name="Log_timer-period" xml:space="preserve"><value>Прерывание таймера {0}: период {1} нс короче минимума симулятора (5 мкс); таймер срабатывает каждые 5 мкс.</value></data>
@@ -625,6 +636,8 @@
   <data name="Hint_Running" xml:space="preserve"><value>Кнопки и ручки работают мышью. Щелчок по датчику открывает его показания в «Свойствах». Стоп: Shift+F5</value></data>
   <data name="Settings_Hints" xml:space="preserve"><value>Подсказки на схеме</value></data>
   <data name="Settings_HintsOn" xml:space="preserve"><value>Показывать</value></data>
+  <data name="Settings_Currents" xml:space="preserve"><value>Токи на схеме</value></data>
+  <data name="Settings_CurrentsTip" xml:space="preserve"><value>Подпись у светодиодов и резисторов во время работы. В подсказках выводов и проводов и в Свойствах ток виден всегда.</value></data>
   <data name="Settings_HintsOff" xml:space="preserve"><value>Скрыть</value></data>
   <data name="ExampleTopic_start" xml:space="preserve"><value>С чего начать</value></data>
   <data name="ExampleTopic_output" xml:space="preserve"><value>Свет, звук, движение</value></data>
@@ -689,6 +702,10 @@
   <data name="Example_Potentiometer_Desc" xml:space="preserve"><value>analogRead с ручки меняет яркость светодиода, значения идут на Плоттер.</value></data>
   <data name="Example_Potentiometer_Try" xml:space="preserve"><value>Запустите и тяните ручку вверх-вниз или вращайте над ней колесо. Смотрите Плоттер и яркость светодиода.</value></data>
   <data name="Example_Potentiometer_Keys" xml:space="preserve"><value>ручка analogread analogwrite шим график плоттер</value></data>
+  <data name="Example_LedCurrents" xml:space="preserve"><value>Токи и светодиоды</value></data>
+  <data name="Example_LedCurrents_Desc" xml:space="preserve"><value>220 Ом, 4,7 кОм и совсем без резистора; делитель напряжения на A0.</value></data>
+  <data name="Example_LedCurrents_Try" xml:space="preserve"><value>Запустите и сравните яркость и токи над деталями. Наведите мышь на вывод или провод. Удерживайте кнопку: третий светодиод без резистора перегрузит вывод, журнал об этом скажет.</value></data>
+  <data name="Example_LedCurrents_Keys" xml:space="preserve"><value>ток напряжение резистор светодиод делитель перегрузка закон ома</value></data>
   <data name="Example_BuzzerMelody" xml:space="preserve"><value>Мелодия на пищалке</value></data>
   <data name="Example_BuzzerMelody_Desc" xml:space="preserve"><value>tone() играет гамму вверх и вниз на D8.</value></data>
   <data name="Example_BuzzerMelody_Try" xml:space="preserve"><value>Запустите и слушайте. Звук включается кнопкой-динамиком на панели; частота видна на детали.</value></data>

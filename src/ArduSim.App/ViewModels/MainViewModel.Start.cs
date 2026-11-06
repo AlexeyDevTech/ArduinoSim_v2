@@ -289,6 +289,7 @@ public sealed partial class MainViewModel
         if (Scene is not null)
         {
             Scene.HintsEnabled = CanvasHints;
+            Scene.CurrentsShown = CanvasCurrents;
             Scene.WheelPans = WheelPans;
         }
 

@@ -25,6 +25,10 @@
         <CheckBox Content="{l:Loc Settings_HintsOn}" IsChecked="{Binding CanvasHints}" VerticalAlignment="Center" />
       </DockPanel>
       <DockPanel Margin="0,0,0,24">
+        <TextBlock Text="{l:Loc Settings_Currents}" Style="{StaticResource Caption}" Width="120" />
+        <CheckBox Content="{l:Loc Settings_HintsOn}" IsChecked="{Binding CanvasCurrents}" ToolTip="{l:Loc Settings_CurrentsTip}" VerticalAlignment="Center" />
+      </DockPanel>
+      <DockPanel Margin="0,0,0,24">
         <TextBlock Text="{l:Loc Settings_Wheel}" Style="{StaticResource Caption}" Width="120" />
         <CheckBox Content="{l:Loc Settings_WheelPans}" IsChecked="{Binding WheelPans}" ToolTip="{l:Loc Settings_WheelPansTip}" VerticalAlignment="Center" />
       </DockPanel>

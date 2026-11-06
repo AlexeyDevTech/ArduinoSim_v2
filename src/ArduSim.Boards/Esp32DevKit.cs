@@ -72,6 +72,7 @@ public static class Esp32DevKit
         BusPinsAnywhere: true,
         PwmConfigurable: true,
         PullResistance: 45_000,
+        PinOutputResistance: 20,
         Uarts: [new UartPins(Rx: 3, Tx: 1), new UartPins(Rx: -1, Tx: -1), new UartPins(Rx: 16, Tx: 17)])
     {
         Core = "esp32",

@@ -170,8 +170,8 @@ public sealed class I2cBus
         _pullUpsChecked = true;
         NetState sda = _circuit.StateOf(Sda);
         NetState scl = _circuit.StateOf(Scl);
-        if (sda.SourceResistance > ExternalPullUpLimit || scl.SourceResistance > ExternalPullUpLimit ||
-            sda.Condition == NetCondition.Floating || scl.Condition == NetCondition.Floating)
+        if (sda.Condition == NetCondition.Floating || scl.Condition == NetCondition.Floating ||
+            _circuit.SourceResistanceOf(Sda) > ExternalPullUpLimit || _circuit.SourceResistanceOf(Scl) > ExternalPullUpLimit)
         {
             _log.ReportOnce("i2c-pullups", SimSeverity.Info, "i2c-pullups", $"The I2C bus has no external pull-up resistors on SDA ({Sda.Pin}) and SCL ({Scl.Pin}); the simulation works, but real hardware usually needs about 4.7 kΩ to 5V.");
         }

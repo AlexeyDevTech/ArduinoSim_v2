@@ -647,12 +647,25 @@
                 <ItemsControl ItemsSource="{Binding Pins}" Margin="0,0,0,12">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:PinRow}">
-                      <DockPanel Height="24" Background="Transparent" Cursor="Hand" MouseLeftButtonUp="OnPinRowClick" ToolTip="{Binding Tip}">
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding Level}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Center" Margin="6,0,0,0" />
-                        <TextBlock Text="{Binding Pin}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" Width="64" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding Connection}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
-                                   Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                      </DockPanel>
+                      <StackPanel Background="Transparent" Cursor="Hand" MouseLeftButtonUp="OnPinRowClick" ToolTip="{Binding Tip}">
+                        <DockPanel Height="24">
+                          <TextBlock Text="{Binding Pin}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" Width="64" VerticalAlignment="Center" />
+                          <TextBlock Text="{Binding Connection}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}"
+                                     Foreground="{DynamicResource Brush.Text.Secondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                        <!-- While running: level, voltage and current, on a line of their own so that the connection stays readable. -->
+                        <TextBlock Text="{Binding Level}" FontFamily="{DynamicResource Font.Mono}" FontSize="{DynamicResource FontSize.Small}" Foreground="{DynamicResource Brush.Accent}" Margin="16,-4,0,4" TextTrimming="CharacterEllipsis">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Style.Triggers>
+                                <Trigger Property="Text" Value="">
+                                  <Setter Property="Visibility" Value="Collapsed" />
+                                </Trigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </StackPanel>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>

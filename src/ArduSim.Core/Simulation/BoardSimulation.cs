@@ -99,7 +99,7 @@ public sealed class BoardSimulation
         {
             if (Resolve(wire.From, byId, wire.Id, log) is { } from && Resolve(wire.To, byId, wire.Id, log) is { } to)
             {
-                circuit.Connect(from, to);
+                circuit.Connect(from, to, wire.Id);
             }
         }
 
