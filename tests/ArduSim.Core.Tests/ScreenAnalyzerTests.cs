@@ -5,6 +5,216 @@ namespace ArduSim.Core.Tests;
 /// <summary>Forming screens and transitions from code (ADR-019), and editing it in place.</summary>
 public sealed class ScreenAnalyzerTests
 {
+    // A display class of the sketch's own in front of the panel, with its layout in its methods.
+    private const string OwnClass = """
+        #include <LiquidCrystal_I2C.h>
+        LiquidCrystal_I2C hardware(0x27, 20, 4);
+
+        class Panel : public Print {
+        public:
+          void setCursor(uint8_t x, uint8_t y) { x_ = x; y_ = y; }
+          size_t write(uint8_t b) { if (b >= 0xC0) lead_ = b; else if (b >= 0x80) put('?'); else put(b); return 1; }
+          void mark(uint8_t m) { put(m); }
+          void two(uint8_t v) { if (v < 10) print('0'); print(v); }
+          void atRight(uint8_t y, const char *s) { setCursor(20 - widthOf(s), y); print(s); }
+          void atRight(uint8_t y, const __FlashStringHelper *s) { setCursor(20 - widthOf(s), y); print(s); }
+          void atCenter(uint8_t y, const __FlashStringHelper *s) { setCursor((20 - widthOf(s)) / 2, y); print(s); }
+          void bigPair(uint8_t a, uint8_t b) { bigOne(0, a / 10); bigOne(4, a % 10); setCursor(8, 2); }
+          static uint8_t widthOf(const char *s);
+          static uint8_t widthOf(const __FlashStringHelper *s);
+        private:
+          void put(uint8_t c) { hardware.setCursor(x_, y_); hardware.write(c); ++x_; }
+          void bigOne(uint8_t x, uint8_t d) {
+            for (uint8_t i = 0; i < 6; ++i) {
+              if (i % 3 == 0) setCursor(x, i < 3 ? 1 : 2);
+              put(d);
+            }
+          }
+          uint8_t x_ = 0, y_ = 0, lead_ = 0;
+        };
+
+        Panel lcd;
+        static const char LIST[] PROGMEM = "ONE\0" "TWO\0" "THREE";
+        enum Page { HOME, LIST_PAGE, TOOL };
+        Page page = HOME;
+        uint8_t hours, minutes, index;
+
+        class ToolApp {
+        public:
+          void render(Panel &p) { p.print(F("ИНСТРУМЕНТ")); }
+        };
+        ToolApp *current();
+
+        void drawHome() {
+          lcd.setCursor(0, 0);
+          lcd.two(hours);
+          lcd.print('.');
+          lcd.two(minutes);
+          lcd.bigPair(hours, minutes);
+          lcd.print(':');
+          lcd.atCenter(0, F("MID"));
+          lcd.atRight(3, F("RIGHT"));
+          lcd.mark('!');
+        }
+
+        void drawList(const __FlashStringHelper *title, const char *items, uint8_t count) {
+          lcd.print(title);
+          lcd.setCursor(17, 0);
+          lcd.print(index + 1); lcd.print('/'); lcd.print(count);
+          const char *item = items;
+          for (uint8_t i = 0; i < count; ++i) {
+            lcd.setCursor(0, i + 1);
+            if (i == index) lcd.mark('>'); else lcd.print(' ');
+            lcd.print(reinterpret_cast<const __FlashStringHelper *>(item));
+            lcd.atRight(i + 1, F("*"));
+            item += strlen_P(item) + 1;
+          }
+        }
+
+        void draw() {
+          switch (page) {
+            case HOME: drawHome(); break;
+            case LIST_PAGE: drawList(F("TITLE"), LIST, 3); break;
+            default: if (current()) current()->render(lcd); break;
+          }
+        }
+
+        void loop() { draw(); }
+        """;
+
+    private static ScreenDocument ReadOwnClass() => ScreenCodeAnalyzer.Analyze([("a.ino", OwnClass)])!;
+
+    private static ScreenElement[] Drawn(ScreenDocument document, string screen, string text) =>
+        [.. document.Find(screen)!.Elements.Where(e => e.Text == text)];
+
+    [Fact]
+    public void A_method_of_the_sketchs_display_class_is_followed_like_a_helper()
+    {
+        ScreenDocument document = ReadOwnClass();
+        ScreenElement right = Drawn(document, "HOME", "RIGHT").Single();
+
+        // Worked out from what it prints; the row is the number at its own call, the text its own literal.
+        Assert.Equal((15, 3), (right.X, right.Y));
+        Assert.Equal("3", right.YSpan?.Expected);
+        Assert.Equal("\"RIGHT\"", right.TextSpan?.Expected);
+
+        ScreenElement middle = Drawn(document, "HOME", "MID").Single();
+        Assert.Equal((8, 0), (middle.X, middle.Y));
+    }
+
+    [Fact]
+    public void A_display_methods_number_shows_its_two_digits_and_takes_a_cursor_before_the_call()
+    {
+        ScreenDocument document = ReadOwnClass();
+        ScreenElement second = Drawn(document, "HOME", "minutes").Single();
+
+        Assert.Equal(2, second.Width);
+        Assert.Equal(3, second.X);
+        Assert.NotNull(second.CursorInsert);
+        Assert.Equal("lcd.", second.CursorReceiver);
+
+        string text = ScreenCodeEdits.Apply(OwnClass, ScreenCodeEdits.Move(second, document.Display, 10, 0)!);
+        Assert.Contains("lcd.setCursor(10, 0);\n  lcd.two(minutes);", text.ReplaceLineEndings("\n"), StringComparison.Ordinal);
+
+        // The method itself is left alone.
+        Assert.Contains("void two(uint8_t v) { if (v < 10) print('0'); print(v); }", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void What_a_display_class_writes_cell_by_cell_shows_as_blocks_where_they_are()
+    {
+        ScreenElement[] big = [.. ReadOwnClass().Find("HOME")!.Elements.Where(e => e.Text == "a/10" || e.Text == "a%10")];
+
+        // A loop over known numbers is run: three cells wide, two rows high, at each digit's column.
+        Assert.Equal([(0, 1, 3), (0, 2, 3), (4, 1, 3), (4, 2, 3)], big.Select(e => (e.X, e.Y, e.Width)));
+        Assert.All(big, e => Assert.Equal(new string('\u00FF', 3), e.Sample));
+
+        // One cell through a method of its own is one block, in its place.
+        ScreenElement mark = Drawn(ReadOwnClass(), "HOME", "'!'").Single();
+        Assert.Equal(1, mark.Width);
+        Assert.Equal((20, 3), (mark.X, mark.Y));
+    }
+
+    [Fact]
+    public void Taking_out_a_display_methods_call_takes_out_what_it_drew()
+    {
+        ScreenDocument document = ReadOwnClass();
+        ScreenElement right = Drawn(document, "HOME", "RIGHT").Single();
+
+        string text = ScreenCodeEdits.Apply(OwnClass, ScreenCodeEdits.Remove(right.RemoveSpans)!);
+
+        Assert.DoesNotContain("RIGHT", text, StringComparison.Ordinal);
+        Assert.Contains("lcd.atCenter(0, F(\"MID\"));", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Text_in_a_display_classes_own_code_is_not_edited_for_one_screen()
+    {
+        ScreenElement zero = ReadOwnClass().Find("HOME")!.Elements.First(e => e.Text == "0");
+
+        Assert.Null(zero.TextSpan);
+    }
+
+    [Fact]
+    public void A_list_kept_in_one_string_is_a_menu_and_what_its_loop_draws_is_the_menus()
+    {
+        ScreenNode list = ReadOwnClass().Find("LIST_PAGE")!;
+
+        Assert.Equal(["ONE", "TWO", "THREE"], list.Menu!.Items.Select(i => i.Text));
+        Assert.All(list.Menu.Items, i => Assert.Null(i.TextSpan));
+        Assert.Equal(1, list.Menu.Top);
+        Assert.Equal(3, list.Menu.Rows);
+        Assert.DoesNotContain(list.Elements, e => e.Text.Contains("reinterpret_cast", StringComparison.Ordinal) || e.Text == "*" || e.Text == "'>'");
+    }
+
+    [Fact]
+    public void Prints_in_a_row_that_a_guessed_width_would_push_off_the_display_are_drawn_narrower()
+    {
+        ScreenElement[] elements = [.. ReadOwnClass().Find("LIST_PAGE")!.Elements.Where(e => e.Y == 0 && e.X >= 17)];
+
+        Assert.Equal([(17, 1), (18, 1), (19, 1)], elements.Select(e => (e.X, e.Kind == ElementKind.Value ? e.Width : e.Text.Length)));
+    }
+
+    [Fact]
+    public void A_screen_with_no_case_of_its_own_is_what_the_default_draws()
+    {
+        ScreenNode tool = ReadOwnClass().Find("TOOL")!;
+
+        Assert.False(tool.DrawnElsewhere);
+        Assert.Equal("ИНСТРУМЕНТ", tool.Elements.Single().Text);
+    }
+
+    [Fact]
+    public void A_class_that_decodes_utf8_has_its_own_font_and_a_plain_display_does_not()
+    {
+        Assert.True(ReadOwnClass().Display.OwnFont);
+        Assert.False(ScreenCodeAnalyzer.Analyze([("a.ino", Device)])!.Display.OwnFont);
+    }
+
+    [Fact]
+    public void Printing_what_is_not_a_leading_zero_in_a_branch_is_shown()
+    {
+        const string Branches = """
+            #include <LiquidCrystal_I2C.h>
+            LiquidCrystal_I2C lcd(0x27, 20, 4);
+            int year, day;
+            bool wide;
+            void showDate() {
+              if (wide) {
+                lcd.print(day); lcd.print('.'); lcd.print(year);
+              } else {
+                lcd.print(year); lcd.print('-'); lcd.print(day);
+              }
+            }
+            void loop() { showDate(); }
+            """;
+
+        ScreenElement[] elements = [.. ScreenCodeAnalyzer.Analyze([("a.ino", Branches)])!.Screens.Single().Elements];
+
+        Assert.False(elements.First(e => e.Text == ".").IsAlternative);
+        Assert.True(elements.First(e => e.Text == "-").IsAlternative);
+    }
+
     private const string Device = """
         #include <LiquidCrystal_I2C.h>
         #define KEY_OK '#'

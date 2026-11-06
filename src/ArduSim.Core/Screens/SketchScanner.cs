@@ -30,7 +30,8 @@ internal sealed record CodeFunction(string Name, string Class, IReadOnlyList<Cod
 
 internal sealed record CodeEnum(string Name, IReadOnlyList<CodeToken> Constants);
 
-internal sealed record CodeStringArray(string Name, IReadOnlyList<CodeToken> Items);
+/// <param name="Packed">The items' texts, for a list kept in one string: <c>"one\0" "two"</c>. Their tokens then are not one per item.</param>
+internal sealed record CodeStringArray(string Name, IReadOnlyList<CodeToken> Items, IReadOnlyList<string>? Packed = null);
 
 /// <summary>A display object: <c>LiquidCrystal_I2C lcd(0x27, 20, 4);</c>.</summary>
 internal sealed record CodeDisplay(string Name, string Type, IReadOnlyList<string> Arguments);
@@ -577,6 +578,26 @@ internal sealed class SketchScanner
         while (k < t.Count && t[k].Kind == TokenKind.Identifier)
         {
             k++;
+        }
+
+        // const char NAME[] PROGMEM = "one\0" "two"; items one after another in one string.
+        if (k + 1 < t.Count && t[k].Is("=") && t[k + 1].Kind == TokenKind.String)
+        {
+            int last = k + 1;
+            var literals = new List<CodeToken>();
+            var texts = new List<string>();
+            for (; last < t.Count && t[last].Kind == TokenKind.String; last++)
+            {
+                literals.Add(t[last]);
+                texts.AddRange(Decode(t[last]).Split('\0', StringSplitOptions.RemoveEmptyEntries));
+            }
+
+            if (texts.Count >= 2)
+            {
+                StringArrays[t[i].Text] = new CodeStringArray(t[i].Text, literals, texts);
+            }
+
+            return last;
         }
 
         if (k + 1 >= t.Count || !t[k].Is("=") || !t[k + 1].Is("{"))

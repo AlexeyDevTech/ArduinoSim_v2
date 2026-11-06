@@ -46,6 +46,18 @@ A shape whose size or place the run decides is shown all the same, at a size to 
 
 A file's text is the record of what was decided, so each of these says what it did, and one Ctrl+Z takes back all of it.
 
+### A display class of the sketch's own
+
+A class with `setCursor(x, y)` in front of the panel is drawn on as a display is, and it can hold the layout: `lcd.printRight(3, F("..."))`, `lcd.print2(minutes)`.
+
+- Its other methods are followed like any helper, so what they print appears where their own `setCursor` puts it, worked out with the width of the text. What is written at the call (a row, a text) can be edited there; nothing inside the class is, since every screen goes through it. The call to a method can be removed if the method drew one thing.
+- What `write()` puts text out through writes one cell. Reached any other way (a bell, the parts of big digits), its shape is known only at run time, so it shows as a block the size it takes. To put those blocks in their places, a `for` over known numbers in the class's own code is run, not just read.
+- A `write()` that looks at UTF-8's lead bytes shows letters by itself (`ScreenDisplay.OwnFont`), so the preview draws Cyrillic instead of `?`. The shapes are the ROM's and a few of ours, not the sketch's own font: to read, not to compare. A plain display keeps `?`, which on real hardware would be wrong characters too.
+
+A value with nothing known to show draws as its last name when it has one (`dt.day` as `day`) and as dots otherwise: the start of `reinterpret_cast<...>` says nothing. What could not be placed draws only where it hides nothing. Prints in a row that a guessed width would push off the display are drawn narrower, because what a sketch lines up fits.
+
+A list kept in one string (`"one\0" "two"`) makes a menu as an array does, reached through locals and parameters. Its items cannot be edited from here, since a literal holds its terminator. A screen with no `case` of its own is what the switch's `default` draws.
+
 ### The constructor in code
 
 The owner's second word on this (2026-11-06): an editor that only shows and lets you look in the code is not a constructor. So a project from code can be built here as well, by adding code:

@@ -25,7 +25,9 @@ public sealed class ScreenMapView : FrameworkElement
 
     private readonly Dictionary<string, (ScreenNode Node, BitmapSource Bitmap)> _thumbnails = new(StringComparer.Ordinal);
     private readonly List<(Rect Box, string? From, int Index)> _labels = [];
+    private static readonly double[] LabelStops = [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74, 0.18, 0.82, 0.1, 0.9];
     private readonly List<(Rect Box, FormattedText Text)> _labelTexts = [];
+    private readonly List<Rect> _cards = [];
     private ScreensViewModel? _model;
     private double _zoom = 0.8;
     private Vector _pan = new(260, 40);
@@ -191,6 +193,8 @@ public sealed class ScreenMapView : FrameworkElement
     {
         _labels.Clear();
         _labelTexts.Clear();
+        _cards.Clear();
+        _cards.AddRange(document.Screens.Select(s => CardRect(s, document.Display)));
         foreach (ScreenNode screen in document.Screens)
         {
             foreach (IGrouping<string, (string Target, string Label, int Index)> group in ScreensViewModel.LinksOf(screen).GroupBy(l => l.Target, StringComparer.Ordinal))
@@ -239,15 +243,20 @@ public sealed class ScreenMapView : FrameworkElement
 
         if (label.Length > 0)
         {
-            double t = 0.5;
-            var middle = new Point(
-                (Math.Pow(1 - t, 3) * start.X) + (3 * Math.Pow(1 - t, 2) * t * one.X) + (3 * (1 - t) * t * t * two.X) + (t * t * t * end.X),
-                (Math.Pow(1 - t, 3) * start.Y) + (3 * Math.Pow(1 - t, 2) * t * one.Y) + (3 * (1 - t) * t * t * two.Y) + (t * t * t * end.Y));
             FormattedText text = Label(label, 10, near || selected ? Token("Brush.Text.Primary") : Token("Brush.Text.Secondary"));
             text.MaxTextWidth = 150;
             text.MaxLineCount = 1;
             text.Trimming = TextTrimming.CharacterEllipsis;
-            var box = new Rect(middle.X - (text.Width / 2) - 3, middle.Y - (text.Height / 2) - 1, text.Width + 6, text.Height + 2);
+            Rect Box(double t)
+            {
+                var at = new Point(
+                    (Math.Pow(1 - t, 3) * start.X) + (3 * Math.Pow(1 - t, 2) * t * one.X) + (3 * (1 - t) * t * t * two.X) + (t * t * t * end.X),
+                    (Math.Pow(1 - t, 3) * start.Y) + (3 * Math.Pow(1 - t, 2) * t * one.Y) + (3 * (1 - t) * t * t * two.Y) + (t * t * t * end.Y));
+                return new Rect(at.X - (text.Width / 2) - 3, at.Y - (text.Height / 2) - 1, text.Width + 6, text.Height + 2);
+            }
+
+            // In the middle of the curve, or as near as it can be without lying over a card the curve passes behind.
+            Rect box = LabelStops.Select(Box).Where(b => !_cards.Any(c => c.IntersectsWith(b))).Cast<Rect?>().FirstOrDefault() ?? Box(0.5);
             _labelTexts.Add((box, text));
             _labels.Add((box, source, index));
         }

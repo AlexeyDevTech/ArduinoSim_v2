@@ -112,7 +112,7 @@ public sealed class ScreenFaceView : FrameworkElement
         var accent = (Brush)FindResource("Brush.Accent");
         var selected = new Pen(accent, 2);
         var other = new Pen(new SolidColorBrush(Color.FromArgb(70, 255, 255, 255)), 1);
-        foreach (ScreenElement element in screen.Elements.Where(e => !e.IsAlternative))
+        foreach (ScreenElement element in ScreenPreview.Shown(screen, display))
         {
             bool isSelected = element.Id == _model.SelectedElementId;
             Rect rect = ViewRect(Shown(element), display, scale, left, top);
@@ -181,7 +181,7 @@ public sealed class ScreenFaceView : FrameworkElement
 
         (double scale, double left, double top) = Placement(display);
         var point = new Point((position.X - left) / scale, (position.Y - top) / scale);
-        return screen.Elements.Where(e => !e.IsAlternative).Reverse().FirstOrDefault(e =>
+        return ScreenPreview.Shown(screen, display).Reverse().FirstOrDefault(e =>
         {
             Rect bounds = ScreenPreview.BoundsOf(e, display);
             bounds.Inflate(2, 2);

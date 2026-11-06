@@ -197,6 +197,77 @@ public sealed partial class ScreenConstructorRunTests(ToolchainFixture toolchain
         Assert.Contains("   ab|X        Y", rows);
     }
 
+    // A display class of the sketch's own: what the constructor writes around calls to its methods builds and shows there.
+    [Fact]
+    public async Task Moving_and_removing_what_a_display_classes_methods_draw_builds_and_shows_there()
+    {
+        Assert.True(_toolchain.Toolchain.IsComplete);
+        string project = Project();
+        const string Own = """
+            #include <LiquidCrystal_I2C.h>
+            LiquidCrystal_I2C hardware(0x27, 16, 2);
+
+            class Panel : public Print {
+            public:
+              void setCursor(uint8_t x, uint8_t y) { x_ = x; y_ = y; }
+              size_t write(uint8_t b) { if (b >= 0xC0) lead_ = b; else if (b >= 0x80) put('?'); else put(b); return 1; }
+              using Print::write;
+              void two(uint8_t v) { if (v < 10) print('0'); print(v); }
+              void atRight(uint8_t y, const __FlashStringHelper *s) { setCursor(16 - strlen_P(reinterpret_cast<const char *>(s)), y); print(s); }
+            private:
+              void put(uint8_t c) { hardware.setCursor(x_, y_); hardware.write(c); ++x_; }
+              uint8_t x_ = 0, y_ = 0, lead_ = 0;
+            };
+
+            Panel lcd;
+            enum Screen { HOME, OTHER };
+            Screen screen = HOME;
+            uint8_t hours = 7;
+            uint8_t minutes = 9;
+
+            void drawHome() {
+              lcd.setCursor(0, 0);
+              lcd.two(hours);
+              lcd.two(minutes);
+              lcd.atRight(1, F("END"));
+              lcd.atRight(0, F("GONE"));
+            }
+
+            void draw() {
+              switch (screen) {
+                case HOME: drawHome(); break;
+                case OTHER: lcd.setCursor(0, 0); lcd.print("O"); break;
+              }
+            }
+
+            void setup() {
+              hardware.init();
+              hardware.backlight();
+              draw();
+            }
+
+            void loop() {
+            }
+            """;
+
+        string text = Own;
+        ScreenDocument document = Read(text);
+        ScreenElement second = document.Find("HOME")!.Elements.Single(e => e.Text == "minutes");
+        text = Edited(text, ScreenCodeEdits.Move(second, document.Display, 5, 1));
+        document = Read(text);
+        ScreenElement gone = document.Find("HOME")!.Elements.Single(e => e.Text == "GONE");
+        text = Edited(text, ScreenCodeEdits.Remove(gone.RemoveSpans));
+
+        File.WriteAllText(Path.Combine(project, "sketch", "sketch.ino"), text);
+        RunResult result = await RunnerProcess.RunProjectAsync(project, "--run-for", "1200", "--quiet");
+
+        Assert.True(result.ExitCode == 0, result.ToString());
+        string[] rows = [.. result.Timeline
+            .Where(e => e.Text.StartsWith("lcd1: \"", StringComparison.Ordinal))
+            .Select(e => string.Join('|', QuotedRow().Matches(e.Text).Select(m => m.Groups[1].Value.TrimEnd())))];
+        Assert.Contains("07|     09      END", rows);
+    }
+
     // The owner's NanoOS has this shape: libraries reached only through headers under src, and the free-SRAM idiom.
     [Fact]
     public async Task A_sketch_with_its_includes_in_headers_under_src_builds_and_is_told_about_free_sram()

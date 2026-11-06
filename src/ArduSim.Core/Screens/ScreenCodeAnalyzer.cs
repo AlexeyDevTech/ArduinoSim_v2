@@ -17,6 +17,7 @@ public sealed partial class ScreenCodeAnalyzer
     private readonly Dictionary<CodeFunction, FunctionFacts> _facts = [];
     private readonly Dictionary<string, List<CodeFunction>> _byName = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (IReadOnlyList<CodeToken> Tokens, int Start, int End)> _constants = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _cellMethods = new(StringComparer.Ordinal);
     private readonly ScreenDisplay? _sceneDisplay;
     private ScreenDisplay _display = new(DisplayFamily.CharLcd, 16, 2, DisplayLibrary.LiquidCrystalI2c, "lcd");
     private HashSet<string> _displayNames = new(StringComparer.Ordinal);
@@ -107,6 +108,8 @@ public sealed partial class ScreenCodeAnalyzer
         _displayNames = new HashSet<string>(_scan.Displays.Select(d => d.Name), StringComparer.Ordinal);
         FindSurfaces();
         FindConstants();
+        FindCellMethods();
+        _display = _display with { OwnFont = DecodesText() };
         foreach (CodeFunction function in _scan.Functions)
         {
             if (!_byName.TryGetValue(function.Name, out List<CodeFunction>? list))
@@ -150,7 +153,7 @@ public sealed partial class ScreenCodeAnalyzer
             List<CodeToken> t = file.Tokens;
             for (int i = 0; i + 2 < t.Count; i++)
             {
-                if (t[i].Is("const") || t[i].Is("constexpr"))
+                if ((t[i].Is("const") || t[i].Is("constexpr")) && !InsideFunction(t, i))
                 {
                     int k = i + 1;
                     while (k + 1 < t.Count && t[k].Kind == TokenKind.Identifier && !t[k + 1].Is("="))
@@ -186,6 +189,31 @@ public sealed partial class ScreenCodeAnalyzer
             }
         }
     }
+
+    private bool InsideFunction(List<CodeToken> t, int index) =>
+        _scan.Functions.Any(f => ReferenceEquals(f.Tokens, t) && index > f.BodyStart && index < f.BodyEnd);
+
+    // What a display class's write() puts text out through writes one cell, whatever is in it.
+    private void FindCellMethods()
+    {
+        foreach (CodeFunction write in _scan.Functions.Where(f => f.Name == "write" && _surfaceTypes.Contains(f.Class)))
+        {
+            IReadOnlyList<CodeToken> t = write.Tokens;
+            for (int k = write.BodyStart; k + 1 < write.BodyEnd; k++)
+            {
+                string name = t[k].Text;
+                if (t[k].Kind == TokenKind.Identifier && t[k + 1].Is("(") && !t[k - 1].Is(".") && !t[k - 1].Is("->") && _scan.Functions.Any(f => f.Name == name && f.Class == write.Class))
+                {
+                    _cellMethods.Add(name);
+                }
+            }
+        }
+    }
+
+    // A write() that looks at UTF-8's lead bytes shows letters by itself.
+    private bool DecodesText() =>
+        _scan.Functions.Where(f => f.Name == "write" && _surfaceTypes.Contains(f.Class)).Any(f =>
+            Enumerable.Range(f.BodyStart, Math.Max(0, f.BodyEnd - f.BodyStart)).Any(k => f.Tokens[k].Kind == TokenKind.Number && f.Tokens[k].Text.ToUpperInvariant() is "0XC0" or "0X80"));
 
     // Up to the comma, semicolon or closing brace that ends a value.
     private static int EndOfValue(IReadOnlyList<CodeToken> t, int start)
@@ -424,7 +452,15 @@ public sealed partial class ScreenCodeAnalyzer
     }
 
     private bool IsDrawCall(CallFact call, CodeFunction function) =>
-        call.Receiver.Length > 0 && (_displayNames.Contains(call.Receiver) || IsSurfaceParameter(function, call.Receiver)) && DrawingCalls.Contains(call.Name);
+        call.Receiver.Length == 0
+            ? _surfaceTypes.Contains(function.Class) && (DrawingCalls.Contains(call.Name) || _cellMethods.Contains(call.Name))
+            : IsDisplayObject(call.Receiver, function) && DrawingCalls.Contains(call.Name);
+
+    private bool IsDisplayObject(string name, CodeFunction function) => name.Length > 0 && (_displayNames.Contains(name) || IsSurfaceParameter(function, name));
+
+    // A method of a display class of the sketch's own, which drawing goes through like any helper: lcd.printRight(3, text).
+    private CodeFunction? SurfaceMethod(string name, int arguments) =>
+        _byName.GetValueOrDefault(name)?.FirstOrDefault(f => _surfaceTypes.Contains(f.Class) && f.Parameters.Count == arguments);
 
     private static string LastWord(string type) => type.Length == 0 ? "" : type.Split(' ', StringSplitOptions.RemoveEmptyEntries)[^1];
 
@@ -447,7 +483,8 @@ public sealed partial class ScreenCodeAnalyzer
             changed = false;
             foreach ((CodeFunction function, FunctionFacts facts) in _facts)
             {
-                if (!facts.Draws && facts.Calls.Any(c => c.Receiver.Length == 0 && Callee(c, function) is { } callee && _facts[callee].Draws))
+                if (!facts.Draws && facts.Calls.Any(c => (c.Receiver.Length == 0 && Callee(c, function) is { } callee && _facts[callee].Draws)
+                    || (IsDisplayObject(c.Receiver, function) && SurfaceMethod(c.Name, c.Arguments.Count) is { } method && _facts[method].Draws)))
                 {
                     facts.Draws = true;
                     changed = true;
@@ -1117,7 +1154,7 @@ public sealed partial class ScreenCodeAnalyzer
     // Whom a function's own drawing goes to, or else the sketch's own display: a class of its own before the panel behind it.
     private string ReceiverIn(CodeFunction? function)
     {
-        if (function is not null && _facts.TryGetValue(function, out FunctionFacts? facts) && facts.Calls.FirstOrDefault(c => IsDrawCall(c, function)) is { } call)
+        if (function is not null && _facts.TryGetValue(function, out FunctionFacts? facts) && facts.Calls.FirstOrDefault(c => c.Receiver.Length > 0 && IsDrawCall(c, function)) is { } call)
         {
             return Accessor(function, call);
         }
@@ -1132,7 +1169,8 @@ public sealed partial class ScreenCodeAnalyzer
     }
 
     private int CallCount(CodeFunction function) =>
-        _facts.Sum(f => f.Value.Calls.Count(c => c.Name == function.Name && Callee(c, f.Key) == function));
+        _facts.Sum(f => f.Value.Calls.Count(c => c.Name == function.Name && (Callee(c, f.Key) == function
+            || (_surfaceTypes.Contains(function.Class) && c.Arguments.Count == function.Parameters.Count && IsDisplayObject(c.Receiver, f.Key)))));
 
     // A new element goes where the screen's own drawing ends: at the end of the function that is its
     // alone (before what sends a buffer to the display), or in its case, before the break.
@@ -1647,6 +1685,16 @@ public sealed partial class ScreenCodeAnalyzer
             site = EndOf(named);
         }
 
+        // No case of its own: what is left falls to the default.
+        if (!found && draw is { } fallback)
+        {
+            foreach ((IReadOnlyList<CodeToken> _, bool isDefault, int start, int end) in fallback.Switch.Cases.Where(c => c.IsDefault))
+            {
+                painter.Paint(fallback.Function, start, end);
+                site = DrawSiteIn(fallback.Function, start, end);
+            }
+        }
+
         // An application that draws itself: ALARM_APP, AlarmApp::render.
         if (painter.CallsOutside && RendererFor(id) is { } renderer)
         {
@@ -1656,6 +1704,7 @@ public sealed partial class ScreenCodeAnalyzer
             site = EndOf(renderer);
         }
 
+        painter.FitRuns();
         return new ScreenNode
         {
             Id = id,
@@ -1679,8 +1728,9 @@ public sealed partial class ScreenCodeAnalyzer
     private CodeFunction? NamedAfter(string id)
     {
         string wanted = Letters(id);
-        return _facts.Keys.FirstOrDefault(f => _facts[f].Draws && DrawnFunction().Replace(f.Name, "").Equals(id, StringComparison.OrdinalIgnoreCase))
-            ?? _facts.Keys.FirstOrDefault(f => _facts[f].Draws && Letters(f.Name).Contains(wanted, StringComparison.Ordinal) && wanted.Length >= 3);
+        CodeFunction[] drawing = [.. _facts.Keys.Where(f => _facts[f].Draws && !_surfaceTypes.Contains(f.Class))];
+        return drawing.FirstOrDefault(f => DrawnFunction().Replace(f.Name, "").Equals(id, StringComparison.OrdinalIgnoreCase))
+            ?? drawing.FirstOrDefault(f => Letters(f.Name).Contains(wanted, StringComparison.Ordinal) && wanted.Length >= 3);
     }
 
     private CodeFunction? RendererFor(string id)
@@ -1701,8 +1751,13 @@ public sealed partial class ScreenCodeAnalyzer
         private int _size = 1;
         private int _depth;
         private int _next;
+        private readonly List<int> _runOf = [];
+        private int _run;
+        private int _lastCell = -1;
         private int _outerLoops;
-        private (SourceInsert Insert, CodeFunction Caller)? _callSite;
+        private int _outerConditional;
+        private int _outerElses;
+        private (SourceInsert Insert, CodeFunction Caller, string Receiver)? _callSite;
         private SourceSpan? _xSpan;
         private SourceSpan? _ySpan;
         private CodeExpression? _xCode;
@@ -1773,7 +1828,7 @@ public sealed partial class ScreenCodeAnalyzer
             public int? Of(IReadOnlyList<CodeToken> t, int start, int end)
             {
                 (_t, _at, _end) = (t, start, end);
-                int? value = Sum();
+                int? value = Conditional();
                 if (_at < _end)
                 {
                     Changes = true;
@@ -1784,6 +1839,51 @@ public sealed partial class ScreenCodeAnalyzer
             }
 
             private bool Next(string text) => _at < _end && _t[_at].Is(text);
+
+            private int? Conditional()
+            {
+                int? condition = Comparison();
+                if (!Next("?"))
+                {
+                    return condition;
+                }
+
+                _at++;
+                int? first = Conditional();
+                if (Next(":"))
+                {
+                    _at++;
+                }
+                else
+                {
+                    Changes = true;
+                }
+
+                int? second = Conditional();
+                return condition is null ? null : condition != 0 ? first : second;
+            }
+
+            private int? Comparison()
+            {
+                int? left = Sum();
+                while (Next("<") || Next(">") || Next("<=") || Next(">=") || Next("==") || Next("!="))
+                {
+                    string operation = _t[_at++].Text;
+                    int? right = Sum();
+                    bool? result = left is null || right is null ? null : operation switch
+                    {
+                        "<" => left < right,
+                        ">" => left > right,
+                        "<=" => left <= right,
+                        ">=" => left >= right,
+                        "==" => left == right,
+                        _ => left != right,
+                    };
+                    left = result is null ? null : result.Value ? 1 : 0;
+                }
+
+                return left;
+            }
 
             private int? Sum()
             {
@@ -1883,7 +1983,7 @@ public sealed partial class ScreenCodeAnalyzer
                 int outer = _end;
                 _at++;
                 _end = close;
-                int? inner = Sum();
+                int? inner = Conditional();
                 if (_at < _end)
                 {
                     Changes = true;
@@ -1930,10 +2030,19 @@ public sealed partial class ScreenCodeAnalyzer
                 _at = Math.Min(close + 1, _end);
                 switch (name)
                 {
-                    case "strlen" when arguments.Count == 1:
-                        if (arguments[0].End - arguments[0].Start == 1 && _t[arguments[0].Start].Kind == TokenKind.String)
+                    case "strlen" or "strlen_P" when arguments.Count == 1:
+                        if (StringIn(_t, arguments[0].Start, arguments[0].End, scope) is { } bytes)
                         {
-                            return SketchScanner.Decode(_t[arguments[0].Start]).Length;
+                            return System.Text.Encoding.UTF8.GetByteCount(bytes);
+                        }
+
+                        NeedsPrinted = true;
+                        return printed;
+                    case not ("min" or "max" or "abs" or "sizeof") when arguments.Count == 1 && (name.Contains("width", StringComparison.OrdinalIgnoreCase) || name.Contains("length", StringComparison.OrdinalIgnoreCase)):
+                        // A sketch's own measure of text: cells, which is what it asks for.
+                        if (StringIn(_t, arguments[0].Start, arguments[0].End, scope) is { } cells)
+                        {
+                            return cells.Length;
                         }
 
                         NeedsPrinted = true;
@@ -1950,6 +2059,38 @@ public sealed partial class ScreenCodeAnalyzer
                         Changes = true;
                         return null;
                 }
+            }
+
+            // The text an argument says, through F() and the parameters it came by.
+            private static string? StringIn(IReadOnlyList<CodeToken> t, int start, int end, Dictionary<string, Bound> names)
+            {
+                for (int hops = 0; hops < CallDepth; hops++)
+                {
+                    while (end - start >= 4 && t[start].Text is "F" or "PSTR" or "FPSTR" && t[start + 1].Is("(") && SketchScanner.Matching(t, start + 1, "(", ")") == end - 1)
+                    {
+                        start += 2;
+                        end--;
+                    }
+
+                    if (end - start != 1)
+                    {
+                        return null;
+                    }
+
+                    if (t[start].Kind == TokenKind.String)
+                    {
+                        return SketchScanner.Decode(t[start]);
+                    }
+
+                    if (!names.TryGetValue(t[start].Text, out Bound? bound))
+                    {
+                        return null;
+                    }
+
+                    (t, start, end, names) = (bound.Tokens, bound.Start, bound.End, bound.Bindings);
+                }
+
+                return null;
             }
 
             private int? Named(string name)
@@ -2013,8 +2154,90 @@ public sealed partial class ScreenCodeAnalyzer
         {
             private readonly Stack<(int X, int Y)> _branch = new();
             private readonly Stack<(int X, int Y)> _afterThen = new();
+            private readonly Stack<(string Name, int From)?> _running = new();
             private int _conditional;
             private int _elses;
+            private int _ranLoops;
+
+            private bool InSurface => Analyzer._surfaceTypes.Contains(function.Class);
+
+            private bool IsConditional => _conditional + painter._outerConditional > 0;
+
+            private bool IsInElse => _elses + painter._outerElses > 0;
+
+            // A display class's own loop over known numbers draws what it draws: for (i = 0; i < 6; ++i).
+            protected override int LoopPasses(int start, int close)
+            {
+                (string Name, int From)? run = null;
+                int passes = 1;
+                if (InSurface && close > start)
+                {
+                    int first = start;
+                    while (first < close && !Tokens[first].Is(";"))
+                    {
+                        first++;
+                    }
+
+                    int second = first + 1;
+                    while (second < close && !Tokens[second].Is(";"))
+                    {
+                        second++;
+                    }
+
+                    int equals = start;
+                    while (equals < first && !Tokens[equals].Is("="))
+                    {
+                        equals++;
+                    }
+
+                    if (equals > start && equals < first && second < close && first + 2 < second && Tokens[first + 1].Is(Tokens[equals - 1].Text) && (Tokens[first + 2].Is("<") || Tokens[first + 2].Is("<=")))
+                    {
+                        int? from = new Reckoning(Analyzer, function, bindings, null).Of(Tokens, equals + 1, first);
+                        int? to = new Reckoning(Analyzer, function, bindings, null).Of(Tokens, first + 3, second);
+                        int count = (to - from + (Tokens[first + 2].Is("<=") ? 1 : 0)) ?? 0;
+                        if (from is not null && count is >= 1 and <= 64)
+                        {
+                            run = (Tokens[equals - 1].Text, from.Value);
+                            passes = count;
+                            _ranLoops++;
+                        }
+                    }
+                }
+
+                _running.Push(run);
+                return passes;
+            }
+
+            protected override void LoopPass(int pass)
+            {
+                if (_running.Peek() is { } run)
+                {
+                    List<CodeToken> number = SketchScanner.TokensOf((run.From + pass).ToString(CultureInfo.InvariantCulture));
+                    bindings[run.Name] = new Bound(function, number, 0, number.Count, [], Shared: true);
+                }
+            }
+
+            protected override void LoopDone()
+            {
+                if (_running.Pop() is { } run)
+                {
+                    bindings.Remove(run.Name);
+                    _ranLoops--;
+                }
+            }
+
+            // Only inside a loop that is being run: elsewhere both branches are what the screen can show.
+            protected override bool? Decide(int start, int end)
+            {
+                if (_ranLoops == 0)
+                {
+                    return null;
+                }
+
+                var reckoning = new Reckoning(Analyzer, function, bindings, null);
+                int? value = reckoning.Of(Tokens, start, end);
+                return reckoning.Changes || value is null ? null : value != 0;
+            }
 
             protected override void BranchStart()
             {
@@ -2060,29 +2283,24 @@ public sealed partial class ScreenCodeAnalyzer
                     string receiver = ReceiverOf(Tokens, k, from);
                     string name = Tokens[k].Text;
                     List<(int Start, int End)> arguments = ArgumentRanges(Tokens, k + 2, close);
-                    if (receiver.Length > 0 && IsDisplay(receiver) && DrawingCalls.Contains(name))
+                    if (((receiver.Length > 0 && IsDisplay(receiver)) || (receiver.Length == 0 && InSurface)) && DrawingCalls.Contains(name))
                     {
                         Display(name, arguments, k, close);
                         k = close + 1;
                     }
+                    else if (receiver.Length == 0 && InSurface && arguments.Count >= 1 && Analyzer._cellMethods.Contains(name))
+                    {
+                        Cell(arguments[0]);
+                        k = close + 1;
+                    }
                     else if (receiver.Length == 0 && Analyzer.Callee(new CallFact(name, "", k, k + 1, close, arguments, []), function) is { } callee && Analyzer._facts[callee].Draws)
                     {
-                        var inner = new Dictionary<string, Bound>(StringComparer.Ordinal);
-                        for (int i = 0; i < callee.Parameters.Count && i < arguments.Count; i++)
-                        {
-                            inner[callee.Parameters[i].Name] = new Bound(function, Tokens, arguments[i].Start, arguments[i].End, bindings, painter._shared);
-                        }
-
-                        (SourceInsert Insert, CodeFunction Caller)? outerSite = painter._callSite;
-                        if (!painter._shared)
-                        {
-                            painter._callSite = CallStatement(k, close);
-                        }
-
-                        painter._outerLoops += Loops;
-                        painter.Enter(callee, callee.BodyStart, callee.BodyEnd, inner);
-                        painter._outerLoops -= Loops;
-                        painter._callSite = outerSite;
+                        EnterHelper(callee, arguments, "", k, close);
+                        k = close + 1;
+                    }
+                    else if (IsDisplay(receiver) && Analyzer.SurfaceMethod(name, arguments.Count) is { } method && Analyzer._facts[method].Draws)
+                    {
+                        EnterHelper(method, arguments, receiver, k, close);
                         k = close + 1;
                     }
                     else if (receiver.Length > 0 && name is "render" or "draw" or "show" or "paint")
@@ -2099,16 +2317,60 @@ public sealed partial class ScreenCodeAnalyzer
 
             private ScreenCodeAnalyzer Analyzer => painter.Owner;
 
-            private bool IsDisplay(string receiver)
+            private bool IsDisplay(string receiver) => Analyzer.IsDisplayObject(receiver, function);
+
+            private void EnterHelper(CodeFunction callee, List<(int Start, int End)> arguments, string receiver, int nameIndex, int close)
             {
-                return Analyzer._displayNames.Contains(receiver) || Analyzer.IsSurfaceParameter(function, receiver);
+                var inner = new Dictionary<string, Bound>(StringComparer.Ordinal);
+                for (int i = 0; i < callee.Parameters.Count && i < arguments.Count; i++)
+                {
+                    inner[callee.Parameters[i].Name] = new Bound(function, Tokens, arguments[i].Start, arguments[i].End, bindings, painter._shared);
+                }
+
+                (SourceInsert Insert, CodeFunction Caller, string Receiver)? outerSite = painter._callSite;
+                if (!painter._shared)
+                {
+                    painter._callSite = CallStatement(nameIndex, close, receiver);
+                }
+
+                int before = painter.Elements.Count;
+                int loops = Loops - _ranLoops;
+                painter._outerLoops += loops;
+                painter._outerConditional += _conditional;
+                painter._outerElses += _elses;
+                painter.Enter(callee, callee.BodyStart, callee.BodyEnd, inner);
+                painter._outerLoops -= loops;
+                painter._outerConditional -= _conditional;
+                painter._outerElses -= _elses;
+                painter._callSite = outerSite;
+
+                // What a display method drew alone goes when the call to it goes, if the call stands alone.
+                if (receiver.Length > 0 && !InLoop && !IsConditional && RemovalOf(OwnStatement(nameIndex, close)) is { Count: > 0 } removal)
+                {
+                    painter.TakesOutWith(before, removal);
+                }
+            }
+
+            // A call to a helper that stands alone: before it is where a cursor can go, for what the helper prints first.
+            private (SourceInsert Insert, CodeFunction Caller, string Receiver)? CallStatement(int nameIndex, int close, string receiver)
+            {
+                int first = receiver.Length > 0 && nameIndex >= 2 ? nameIndex - 2 : nameIndex;
+                bool alone = close + 1 < Tokens.Count && Tokens[close + 1].Is(";") && first > 0
+                    && (Tokens[first - 1].Is(";") || Tokens[first - 1].Is("{") || Tokens[first - 1].Is("}") || Tokens[first - 1].Is(":"));
+                if (!alone || InLoop)
+                {
+                    return null;
+                }
+
+                string accessor = receiver.Length == 0 ? "" : receiver + (Tokens[nameIndex - 1].Is("->") ? "->" : ".");
+                return (InsertBefore(Analyzer._scan.Files[Tokens[first].File], Tokens[first]), function, accessor);
             }
 
             // The statement of a call, if it is nothing but the call and stands on its own: a branch's only
             // statement cannot go without its branch.
             private (int Start, int End)? OwnStatement(int nameIndex, int close)
             {
-                int start = nameIndex >= 2 ? nameIndex - 2 : nameIndex;
+                int start = nameIndex >= 2 && (Tokens[nameIndex - 1].Is(".") || Tokens[nameIndex - 1].Is("->")) ? nameIndex - 2 : nameIndex;
                 bool alone = close + 1 < Tokens.Count && Tokens[close + 1].Is(";") && start > 0 && (Tokens[start - 1].Is(";") || Tokens[start - 1].Is("{") || Tokens[start - 1].Is("}") || Tokens[start - 1].Is(":"));
                 return alone && !painter._shared ? (start, close + 1) : null;
             }
@@ -2213,7 +2475,8 @@ public sealed partial class ScreenCodeAnalyzer
                     Width = c.Value is { } across ? (second ? across - left : across) : line ? left + 16 : 16,
                     Height = d.Value is { } down ? (second ? down - top : down) : line ? top : 8,
                     IsPlaced = x.Value is not null && y.Value is not null && c.Value is not null && d.Value is not null,
-                    IsConditional = _conditional > 0,
+                    IsConditional = IsConditional,
+                    IsAlternative = IsInElse,
                     XSpan = x.Span,
                     YSpan = y.Span,
                     XCode = x.Code,
@@ -2224,20 +2487,70 @@ public sealed partial class ScreenCodeAnalyzer
                     HeightCode = second ? null : d.Code,
                     RemoveSpans = RemovalOwn(),
                     Location = LocationAt(a[0].Start),
-                }, Loops > 0);
+                }, InLoop);
             }
 
             private (int NameIndex, int Close) _call;
             private bool _takesCursor;
 
-            private bool InLoop => Loops + painter._outerLoops > 0;
+            private bool InLoop => Loops - _ranLoops + painter._outerLoops > 0;
 
-            // A call to a helper that stands alone: before it is where a cursor can go, for what the helper prints first.
-            private (SourceInsert Insert, CodeFunction Caller)? CallStatement(int nameIndex, int close)
+            // What a display class writes one cell at a time: what shape is in it only the run knows.
+            private void Cell((int Start, int End) argument)
             {
-                bool alone = close + 1 < Tokens.Count && Tokens[close + 1].Is(";") && nameIndex > 0
-                    && (Tokens[nameIndex - 1].Is(";") || Tokens[nameIndex - 1].Is("{") || Tokens[nameIndex - 1].Is("}") || Tokens[nameIndex - 1].Is(":"));
-                return alone && !InLoop ? (InsertBefore(Analyzer._scan.Files[Tokens[nameIndex].File], Tokens[nameIndex]), function) : null;
+                (IReadOnlyList<CodeToken> t, int start, int end, Dictionary<string, Bound> _, CodeFunction _, bool _) = Resolve(argument);
+                painter.AddCell(string.Concat(t.Skip(start).Take(end - start).Select(x => x.Text)), IsConditional, InLoop, IsInElse, LocationAt(argument.Start));
+            }
+
+            // The one thing an if does, such as a leading zero: it shares its place with what follows.
+            private bool IsItsBranchAlone()
+            {
+                int first = _call.NameIndex >= 2 && (Tokens[_call.NameIndex - 1].Is(".") || Tokens[_call.NameIndex - 1].Is("->")) ? _call.NameIndex - 2 : _call.NameIndex;
+                if (first == 0)
+                {
+                    return false;
+                }
+
+                int after = _call.Close + 2;
+                return Tokens[first - 1].Is(")") || Tokens[first - 1].Is("else") || (Tokens[first - 1].Is("{") && after < Tokens.Count && Tokens[after].Is("}"));
+            }
+
+            // A list reached through a pointer or a cast: what it points at, through locals and parameters.
+            private CodeStringArray? ArrayBehind(IReadOnlyList<CodeToken> t, int start, int end, Dictionary<string, Bound> scope, CodeFunction where, int depth = 0)
+            {
+                if (depth > CallDepth)
+                {
+                    return null;
+                }
+
+                for (int k = start; k < end; k++)
+                {
+                    if (t[k].Kind != TokenKind.Identifier)
+                    {
+                        continue;
+                    }
+
+                    string name = t[k].Text;
+                    if (Analyzer._scan.StringArrays.TryGetValue(name, out CodeStringArray? found))
+                    {
+                        return found;
+                    }
+
+                    if (scope.TryGetValue(name, out Bound? bound))
+                    {
+                        if (ArrayBehind(bound.Tokens, bound.Start, bound.End, bound.Bindings, bound.Function, depth + 1) is { } viaBound)
+                        {
+                            return viaBound;
+                        }
+                    }
+                    else if (LocalOf(where, name) is { InitEnd: > 0 } local && local.InitEnd - local.InitStart <= 4
+                        && ArrayBehind(where.Tokens, local.InitStart, local.InitEnd, scope, where, depth + 1) is { } viaLocal)
+                    {
+                        return viaLocal;
+                    }
+                }
+
+                return null;
             }
 
             // Where a cursor of its own can go: before a print that stands alone, outside loops and shared code, at a place that is known.
@@ -2252,11 +2565,21 @@ public sealed partial class ScreenCodeAnalyzer
                 string receiver = ReceiverOf(Tokens, _call.NameIndex, 0);
                 if (painter._shared)
                 {
+                    if (painter._callSite is not { } site)
+                    {
+                        return (null, "");
+                    }
+
+                    if (site.Receiver.Length > 0)
+                    {
+                        return (site.Insert, site.Receiver);
+                    }
+
                     (IReadOnlyList<CodeToken> t, int start, int end, Dictionary<string, Bound> _, CodeFunction _, bool _) = bindings.TryGetValue(receiver, out Bound? bound)
                         ? (bound.Tokens, bound.Start, bound.End, bound.Bindings, bound.Function, bound.Shared)
                         : (Tokens, 0, 0, bindings, function, false);
                     string name = end - start == 1 ? t[start].Text : receiver;
-                    if (painter._callSite is not { } site || !(Analyzer._displayNames.Contains(name) || Analyzer.IsSurfaceParameter(site.Caller, name)))
+                    if (!Analyzer.IsDisplayObject(name, site.Caller))
                     {
                         return (null, "");
                     }
@@ -2271,13 +2594,14 @@ public sealed partial class ScreenCodeAnalyzer
                 }
 
                 CodeFile file = Analyzer._scan.Files[Tokens[own.Start].File];
-                return (InsertBefore(file, Tokens[own.Start]), receiver + (Tokens[_call.NameIndex - 1].Is("->") ? "->" : "."));
+                string accessor = receiver.Length == 0 ? "" : receiver + (Tokens[_call.NameIndex - 1].Is("->") ? "->" : ".");
+                return (InsertBefore(file, Tokens[own.Start]), accessor);
             }
 
             // Conditional drawing, or a loop's, has more around it than its own statement.
             private IReadOnlyList<SourceSpan> RemovalOwn()
             {
-                IReadOnlyList<SourceSpan> removal = _conditional > 0 || Loops > 0 ? [] : RemovalOf(OwnStatement(_call.NameIndex, _call.Close));
+                IReadOnlyList<SourceSpan> removal = IsConditional || InLoop ? [] : RemovalOf(OwnStatement(_call.NameIndex, _call.Close));
                 painter._cursorTokens = null;
                 return removal;
             }
@@ -2296,6 +2620,7 @@ public sealed partial class ScreenCodeAnalyzer
                 painter._xLater = column.Later;
                 painter._yLater = row.Later;
                 painter._callSite = null;
+                painter._run++;
             }
 
             private SourceLocation LocationAt(int index)
@@ -2355,7 +2680,7 @@ public sealed partial class ScreenCodeAnalyzer
 
             private void Print((int Start, int End) range)
             {
-                (IReadOnlyList<CodeToken> t, int start, int end, Dictionary<string, Bound> _, CodeFunction _, bool _) = Resolve(range);
+                (IReadOnlyList<CodeToken> t, int start, int end, Dictionary<string, Bound> scope, CodeFunction where, bool shared) = Resolve(range);
 
                 // F("..."), PSTR("..."), String("...") say the same as their argument.
                 while (end - start >= 4 && t[start].Kind == TokenKind.Identifier && t[start].Text is "F" or "PSTR" or "String" or "FPSTR" && t[start + 1].Is("(") && SketchScanner.Matching(t, start + 1, "(", ")") == end - 1)
@@ -2365,7 +2690,7 @@ public sealed partial class ScreenCodeAnalyzer
                 }
 
                 string expression = string.Concat(t.Skip(start).Take(end - start).Select(x => x.Text));
-                bool inLoop = Loops > 0;
+                bool inLoop = InLoop;
 
                 // What a menu's loop draws around its items (a cursor, a mark) belongs to the menu.
                 if (inLoop && painter.Menu is not null)
@@ -2373,14 +2698,14 @@ public sealed partial class ScreenCodeAnalyzer
                     return;
                 }
 
-                bool alternative = _elses > 0;
+                bool alternative = IsInElse;
                 if (end - start == 1 && t[start].Kind is TokenKind.String or TokenKind.Char)
                 {
                     string text = SketchScanner.Decode(t[start]);
                     if (!(inLoop && string.IsNullOrWhiteSpace(text)))
                     {
                         (SourceInsert? Insert, string Receiver) site = CursorSite();
-                        painter.AddText(text, Analyzer.Span(t[start]), _conditional > 0, inLoop, alternative || (_conditional > 0 && text.Length == 1), RemovalOwn(), site);
+                        painter.AddText(text, shared ? null : Analyzer.Span(t[start]), IsConditional, inLoop, alternative || (_conditional > 0 && text.Length == 1 && IsItsBranchAlone()), RemovalOwn(), site);
                     }
 
                     return;
@@ -2389,7 +2714,7 @@ public sealed partial class ScreenCodeAnalyzer
                 if (end - start == 1 && t[start].Kind == TokenKind.Number)
                 {
                     (SourceInsert? Insert, string Receiver) site = CursorSite();
-                    painter.AddText(t[start].Text, null, _conditional > 0, inLoop, alternative, RemovalOwn(), site);
+                    painter.AddText(t[start].Text, null, IsConditional, inLoop, alternative, RemovalOwn(), site);
                     return;
                 }
 
@@ -2405,10 +2730,16 @@ public sealed partial class ScreenCodeAnalyzer
                     }
                 }
 
+                if (inLoop && ArrayBehind(t, start, end, scope, where) is { } behind)
+                {
+                    painter.AddMenu(behind, Analyzer);
+                    return;
+                }
+
                 // cond ? "A" : "B" shows one of them: the first gives the preview, the longest the width.
                 string[] literals = [.. t.Skip(start).Take(end - start).Where(x => x.Kind is TokenKind.String or TokenKind.Char).Select(SketchScanner.Decode)];
                 SourceSpan? written = null;
-                if (ReferenceEquals(t, Tokens) && end > start && literals.Length == 0)
+                if (!shared && end > start && literals.Length == 0)
                 {
                     CodeFile file = Analyzer._scan.Files[t[start].File];
                     int from = t[start].Offset;
@@ -2417,7 +2748,7 @@ public sealed partial class ScreenCodeAnalyzer
                 }
 
                 (SourceInsert? Insert, string Receiver) valueSite = CursorSite();
-                painter.AddValue(expression, literals, _conditional > 0, inLoop, alternative, RemovalOwn(), written, valueSite);
+                painter.AddValue(expression, literals, IsConditional, inLoop, alternative, RemovalOwn(), written, valueSite);
             }
 
             private (IReadOnlyList<CodeToken>, int, int, Dictionary<string, Bound>) ResolveName(string name) =>
@@ -2432,6 +2763,7 @@ public sealed partial class ScreenCodeAnalyzer
             _y = y;
             ForgetCursor();
             _callSite = null;
+            _run++;
             _placed = true;
         }
 
@@ -2445,6 +2777,71 @@ public sealed partial class ScreenCodeAnalyzer
             }
 
             Elements.Add(element with { Id = "e" + (_next++).ToString(CultureInfo.InvariantCulture) });
+            _runOf.Add(_run);
+        }
+
+        /// <summary>Taking out the call that drew them takes these out, if they are one thing.</summary>
+        private void TakesOutWith(int first, IReadOnlyList<SourceSpan> removal)
+        {
+            if (Elements.Skip(first).Count(e => !e.IsAlternative) != 1)
+            {
+                return;
+            }
+
+            for (int i = first; i < Elements.Count; i++)
+            {
+                Elements[i] = Elements[i] with { RemoveSpans = removal };
+            }
+        }
+
+        // One cell of a shape only the run knows, as a block; cells side by side make one thing.
+        private void AddCell(string expression, bool conditional, bool fromLoop, bool alternative, SourceLocation location)
+        {
+            const string Block = "\u00FF";
+            PlaceFor(1);
+            if (_lastCell == Elements.Count - 1 && _lastCell >= 0 && Elements[_lastCell] is { } last && last.Y == _y && last.X + last.Width == _x && last.IsConditional == conditional && last.IsAlternative == alternative)
+            {
+                Elements[_lastCell] = last with { Width = last.Width + 1, Sample = last.Sample + Block };
+            }
+            else
+            {
+                Add(Placed(new ScreenElement { Kind = ElementKind.Value, Text = expression, Width = 1, Sample = Block, IsConditional = conditional, IsAlternative = alternative, Location = location }, (null, "")), fromLoop);
+                _lastCell = Elements.Count - 1;
+            }
+
+            _x += Advance(1);
+            ForgetCursor();
+        }
+
+        /// <summary>
+        /// A value's width is a guess. Prints in a row that would run off the display by that guess are narrower than
+        /// it: what the sketch lines up fits.
+        /// </summary>
+        public void FitRuns()
+        {
+            if (display.Family != DisplayFamily.CharLcd)
+            {
+                return;
+            }
+
+            static int Right(ScreenElement e) => e.X + (e.Kind == ElementKind.Value ? e.Width : e.Text.Length);
+            foreach (IGrouping<int, int> run in Enumerable.Range(0, Elements.Count).GroupBy(i => _runOf[i]))
+            {
+                int excess = run.Where(i => Elements[i] is { IsAlternative: false, Kind: ElementKind.Text or ElementKind.Value }).Select(i => Right(Elements[i])).DefaultIfEmpty(0).Max() - display.Width;
+                int shift = 0;
+                foreach (int i in run)
+                {
+                    ScreenElement element = Elements[i];
+                    int narrower = excess > 0 && element is { Kind: ElementKind.Value, Sample: null, IsAlternative: false } ? Math.Min(excess, element.Width - 1) : 0;
+                    excess -= narrower;
+                    if (shift != 0 || narrower != 0)
+                    {
+                        Elements[i] = element with { X = element.X - shift, Width = element.Width - narrower };
+                    }
+
+                    shift += narrower;
+                }
+            }
         }
 
         private int Advance(int characters) => display.Family == DisplayFamily.CharLcd ? characters : characters * 6 * _size;
@@ -2498,7 +2895,10 @@ public sealed partial class ScreenCodeAnalyzer
 
         private void AddValue(string expression, string[] literals, bool conditional, bool fromLoop, bool alternative, IReadOnlyList<SourceSpan> removal, SourceSpan? written, (SourceInsert? Insert, string Receiver) site)
         {
-            int width = literals.Length > 0 ? literals.Max(l => l.Length) : Math.Clamp(expression.Length, 2, 4);
+            // After a leading zero that shares its place, it is two digits.
+            int width = literals.Length > 0 ? literals.Max(l => l.Length)
+                : Elements.LastOrDefault() is { Kind: ElementKind.Text, Text: "0", IsAlternative: true } zero && zero.X == _x && zero.Y == _y ? 2
+                : Math.Clamp(expression.Length, 2, 4);
             PlaceFor(width);
             Add(Placed(new ScreenElement { Kind = ElementKind.Value, Text = expression, Width = width, Sample = literals.FirstOrDefault(), IsConditional = conditional, IsAlternative = alternative, RemoveSpans = removal, ExpressionSpan = written, Location = written is null ? null : new SourceLocation(written.File, owner._scan.Files.First(f => f.Path == written.File).LineOf(written.Offset)) }, site), fromLoop);
             _x += Advance(width);
@@ -2512,14 +2912,19 @@ public sealed partial class ScreenCodeAnalyzer
             foreach (int index in Enumerable.Reverse(_fromLoops))
             {
                 Elements.RemoveAt(index);
+                _runOf.RemoveAt(index);
             }
+
+            _lastCell = -1;
 
             _fromLoops.Clear();
             int top = _titleY + 1;
             int rows = display.Family == DisplayFamily.CharLcd ? Math.Max(1, display.Height - top) : Math.Max(1, (display.Height - top) / 8);
             Menu = new ScreenMenu
             {
-                Items = [.. items.Items.Select(i => new ScreenMenuItem { Text = SketchScanner.Decode(i), TextSpan = analyzer.Span(i) })],
+                Items = items.Packed is { } packed
+                    ? [.. packed.Select(text => new ScreenMenuItem { Text = text })]
+                    : [.. items.Items.Select(i => new ScreenMenuItem { Text = SketchScanner.Decode(i), TextSpan = analyzer.Span(i) })],
                 Top = top,
                 Rows = rows,
             };
@@ -2531,7 +2936,7 @@ public sealed partial class ScreenCodeAnalyzer
     private ScreenDocument? FromFunctions()
     {
         // Helpers draw too, so a screen is a drawing function that nothing but non-drawing code calls with arguments to fill.
-        CodeFunction[] drawing = [.. _facts.Keys.Where(f => _facts[f].Draws && f.Parameters.Count == 0 && f.Name is not ("setup" or "loop" or "update" or "begin"))];
+        CodeFunction[] drawing = [.. _facts.Keys.Where(f => _facts[f].Draws && f.Parameters.Count == 0 && f.Name is not ("setup" or "loop" or "update" or "begin") && !_surfaceTypes.Contains(f.Class))];
         if (drawing.Length == 0)
         {
             return null;
@@ -2544,6 +2949,7 @@ public sealed partial class ScreenCodeAnalyzer
         {
             var painter = new Painter(this, _display);
             painter.Paint(function, function.BodyStart, function.BodyEnd);
+            painter.FitRuns();
             screens.Add(new ScreenNode
             {
                 Id = function.Name,

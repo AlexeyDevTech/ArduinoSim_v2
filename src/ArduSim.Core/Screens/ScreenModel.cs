@@ -43,7 +43,8 @@ public enum DisplayLibrary
 /// <param name="Existing">The sketch already has this object and begins it: generated code only uses it.</param>
 /// <param name="TypeName">An existing object's type as the sketch writes it, which <c>extern</c> has to repeat.</param>
 /// <param name="TextFromBaseline">Text is placed by its baseline, not its top: U8g2 in code that was read. Generated code asks for the top.</param>
-public sealed record ScreenDisplay(DisplayFamily Family, int Width, int Height, DisplayLibrary Library, string Variable, string Part = "", bool Existing = false, string TypeName = "", bool TextFromBaseline = false);
+/// <param name="OwnFont">In code that was read, text goes through a class of the sketch's own that decodes UTF-8: it shows letters the display's ROM does not have.</param>
+public sealed record ScreenDisplay(DisplayFamily Family, int Width, int Height, DisplayLibrary Library, string Variable, string Part = "", bool Existing = false, string TypeName = "", bool TextFromBaseline = false, [property: JsonIgnore] bool OwnFont = false);
 
 [JsonConverter(typeof(JsonStringEnumConverter<ElementKind>))]
 public enum ElementKind

@@ -22,6 +22,24 @@ public static class ScreenPreview
     private const uint DimLcd = 0xFF9DB6FF;
     private const uint DimOled = 0xFF7A8FA5;
 
+    // The ROM's centered dot, for what a value cannot be named by.
+    private const char ValueDot = '\u00A5';
+
+    // Cyrillic capitals: the ones shaped like Latin letters, and the ones in the A02 ROM from code 0x80.
+    private const string LikeLatin = "АВЕЁКМНОРСТХ";
+    private const string AsLatin = "ABEEKMHOPCTX";
+    private const string InA02 = "БДЖЗИЙЛПУЦЧШЩЪЫЭ";
+
+    // And the ones neither has, in the same 5 x 7.
+    private static readonly Dictionary<char, byte[]> OtherCapitals = new()
+    {
+        ['Г'] = [0b11111, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0],
+        ['Ф'] = [0b00100, 0b01110, 0b10101, 0b10101, 0b10101, 0b01110, 0b00100, 0],
+        ['Ь'] = [0b10000, 0b10000, 0b10000, 0b11110, 0b10001, 0b10001, 0b11110, 0],
+        ['Ю'] = [0b10010, 0b10101, 0b10101, 0b11101, 0b10101, 0b10101, 0b10010, 0],
+        ['Я'] = [0b01111, 0b10001, 0b10001, 0b01111, 0b00101, 0b01001, 0b10001, 0],
+    };
+
     /// <summary>Dots across and down for a display.</summary>
     public static (int Width, int Height) DotSize(ScreenDisplay display)
     {
@@ -50,6 +68,63 @@ public static class ScreenPreview
 
     private static int TextTop(ScreenElement element, ScreenDisplay display) => display.TextFromBaseline ? element.Y - 7 : element.Y;
 
+    /// <summary>What a screen's picture shows: not what only shares a place with something else, and what the code could not place only where it hides nothing.</summary>
+    public static IReadOnlyList<ScreenElement> Shown(ScreenNode screen, ScreenDisplay display)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        ArgumentNullException.ThrowIfNull(display);
+        ScreenElement[] drawn = [.. screen.Elements.Where(e => !e.IsAlternative)];
+        Rect[] sure = [.. drawn.Where(IsSure).Select(e => BoundsOf(e, display))];
+        return [.. drawn.Where(e => IsSure(e) || !sure.Any(r => r.IntersectsWith(BoundsOf(e, display))))];
+    }
+
+    private static bool IsSure(ScreenElement element) => element.IsPlaced || element.Kind is not (ElementKind.Text or ElementKind.Value);
+
+    /// <summary>A value with nothing known to show: a name says what it is, and any other expression would only read as noise.</summary>
+    public static string ValueLook(string expression)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        string last = expression[(Math.Max(expression.LastIndexOf('.'), expression.LastIndexOf('>')) + 1)..];
+        bool isName = last.Length > 0 && !char.IsAsciiDigit(last[0]) && last.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
+        return isName ? last : new string(ValueDot, 8);
+    }
+
+    // A glyph for a character: from the ROM, or, for text that a class of the sketch's own draws, its Cyrillic.
+    private static void Glyph(char c, bool ownFont, Span<byte> rows)
+    {
+        if (!ownFont || c is < '\u0400' or > '\u045F')
+        {
+            Hd44780Font.A00(c < 256 ? (byte)c : (byte)'?', rows);
+            return;
+        }
+
+        char capital = char.ToUpperInvariant(c);
+        int latin = LikeLatin.IndexOf(capital, StringComparison.Ordinal);
+        int rom = InA02.IndexOf(capital, StringComparison.Ordinal);
+        if (latin >= 0)
+        {
+            Hd44780Font.A00((byte)AsLatin[latin], rows);
+        }
+        else if (rom >= 0)
+        {
+            // This ROM's capitals start a row lower than the other's unless they need the top.
+            Hd44780Font.A02((byte)(0x80 + rom), rows);
+            if (rows[0] == 0)
+            {
+                rows[1..].CopyTo(rows);
+                rows[7] = 0;
+            }
+        }
+        else if (OtherCapitals.TryGetValue(capital, out byte[]? drawn))
+        {
+            drawn.CopyTo(rows);
+        }
+        else
+        {
+            Hd44780Font.A00((byte)'?', rows);
+        }
+    }
+
     /// <summary>One screen, frozen so that it can be kept and drawn at any scale.</summary>
     public static BitmapSource Render(ScreenNode screen, ScreenDisplay display)
     {
@@ -70,7 +145,7 @@ public static class ScreenPreview
             }
         }
 
-        foreach (ScreenElement element in screen.Elements.Where(e => !e.IsAlternative))
+        foreach (ScreenElement element in Shown(screen, display))
         {
             Draw(pixels, width, height, element, display);
         }
@@ -95,7 +170,7 @@ public static class ScreenPreview
                 DrawText(pixels, width, height, element.Text, element.X, TextTop(element, display), element.Size, text, display);
                 break;
             case ElementKind.Value:
-                string sample = element.Sample ?? element.Text;
+                string sample = element.Sample ?? ValueLook(element.Text);
                 int field = Math.Max(element.Width, 1);
                 string shown = sample.Length >= field ? sample[..field] : sample.PadRight(field);
                 DrawText(pixels, width, height, shown, element.X, TextTop(element, display), element.Size, ValueColor, display);
@@ -140,7 +215,7 @@ public static class ScreenPreview
                 continue;
             }
 
-            Hd44780Font.A00(c < 256 ? (byte)c : (byte)'?', rows);
+            Glyph(c, display.OwnFont, rows);
             int left = lcd ? ((x + i) * 6) + 1 : x + (i * 6 * size);
             int top = lcd ? (y * 9) + 1 : y;
             int scale = lcd ? 1 : size;

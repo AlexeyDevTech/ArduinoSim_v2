@@ -1,5 +1,21 @@
 # Changelog
 
+## Screens: sketches that draw through a display class of their own (2026-11-06)
+
+NanoOS v1.5 keeps its layout in methods of its own display class, its text in Cyrillic and its menus in one string, and the Экраны tab showed noise for it. The firmware and the simulation were right all along; this is about what the tab reads from code (ADR-019).
+
+- **Methods of a display class are followed.** `lcd.printRight(3, F("..."))`, `printCentered`, `print2` and the like appear where they will be, with the position worked out from the text. A row or text written at the call can be edited there, and a call that drew one thing can be removed. Nothing inside the class is edited.
+- **Blocks for what only the run can shape.** Big digits and a bell written cell by cell show as blocks of the right size in the right places.
+- **Values no longer read as noise.** `(uin`, `rein` and `men` were the starts of expressions: a value now shows its last name, or dots. What could not be placed draws only where it hides nothing, so the menu's title is not garbled. `1/4` fits on the display where a guessed width pushed it off.
+- **Menus and applications.** A list kept in one string makes a menu, and a screen with no `case` of its own is what `default` draws, which brought back the six applications.
+- **Cyrillic.** Text through a class that decodes UTF-8 shows as letters instead of `?`. A plain display keeps `?`, which would be wrong on real hardware too.
+- **Conditions.** Text in a branch is no longer hidden as if it were a leading zero, and what is drawn from an `else` counts as that, through helpers too.
+- **The map.** A transition's label no longer lies on a card its line passes behind.
+
+Tested by building and running what the edits write around such a class.
+
+How to try it: open NanoOS_v1, go to Экраны, and compare the map with the display on the schematic.
+
 ## Screens: positions that are not plain numbers (2026-11-06)
 
 The owner could not move NanoOS's clock: `lcd.setCursor(start,1)` has a variable for its column, and the tab showed a greyed-out 0 and let the text go up and down only. Nearly anything but a plain number was like that (ADR-019).

@@ -1128,7 +1128,7 @@ public sealed partial class ScreensViewModel : ObservableObject
     private void SetText(string screen, string id, string text)
     {
         // The display's font has no Cyrillic, on real hardware as here: it draws as other characters.
-        Notice = text.Any(c => c > 127) ? Strings.Get("Screens_NonAscii") : "";
+        Notice = text.Any(c => c > 127) && Document?.Display.OwnFont != true ? Strings.Get("Screens_NonAscii") : "";
         if (IsGenerated)
         {
             _editor?.UpdateElement(screen, id, e => e with { Text = text });

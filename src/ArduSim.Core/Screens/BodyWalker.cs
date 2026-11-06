@@ -60,6 +60,57 @@ internal abstract class BodyWalker(IReadOnlyList<CodeToken> tokens)
     {
     }
 
+    /// <summary>How many times to walk a <c>for</c> loop's body: once, unless a walker can tell. Always followed by <see cref="LoopDone"/>.</summary>
+    /// <param name="start">The first token in its parentheses.</param>
+    /// <param name="close">Its closing parenthesis.</param>
+    protected virtual int LoopPasses(int start, int close) => 1;
+
+    /// <summary>Before each walk of a <c>for</c> loop's body.</summary>
+    protected virtual void LoopPass(int pass)
+    {
+    }
+
+    protected virtual void LoopDone()
+    {
+    }
+
+    /// <summary>What an <c>if</c>'s condition comes to, if a walker can tell: then only that branch is walked.</summary>
+    protected virtual bool? Decide(int start, int end) => null;
+
+    // Past a statement without looking inside it.
+    private int Past(int i, int end)
+    {
+        if (i >= end)
+        {
+            return i;
+        }
+
+        if (Tokens[i].Is("{"))
+        {
+            return Math.Min(SketchScanner.Matching(Tokens, i, "{", "}"), end) + 1;
+        }
+
+        if (Tokens[i].Is("if") || Tokens[i].Is("for") || Tokens[i].Is("while") || Tokens[i].Is("switch"))
+        {
+            int close = i + 1 < end && Tokens[i + 1].Is("(") ? SketchScanner.Matching(Tokens, i + 1, "(", ")") : i;
+            int next = Past(close + 1, end);
+            return Tokens[i].Is("if") && next < end && Tokens[next].Is("else") ? Past(next + 1, end) : next;
+        }
+
+        int k = i;
+        int nested = 0;
+        for (; k < end; k++)
+        {
+            nested += Tokens[k].Is("(") || Tokens[k].Is("{") ? 1 : Tokens[k].Is(")") || Tokens[k].Is("}") ? -1 : 0;
+            if (nested <= 0 && Tokens[k].Is(";"))
+            {
+                break;
+            }
+        }
+
+        return k + 1;
+    }
+
     protected int Statement(int i, int end)
     {
         CodeToken token = Tokens[i];
@@ -88,9 +139,25 @@ internal abstract class BodyWalker(IReadOnlyList<CodeToken> tokens)
         if (token.Is("for") || token.Is("while"))
         {
             int close = i + 1 < end && Tokens[i + 1].Is("(") ? SketchScanner.Matching(Tokens, i + 1, "(", ")") : i;
+            int passes = token.Is("for") ? LoopPasses(i + 2, close) : 1;
             Loops++;
-            int next = close + 1 < end ? Statement(close + 1, end) : close + 1;
+            int next = close + 1;
+            for (int pass = 0; pass < passes; pass++)
+            {
+                if (token.Is("for"))
+                {
+                    LoopPass(pass);
+                }
+
+                next = close + 1 < end ? Statement(close + 1, end) : close + 1;
+            }
+
             Loops--;
+            if (token.Is("for"))
+            {
+                LoopDone();
+            }
+
             return next;
         }
 
@@ -149,6 +216,17 @@ internal abstract class BodyWalker(IReadOnlyList<CodeToken> tokens)
         }
 
         int close = Math.Min(SketchScanner.Matching(Tokens, open, "(", ")"), end);
+        if (Decide(open + 1, close) is { } known)
+        {
+            int afterThen = known ? (close + 1 < end ? Statement(close + 1, end) : close + 1) : Past(close + 1, end);
+            if (afterThen < end && Tokens[afterThen].Is("else"))
+            {
+                return known ? Past(afterThen + 1, end) : (afterThen + 1 < end ? Statement(afterThen + 1, end) : afterThen + 1);
+            }
+
+            return afterThen;
+        }
+
         List<Condition> conditions = Parse(open + 1, close);
         Conditions.AddRange(conditions);
         BranchStart();
