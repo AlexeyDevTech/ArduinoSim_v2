@@ -12,6 +12,8 @@
         <ResourceDictionary Source="/ArduSim.App;component/Themes/Parts.xaml" />
       </ResourceDictionary.MergedDictionaries>
       <v:PartTemplateSelector x:Key="PartTemplates" />
+      <v:UprightTextConverter x:Key="UprightText" />
+      <v:UnmirroredScreenConverter x:Key="UnmirroredScreen" />
       <v:BoolToVisibilityConverter x:Key="BoolToVisibility" />
       <v:NullToVisibilityConverter x:Key="NullToVisibility" />
     </ResourceDictionary>
@@ -50,6 +52,15 @@
             <Setter Property="Canvas.Top" Value="{Binding Y}" />
             <Setter Property="Width" Value="{Binding Width}" />
             <Setter Property="Height" Value="{Binding Height}" />
+            <Setter Property="v:PartText.Upright">
+              <Setter.Value>
+                <MultiBinding Converter="{StaticResource UprightText}">
+                  <Binding Path="FlipScale" />
+                  <Binding Path="Rotation" />
+                </MultiBinding>
+              </Setter.Value>
+            </Setter>
+            <Setter Property="v:PartText.Unmirrored" Value="{Binding FlipScale, Converter={StaticResource UnmirroredScreen}}" />
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
             <Setter Property="RenderTransform">
               <Setter.Value>

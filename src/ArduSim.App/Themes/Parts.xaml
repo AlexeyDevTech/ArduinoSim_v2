@@ -8,6 +8,16 @@
   <v:BoolToVisibilityConverter x:Key="BoolToVisibility" />
   <SolidColorBrush x:Key="Lead" Color="#FFB4BAC4" />
 
+  <!-- Pin names and rings come from the part's pins (v:PinLabels): never write them as text here. Text and pictures stay readable on a flipped or turned part (v:PartText). -->
+  <Style x:Key="Art.Text" TargetType="TextBlock">
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+    <Setter Property="v:PartText.KeepsUpright" Value="True" />
+  </Style>
+  <Style x:Key="Art.Screen" TargetType="Image">
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+    <Setter Property="v:PartText.KeepsUnmirrored" Value="True" />
+  </Style>
+
   <!-- Character LCD: green PCB, black bezel, the glass as a nearest-neighbor bitmap; parallel header on top or the I2C backpack at the left. -->
   <DataTemplate x:Key="Part.lcd" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="{Binding Width}" Height="{Binding Height}">
@@ -18,41 +28,13 @@
       <Ellipse Canvas.Left="{Binding HoleRight}" Canvas.Top="{Binding HoleBottom}" Width="9" Height="9" Fill="#FF0E1A12" Stroke="#FFC9A33A" />
       <Border Canvas.Left="{Binding BezelLeft}" Canvas.Top="{Binding BezelTop}" Width="{Binding BezelWidth}" Height="{Binding BezelHeight}"
               Background="#FF151617" CornerRadius="2" Padding="8">
-        <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill"
+        <Image Style="{StaticResource Art.Screen}" Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill"
                HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="NearestNeighbor" />
       </Border>
       <!-- The PCF8574 backpack behind the module: only its edge with the four pins shows. -->
-      <Rectangle Canvas.Left="-6" Canvas.Top="{Binding BackpackTop}" Width="12" Height="50" RadiusX="1.5" RadiusY="1.5" Fill="#FF1C3E8A" Stroke="#FF132B60"
+      <Rectangle Canvas.Left="-6" Canvas.Top="{Binding BackpackTop}" Width="9.5" Height="50" RadiusX="1.5" RadiusY="1.5" Fill="#FF1C3E8A" Stroke="#FF132B60"
                  Visibility="{Binding IsI2c, Converter={StaticResource BoolToVisibility}}" />
-      <ItemsControl ItemsSource="{Binding Pins}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <Canvas />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemContainerStyle>
-          <Style TargetType="ContentPresenter">
-            <Setter Property="Canvas.Left" Value="{Binding X}" />
-            <Setter Property="Canvas.Top" Value="{Binding Y}" />
-          </Style>
-        </ItemsControl.ItemContainerStyle>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate DataType="{x:Type vm:PinViewModel}">
-            <Canvas>
-              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock x:Name="Label" Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
-            </Canvas>
-            <DataTemplate.Triggers>
-              <!-- Backpack pins sit at the left edge: labels go to their right. -->
-              <DataTrigger Binding="{Binding X}" Value="0">
-                <Setter TargetName="Label" Property="Canvas.Left" Value="8" />
-                <Setter TargetName="Label" Property="Canvas.Top" Value="-2.6" />
-                <Setter TargetName="Label" Property="TextAlignment" Value="Left" />
-              </DataTrigger>
-            </DataTemplate.Triggers>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <v:PinLabels Rings="True" />
     </Canvas>
   </DataTemplate>
 
@@ -64,34 +46,14 @@
       <Ellipse Canvas.Left="{Binding HoleRight}" Canvas.Top="3" Width="6" Height="6" Fill="#FF0E1A30" Stroke="#FFC9A33A" StrokeThickness="0.8" />
       <Border Canvas.Left="{Binding GlassLeft}" Canvas.Top="{Binding GlassTop}" Width="{Binding GlassWidth}" Height="{Binding GlassHeight}"
               Background="#FF0A0B0F" BorderBrush="#FF2A2D35" BorderThickness="0.6" CornerRadius="1.5">
-        <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill"
+        <Image Style="{StaticResource Art.Screen}" Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill"
                HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="NearestNeighbor">
           <Image.Effect>
             <DropShadowEffect ShadowDepth="0" BlurRadius="4" Opacity="0.65" Color="{Binding GlowColor}" />
           </Image.Effect>
         </Image>
       </Border>
-      <ItemsControl ItemsSource="{Binding Pins}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <Canvas />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemContainerStyle>
-          <Style TargetType="ContentPresenter">
-            <Setter Property="Canvas.Left" Value="{Binding X}" />
-            <Setter Property="Canvas.Top" Value="{Binding Y}" />
-          </Style>
-        </ItemsControl.ItemContainerStyle>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate DataType="{x:Type vm:PinViewModel}">
-            <Canvas>
-              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
-            </Canvas>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <v:PinLabels Rings="True" />
     </Canvas>
   </DataTemplate>
 
@@ -99,29 +61,10 @@
     <Canvas Width="{Binding Width}" Height="{Binding Height}">
       <Rectangle Width="{Binding Width}" Height="{Binding Height}" RadiusX="3" RadiusY="3" Fill="{Binding BoardBrush}" Stroke="#FF2A0C10" StrokeThickness="0.6" />
       <Border Canvas.Left="{Binding GlassLeft}" Canvas.Top="{Binding GlassTop}" Margin="-4" Padding="4" CornerRadius="1.5" Background="#FF15171C">
-        <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+        <Image Style="{StaticResource Art.Screen}" Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" RenderOptions.BitmapScalingMode="NearestNeighbor" />
       </Border>
-      <ItemsControl ItemsSource="{Binding Pins}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <Canvas />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemContainerStyle>
-          <Style TargetType="ContentPresenter">
-            <Setter Property="Canvas.Left" Value="{Binding X}" />
-            <Setter Property="Canvas.Top" Value="{Binding Y}" />
-          </Style>
-        </ItemsControl.ItemContainerStyle>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate DataType="{x:Type vm:PinViewModel}">
-            <Canvas>
-              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="3.6" Foreground="#FFF1E9E4" Text="{Binding Label}" />
-            </Canvas>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>    </Canvas>
+      <v:PinLabels Rings="True" />
+    </Canvas>
   </DataTemplate>
 
   <DataTemplate x:Key="Part.st7735" DataType="{x:Type vm:PartViewModel}">
@@ -145,38 +88,19 @@
       <Ellipse Canvas.Left="156" Canvas.Top="156" Width="9" Height="9" Fill="#FF0E1A30" Stroke="#FFC9A33A" StrokeThickness="0.8" />
       <Rectangle Canvas.Left="14" Canvas.Top="34" Width="142" Height="102" RadiusX="2" RadiusY="2" Fill="#FF9AA0A8" Stroke="#FF5E646E" StrokeThickness="0.8" />
       <Border Canvas.Left="{Binding GlassLeft}" Canvas.Top="{Binding GlassTop}" Margin="-5" Padding="5" Background="#FF7E8676">
-        <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+        <Image Style="{StaticResource Art.Screen}" Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" RenderOptions.BitmapScalingMode="NearestNeighbor" />
       </Border>
-      <TextBlock Canvas.Left="14" Canvas.Top="142" FontSize="5" Foreground="#FFE3EAF6" Text="Nokia 5110 · PCD8544" />
-      <ItemsControl ItemsSource="{Binding Pins}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <Canvas />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemContainerStyle>
-          <Style TargetType="ContentPresenter">
-            <Setter Property="Canvas.Left" Value="{Binding X}" />
-            <Setter Property="Canvas.Top" Value="{Binding Y}" />
-          </Style>
-        </ItemsControl.ItemContainerStyle>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate DataType="{x:Type vm:PinViewModel}">
-            <Canvas>
-              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="4" Width="20" TextAlignment="Center" FontSize="3.6" Foreground="#FFF1E9E4" Text="{Binding Label}" />
-            </Canvas>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>    </Canvas>
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="14" Canvas.Top="142" FontSize="5" Foreground="#FFE3EAF6" Text="Nokia 5110 · PCD8544" />
+      <v:PinLabels Rings="True" />
+    </Canvas>
   </DataTemplate>
   <DataTemplate x:Key="Part.board" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="180" Height="70">
       <Rectangle Width="180" Height="70" RadiusX="3" RadiusY="3" Fill="#FF1D5AA8" Stroke="#FF143F78" />
       <Rectangle Canvas.Left="-12" Canvas.Top="24" Width="24" Height="22" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
       <Rectangle Canvas.Left="72" Canvas.Top="24" Width="36" Height="22" Fill="#FF1E1F24" />
-      <TextBlock Canvas.Left="74.5" Canvas.Top="32" FontSize="4.4" Foreground="#FF8A93A6" Text="ATmega328P" />
-      <TextBlock Canvas.Left="120" Canvas.Top="30" FontSize="7" FontWeight="SemiBold" Foreground="#FFD8E2F4" Text="NANO" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="74.5" Canvas.Top="32" FontSize="4.4" Foreground="#FF8A93A6" Text="ATmega328P" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="120" Canvas.Top="30" FontSize="7" FontWeight="SemiBold" Foreground="#FFD8E2F4" Text="NANO" />
       <Rectangle Canvas.Left="30" Canvas.Top="38" Width="7" Height="4" Fill="#FF4A3410" />
       <Ellipse Canvas.Left="23.5" Canvas.Top="30" Width="20" Height="20" Opacity="{Binding OnboardLed}">
         <Ellipse.Fill>
@@ -187,30 +111,10 @@
         </Ellipse.Fill>
       </Ellipse>
       <Rectangle Canvas.Left="30" Canvas.Top="38" Width="7" Height="4" Fill="#FFFFA020" Opacity="{Binding OnboardLed}" />
-      <TextBlock Canvas.Left="31.5" Canvas.Top="43" FontSize="4" Foreground="White" Text="L" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="31.5" Canvas.Top="43" FontSize="4" Foreground="White" Text="L" />
       <Rectangle Canvas.Left="44" Canvas.Top="38" Width="7" Height="4" Fill="#FF3AE06A" />
-      <TextBlock Canvas.Left="43.5" Canvas.Top="43" FontSize="4" Foreground="White" Text="ON" />
-      <ItemsControl ItemsSource="{Binding Pins}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <Canvas />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemContainerStyle>
-          <Style TargetType="ContentPresenter">
-            <Setter Property="Canvas.Left" Value="{Binding X}" />
-            <Setter Property="Canvas.Top" Value="{Binding Y}" />
-          </Style>
-        </ItemsControl.ItemContainerStyle>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate DataType="{x:Type vm:PinViewModel}">
-            <Canvas>
-              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
-            </Canvas>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="43.5" Canvas.Top="43" FontSize="4" Foreground="White" Text="ON" />
+      <v:PinLabels Rings="True" />
     </Canvas>
   </DataTemplate>
 
@@ -221,8 +125,8 @@
       <Rectangle Canvas.Left="-14" Canvas.Top="30" Width="60" Height="46" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
       <Rectangle Canvas.Left="-8" Canvas.Top="150" Width="50" Height="36" RadiusX="2" RadiusY="2" Fill="#FF1E1F24" />
       <Rectangle Canvas.Left="120" Canvas.Top="120" Width="130" Height="30" RadiusX="1" RadiusY="1" Fill="#FF1E1F24" />
-      <TextBlock Canvas.Left="150" Canvas.Top="130" FontSize="7" Foreground="#FF8A93A6" Text="ATmega328P" />
-      <TextBlock Canvas.Left="150" Canvas.Top="60" FontSize="20" FontWeight="SemiBold" Foreground="#FFE3F4F4" Text="UNO" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="150" Canvas.Top="130" FontSize="7" Foreground="#FF8A93A6" Text="ATmega328P" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="150" Canvas.Top="60" FontSize="20" FontWeight="SemiBold" Foreground="#FFE3F4F4" Text="UNO" />
       <Rectangle Canvas.Left="118" Canvas.Top="40" Width="7" Height="4" Fill="#FF4A3410" />
       <Ellipse Canvas.Left="111.5" Canvas.Top="32" Width="20" Height="20" Opacity="{Binding OnboardLed}">
         <Ellipse.Fill>
@@ -233,28 +137,9 @@
         </Ellipse.Fill>
       </Ellipse>
       <Rectangle Canvas.Left="118" Canvas.Top="40" Width="7" Height="4" Fill="#FFFFA020" Opacity="{Binding OnboardLed}" />
-      <TextBlock Canvas.Left="119.5" Canvas.Top="45" FontSize="4" Foreground="White" Text="L" />
-      <ItemsControl ItemsSource="{Binding Pins}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <Canvas />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemContainerStyle>
-          <Style TargetType="ContentPresenter">
-            <Setter Property="Canvas.Left" Value="{Binding X}" />
-            <Setter Property="Canvas.Top" Value="{Binding Y}" />
-          </Style>
-        </ItemsControl.ItemContainerStyle>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate DataType="{x:Type vm:PinViewModel}">
-            <Canvas>
-              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
-            </Canvas>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>    </Canvas>
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="119.5" Canvas.Top="45" FontSize="4" Foreground="White" Text="L" />
+      <v:PinLabels Rings="True" />
+    </Canvas>
   </DataTemplate>
   <!-- Arduino Mega 2560: USB and the power jack on the left, D22-D53 on the double header at the right (pins from AvrBoards.cs). -->
   <DataTemplate x:Key="Part.board.arduino-mega-2560" DataType="{x:Type vm:PartViewModel}">
@@ -267,8 +152,8 @@
           <RotateTransform Angle="45" />
         </Rectangle.RenderTransform>
       </Rectangle>
-      <TextBlock Canvas.Left="213" Canvas.Top="106" FontSize="6" Foreground="#FF8A93A6" Text="ATmega2560" />
-      <TextBlock Canvas.Left="100" Canvas.Top="60" FontSize="20" FontWeight="SemiBold" Foreground="#FFE3F4F4" Text="MEGA 2560" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="213" Canvas.Top="106" FontSize="6" Foreground="#FF8A93A6" Text="ATmega2560" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="100" Canvas.Top="60" FontSize="20" FontWeight="SemiBold" Foreground="#FFE3F4F4" Text="MEGA 2560" />
       <Rectangle Canvas.Left="76" Canvas.Top="40" Width="7" Height="4" Fill="#FF4A3410" />
       <Ellipse Canvas.Left="69.5" Canvas.Top="32" Width="20" Height="20" Opacity="{Binding OnboardLed}">
         <Ellipse.Fill>
@@ -279,28 +164,9 @@
         </Ellipse.Fill>
       </Ellipse>
       <Rectangle Canvas.Left="76" Canvas.Top="40" Width="7" Height="4" Fill="#FFFFA020" Opacity="{Binding OnboardLed}" />
-      <TextBlock Canvas.Left="77.5" Canvas.Top="45" FontSize="4" Foreground="White" Text="L" />
-      <ItemsControl ItemsSource="{Binding Pins}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <Canvas />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemContainerStyle>
-          <Style TargetType="ContentPresenter">
-            <Setter Property="Canvas.Left" Value="{Binding X}" />
-            <Setter Property="Canvas.Top" Value="{Binding Y}" />
-          </Style>
-        </ItemsControl.ItemContainerStyle>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate DataType="{x:Type vm:PinViewModel}">
-            <Canvas>
-              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
-            </Canvas>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>    </Canvas>
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="77.5" Canvas.Top="45" FontSize="4" Foreground="White" Text="L" />
+      <v:PinLabels Rings="True" />
+    </Canvas>
   </DataTemplate>
   <DataTemplate x:Key="ProMiniArt" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="150" Height="70">
@@ -310,7 +176,7 @@
           <RotateTransform Angle="45" />
         </Rectangle.RenderTransform>
       </Rectangle>
-      <TextBlock Canvas.Left="10" Canvas.Top="27" FontSize="6" FontWeight="SemiBold" Foreground="#FFF4E3E3" Text="PRO MINI" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="10" Canvas.Top="27" FontSize="6" FontWeight="SemiBold" Foreground="#FFF4E3E3" Text="PRO MINI" />
       <Rectangle Canvas.Left="104" Canvas.Top="30" Width="7" Height="4" Fill="#FF4A3410" />
       <Ellipse Canvas.Left="97.5" Canvas.Top="22" Width="20" Height="20" Opacity="{Binding OnboardLed}">
         <Ellipse.Fill>
@@ -321,28 +187,9 @@
         </Ellipse.Fill>
       </Ellipse>
       <Rectangle Canvas.Left="104" Canvas.Top="30" Width="7" Height="4" Fill="#FFFFA020" Opacity="{Binding OnboardLed}" />
-      <TextBlock Canvas.Left="105.5" Canvas.Top="35" FontSize="4" Foreground="White" Text="L" />
-      <ItemsControl ItemsSource="{Binding Pins}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <Canvas />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemContainerStyle>
-          <Style TargetType="ContentPresenter">
-            <Setter Property="Canvas.Left" Value="{Binding X}" />
-            <Setter Property="Canvas.Top" Value="{Binding Y}" />
-          </Style>
-        </ItemsControl.ItemContainerStyle>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate DataType="{x:Type vm:PinViewModel}">
-            <Canvas>
-              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
-            </Canvas>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>    </Canvas>
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="105.5" Canvas.Top="35" FontSize="4" Foreground="White" Text="L" />
+      <v:PinLabels Rings="True" />
+    </Canvas>
   </DataTemplate>
   <!-- Arduino Pro Mini: no USB, the FTDI end on the left, A4-A7 on inner pads (pins from AvrBoards.cs). -->
   <DataTemplate x:Key="Part.board.arduino-pro-mini-5v" DataType="{x:Type vm:PartViewModel}">
@@ -359,8 +206,8 @@
       <Rectangle Canvas.Left="-10" Canvas.Top="44" Width="22" Height="22" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
       <Rectangle Canvas.Left="80" Canvas.Top="22" Width="140" Height="66" RadiusX="2" RadiusY="2" Fill="#FFA8AEB8" Stroke="#FF7D838E" />
       <Path Canvas.Left="186" Canvas.Top="28" Stroke="#FFD9B45A" StrokeThickness="1.6" Data="M0,0 L0,48 L6,48 L6,6 L12,6 L12,48 L18,48 L18,6 L24,6 L24,54" />
-      <TextBlock Canvas.Left="90" Canvas.Top="44" FontSize="8" FontWeight="SemiBold" Foreground="#FF2B2F36" Text="ESP32-WROOM-32" />
-      <TextBlock Canvas.Left="20" Canvas.Top="49" FontSize="6" Foreground="#FFD8E2F4" Text="ESP32 DEVKIT V1" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="90" Canvas.Top="44" FontSize="8" FontWeight="SemiBold" Foreground="#FF2B2F36" Text="ESP32-WROOM-32" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="20" Canvas.Top="49" FontSize="6" Foreground="#FFD8E2F4" Text="ESP32 DEVKIT V1" />
       <Rectangle Canvas.Left="40" Canvas.Top="70" Width="7" Height="4" Fill="#FF0F2A4D" />
       <Ellipse Canvas.Left="33.5" Canvas.Top="62" Width="20" Height="20" Opacity="{Binding OnboardLed}">
         <Ellipse.Fill>
@@ -371,33 +218,13 @@
         </Ellipse.Fill>
       </Ellipse>
       <Rectangle Canvas.Left="40" Canvas.Top="70" Width="7" Height="4" Fill="#FF3E8BFF" Opacity="{Binding OnboardLed}" />
-      <TextBlock Canvas.Left="40" Canvas.Top="75" FontSize="4" Foreground="White" Text="D2" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="40" Canvas.Top="75" FontSize="4" Foreground="White" Text="D2" />
       <Rectangle Canvas.Left="54" Canvas.Top="70" Width="7" Height="4" Fill="#FFE54848" />
-      <TextBlock Canvas.Left="53" Canvas.Top="75" FontSize="4" Foreground="White" Text="PWR" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="53" Canvas.Top="75" FontSize="4" Foreground="White" Text="PWR" />
       <!-- Wi-Fi state: grey off, amber connecting, green connected, blue access point. -->
       <Ellipse x:Name="WifiDot" Canvas.Left="172" Canvas.Top="76" Width="6" Height="6" Fill="#FF5A606E" />
-      <TextBlock Canvas.Left="150" Canvas.Top="76" FontSize="4.5" Foreground="#FF2B2F36" Text="Wi-Fi" />
-      <ItemsControl ItemsSource="{Binding Pins}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <Canvas />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemContainerStyle>
-          <Style TargetType="ContentPresenter">
-            <Setter Property="Canvas.Left" Value="{Binding X}" />
-            <Setter Property="Canvas.Top" Value="{Binding Y}" />
-          </Style>
-        </ItemsControl.ItemContainerStyle>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate DataType="{x:Type vm:PinViewModel}">
-            <Canvas>
-              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
-            </Canvas>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="150" Canvas.Top="76" FontSize="4.5" Foreground="#FF2B2F36" Text="Wi-Fi" />
+      <v:PinLabels Rings="True" />
     </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding WifiState}" Value="1">
@@ -417,12 +244,12 @@
       <Rectangle Width="240" Height="120" RadiusX="3" RadiusY="3" Fill="#FF1E2025" Stroke="#FF101216" />
       <Rectangle Canvas.Left="-10" Canvas.Top="49" Width="22" Height="22" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
       <Rectangle Canvas.Left="40" Canvas.Top="42" Width="36" Height="36" Fill="#FF2B2F36" />
-      <TextBlock Canvas.Left="44" Canvas.Top="57" FontSize="4.5" Foreground="#FF8A93A6" Text="CH340G" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="44" Canvas.Top="57" FontSize="4.5" Foreground="#FF8A93A6" Text="CH340G" />
       <Rectangle Canvas.Left="120" Canvas.Top="24" Width="112" Height="72" RadiusX="2" RadiusY="2" Fill="#FF1D4E8F" />
       <Rectangle Canvas.Left="124" Canvas.Top="30" Width="74" Height="60" RadiusX="2" RadiusY="2" Fill="#FFA8AEB8" Stroke="#FF7D838E" />
       <Path Canvas.Left="204" Canvas.Top="32" Stroke="#FFD9B45A" StrokeThickness="1.6" Data="M0,0 L0,48 L6,48 L6,6 L12,6 L12,48 L18,48 L18,6 L24,6 L24,54" />
-      <TextBlock Canvas.Left="133" Canvas.Top="52" FontSize="8" FontWeight="SemiBold" Foreground="#FF2B2F36" Text="ESP-12E" />
-      <TextBlock Canvas.Left="84" Canvas.Top="54" FontSize="6" Foreground="#FFD8E2F4" Text="NodeMCU v3" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="133" Canvas.Top="52" FontSize="8" FontWeight="SemiBold" Foreground="#FF2B2F36" Text="ESP-12E" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="80" Canvas.Top="54" FontSize="6" Foreground="#FFD8E2F4" Text="NodeMCU v3" />
       <Ellipse Canvas.Left="192.5" Canvas.Top="79.5" Width="20" Height="20" Opacity="{Binding OnboardLed}">
         <Ellipse.Fill>
           <RadialGradientBrush>
@@ -432,27 +259,8 @@
         </Ellipse.Fill>
       </Ellipse>      <Rectangle Canvas.Left="200" Canvas.Top="88" Width="5" Height="3" Fill="#FF3E8BFF" Opacity="{Binding OnboardLed}" />
       <Ellipse x:Name="WifiDot" Canvas.Left="210" Canvas.Top="87" Width="6" Height="6" Fill="#FF5A606E" />
-      <ItemsControl ItemsSource="{Binding Pins}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <Canvas />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemContainerStyle>
-          <Style TargetType="ContentPresenter">
-            <Setter Property="Canvas.Left" Value="{Binding X}" />
-            <Setter Property="Canvas.Top" Value="{Binding Y}" />
-          </Style>
-        </ItemsControl.ItemContainerStyle>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate DataType="{x:Type vm:PinViewModel}">
-            <Canvas>
-              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
-            </Canvas>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>    </Canvas>
+      <v:PinLabels Rings="True" />
+    </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding WifiState}" Value="1">
         <Setter TargetName="WifiDot" Property="Fill" Value="#FFF2C94C" />
@@ -472,8 +280,8 @@
       <Rectangle Canvas.Left="-10" Canvas.Top="39" Width="20" Height="22" RadiusX="1" RadiusY="1" Fill="#FFB8BEC8" />
       <Rectangle Canvas.Left="52" Canvas.Top="20" Width="84" Height="60" RadiusX="2" RadiusY="2" Fill="#FFA8AEB8" Stroke="#FF7D838E" />
       <Path Canvas.Left="112" Canvas.Top="24" Stroke="#FFD9B45A" StrokeThickness="1.4" Data="M0,0 L0,40 L5,40 L5,5 L10,5 L10,40 L15,40 L15,5 L20,5 L20,46" />
-      <TextBlock Canvas.Left="58" Canvas.Top="44" FontSize="7" FontWeight="SemiBold" Foreground="#FF2B2F36" Text="ESP-12F" />
-      <TextBlock Canvas.Left="16" Canvas.Top="45" FontSize="5.5" Foreground="#FFD8E2F4" Text="D1 mini" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="58" Canvas.Top="44" FontSize="7" FontWeight="SemiBold" Foreground="#FF2B2F36" Text="ESP-12F" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="16" Canvas.Top="45" FontSize="5.5" Foreground="#FFD8E2F4" Text="D1 mini" />
       <Ellipse Canvas.Left="90.5" Canvas.Top="63.5" Width="20" Height="20" Opacity="{Binding OnboardLed}">
         <Ellipse.Fill>
           <RadialGradientBrush>
@@ -483,27 +291,8 @@
         </Ellipse.Fill>
       </Ellipse>      <Rectangle Canvas.Left="98" Canvas.Top="72" Width="5" Height="3" Fill="#FF3E8BFF" Opacity="{Binding OnboardLed}" />
       <Ellipse x:Name="WifiDot" Canvas.Left="122" Canvas.Top="70" Width="6" Height="6" Fill="#FF5A606E" />
-      <ItemsControl ItemsSource="{Binding Pins}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <Canvas />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemContainerStyle>
-          <Style TargetType="ContentPresenter">
-            <Setter Property="Canvas.Left" Value="{Binding X}" />
-            <Setter Property="Canvas.Top" Value="{Binding Y}" />
-          </Style>
-        </ItemsControl.ItemContainerStyle>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate DataType="{x:Type vm:PinViewModel}">
-            <Canvas>
-              <Ellipse Canvas.Left="-3" Canvas.Top="-3" Width="6" Height="6" Fill="#FF111317" Stroke="#FFD9B45A" StrokeThickness="1.2" />
-              <TextBlock Canvas.Left="-10" Canvas.Top="{Binding LabelOffset}" Width="20" TextAlignment="Center" FontSize="{DynamicResource Font.PinLabel}" Foreground="#FFE3EAF6" Text="{Binding Label}" />
-            </Canvas>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>    </Canvas>
+      <v:PinLabels Rings="True" />
+    </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding WifiState}" Value="1">
         <Setter TargetName="WifiDot" Property="Fill" Value="#FFF2C94C" />
@@ -518,8 +307,7 @@
   <DataTemplate x:Key="Part.led" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="40" Height="70">
       <Line X1="10" Y1="40" X2="10" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-      <Line X1="30" Y1="40" X2="30" Y2="66" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-      <Line X1="30" Y1="66" X2="30" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="30" Y1="40" X2="30" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Ellipse Canvas.Left="-20" Canvas.Top="-24" Width="80" Height="80" Opacity="{Binding Brightness}">
         <Ellipse.Fill>
           <RadialGradientBrush>
@@ -531,7 +319,8 @@
       <Path Data="M 5,40 L 5,18 A 15,15 0 0 1 35,18 L 35,40 Z" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}" Opacity="0.35" />
       <Path Data="M 5,40 L 5,18 A 15,15 0 0 1 35,18 L 35,40 Z" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}" Opacity="{Binding Brightness}" />
       <Rectangle Canvas.Left="2" Canvas.Top="38" Width="36" Height="4" RadiusX="1" RadiusY="1" Fill="{Binding LedColor, Converter={StaticResource ColorToBrush}}" Opacity="0.6" />
-      <TextBlock Canvas.Left="6" Canvas.Top="58" FontSize="6" Foreground="#FF8A93A6" Text="+" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="5.5" Canvas.Top="58" FontSize="6" Foreground="#FF8A93A6" Text="+" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="31.5" Canvas.Top="58" FontSize="6" Foreground="#FF8A93A6" Text="&#x2212;" />
       <TextBlock Canvas.Left="-30" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" RenderTransformOrigin="0.5,0.5">
         <TextBlock.RenderTransform>
           <TransformGroup>
@@ -559,6 +348,8 @@
       </Ellipse>
       <Path Data="M 6,48 L 6,22 A 19,19 0 0 1 44,22 L 44,48 Z" Fill="#55D8DCE6" />
       <Path Data="M 6,48 L 6,22 A 19,19 0 0 1 44,22 L 44,48 Z" Fill="{Binding RgbColor, Converter={StaticResource ColorToBrush}}" Opacity="{Binding RgbIntensity}" />
+      <Rectangle Canvas.Left="4" Canvas.Top="47" Width="42" Height="10" RadiusX="1" RadiusY="1" Fill="#FF2A2E36" Stroke="#FF454B58" StrokeThickness="0.5" />
+      <v:PinLabels Inset="24.5" />
     </Canvas>
   </DataTemplate>
 
@@ -570,7 +361,7 @@
       <Rectangle Canvas.Left="25" Canvas.Top="4" Width="2.5" Height="12" Fill="#FFC23B32" />
       <Rectangle Canvas.Left="31" Canvas.Top="4" Width="2.5" Height="12" Fill="#FF6E4B2A" />
       <Rectangle Canvas.Left="40" Canvas.Top="4" Width="2.5" Height="12" Fill="#FFD4AF37" />
-      <TextBlock Canvas.Left="0" Canvas.Top="-10" Width="60" TextAlignment="Center" FontSize="6" Foreground="#FF9BA3B4" Text="{Binding ResistanceText}" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="0" Canvas.Top="-10" Width="60" TextAlignment="Center" FontSize="6" Foreground="#FF9BA3B4" Text="{Binding ResistanceText}" />
       <TextBlock Canvas.Left="-20" Canvas.Top="19" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" RenderTransformOrigin="0.5,0.5">
         <TextBlock.RenderTransform>
           <TransformGroup>
@@ -594,7 +385,7 @@
           <ScaleTransform />
         </Ellipse.RenderTransform>
       </Ellipse>
-      <TextBlock Canvas.Left="6" Canvas.Top="-10" Width="48" TextAlignment="Center" FontSize="6" Foreground="#FF9BA3B4" Text="{Binding KeyLabel}" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="6" Canvas.Top="-10" Width="48" TextAlignment="Center" FontSize="6" Foreground="#FF9BA3B4" Text="{Binding KeyLabel}" />
     </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding Pressed}" Value="True">
@@ -613,9 +404,10 @@
       <Line X1="10" Y1="28" X2="10" Y2="40" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Line X1="30" Y1="28" X2="30" Y2="40" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Line X1="50" Y1="28" X2="50" Y2="40" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-      <Rectangle Canvas.Top="4" Width="60" Height="24" RadiusX="3" RadiusY="3" Fill="#FF2A2E36" Stroke="#FF454B58" />
-      <Rectangle Canvas.Left="10" Canvas.Top="11" Width="40" Height="10" RadiusX="2" RadiusY="2" Fill="#FF15171C" />
-      <Rectangle x:Name="Knob" Canvas.Left="10" Canvas.Top="9" Width="20" Height="14" RadiusX="2" RadiusY="2" Fill="#FFC9CED8" />
+      <Rectangle Canvas.Top="1" Width="60" Height="27" RadiusX="3" RadiusY="3" Fill="#FF2A2E36" Stroke="#FF454B58" />
+      <Rectangle Canvas.Left="10" Canvas.Top="6" Width="40" Height="9" RadiusX="2" RadiusY="2" Fill="#FF15171C" />
+      <Rectangle x:Name="Knob" Canvas.Left="10" Canvas.Top="4" Width="20" Height="13" RadiusX="2" RadiusY="2" Fill="#FFC9CED8" />
+      <v:PinLabels Inset="13.5" Foreground="#FFC7CDD9" />
     </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding SwitchRight}" Value="True">
@@ -630,7 +422,7 @@
       <Line X1="30" Y1="44" X2="30" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Line X1="50" Y1="44" X2="50" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Rectangle Canvas.Left="4" Canvas.Top="4" Width="52" Height="42" RadiusX="3" RadiusY="3" Fill="#FF2F5E9E" />
-      <Canvas Canvas.Left="30" Canvas.Top="25">
+      <Canvas Canvas.Left="30" Canvas.Top="22">
         <Ellipse Canvas.Left="-16" Canvas.Top="-16" Width="32" Height="32" Fill="#FFD7DBE3" Stroke="#FF8A93A6" />
         <Line X1="0" Y1="0" X2="0" Y2="-13" Stroke="#FF1E1F24" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round">
           <Line.RenderTransform>
@@ -638,6 +430,7 @@
           </Line.RenderTransform>
         </Line>
       </Canvas>
+      <v:PinLabels Inset="15" Foreground="#FFE9ECF1" />
     </Canvas>
   </DataTemplate>
 
@@ -647,7 +440,8 @@
       <Line X1="35" Y1="40" X2="35" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Ellipse Canvas.Left="3" Canvas.Top="0" Width="44" Height="44" Fill="#FF1E1F24" Stroke="#FF454B58" />
       <Ellipse Canvas.Left="20" Canvas.Top="17" Width="10" Height="10" Fill="#FF0D0E11" />
-      <TextBlock Canvas.Left="-10" Canvas.Top="-12" Width="70" TextAlignment="Center" FontSize="7" FontWeight="SemiBold"
+      <v:PinLabels Inset="12" Foreground="#FFC7CDD9" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="-10" Canvas.Top="-12" Width="70" TextAlignment="Center" FontSize="7" FontWeight="SemiBold"
                  Foreground="#FF2BC4A9" Text="{Binding Frequency, Converter={StaticResource Frequency}}" />
     </Canvas>
   </DataTemplate>
@@ -657,7 +451,7 @@
   <!-- Keys of the keypad and the IR remote: one cap per KeyCapViewModel, laid out by the template's grid. -->
   <DataTemplate x:Key="KeyCap" DataType="{x:Type vm:KeyCapViewModel}">
     <Border x:Name="Cap" Margin="1.5" CornerRadius="2" Background="#FFE9ECF1" BorderBrush="#FF9BA3B4" BorderThickness="0.5">
-      <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="9" FontWeight="SemiBold" Foreground="#FF1E1F24" Text="{Binding Label}" />
+      <TextBlock Style="{StaticResource Art.Text}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="9" FontWeight="SemiBold" Foreground="#FF1E1F24" Text="{Binding Label}" />
     </Border>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding IsAccent}" Value="True">
@@ -672,7 +466,7 @@
 
   <DataTemplate x:Key="RemoteKeyCap" DataType="{x:Type vm:KeyCapViewModel}">
     <Border x:Name="Cap" Margin="2" CornerRadius="5" Background="#FF3A3E48" BorderBrush="#FF15171C" BorderThickness="0.5">
-      <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="6.5" FontWeight="SemiBold" Foreground="#FFE9ECF1" Text="{Binding Label}" />
+      <TextBlock Style="{StaticResource Art.Text}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="6.5" FontWeight="SemiBold" Foreground="#FFE9ECF1" Text="{Binding Label}" />
     </Border>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding IsAccent}" Value="True">
@@ -708,7 +502,7 @@
           <Rectangle Canvas.Left="-1.5" Canvas.Top="-12" Width="3" Height="9" RadiusX="1" RadiusY="1" Fill="#FF1E1F24" />
         </Canvas>
       </Canvas>
-      <TextBlock Canvas.Left="4" Canvas.Top="58" FontSize="4.5" Foreground="#FFE9ECF1" Text="CLK  DT  SW   +  GND" />
+      <v:PinLabels Inset="11.5" Foreground="#FFE9ECF1" />
     </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding Pressed}" Value="True">
@@ -741,7 +535,7 @@
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
       </ItemsControl>
-      <TextBlock Canvas.Left="17" Canvas.Top="132" FontSize="4.5" Foreground="#FF9BA3B4" Text="R1 R2 R3 R4 C1 C2 C3 C4" />
+      <v:PinLabels Inset="11.5" Foreground="#FFC7CDD9" />
     </Canvas>
   </DataTemplate>
 
@@ -760,7 +554,7 @@
           <ScaleTransform />
         </Ellipse.RenderTransform>
       </Ellipse>
-      <TextBlock Canvas.Left="5" Canvas.Top="59" FontSize="4.5" Foreground="#FFE9ECF1" Text="GND +5V VRx VRy SW" />
+      <v:PinLabels Inset="11.5" Foreground="#FFE9ECF1" />
     </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding Pressed}" Value="True">
@@ -789,11 +583,13 @@
         <Rectangle Canvas.Top="21" Width="30" Height="4" RadiusX="1" RadiusY="1" Fill="#FF6C7486" />
         <Rectangle Canvas.Top="28" Width="30" Height="4" RadiusX="1" RadiusY="1" Fill="#FF6C7486" />
       </Canvas>
-      <TextBlock x:Name="Model" Canvas.Left="4" Canvas.Top="46" Width="42" TextAlignment="Center" FontSize="6" FontWeight="SemiBold" Foreground="#FF1E1F24" Text="DHT22" />
-      <TextBlock Canvas.Left="-25" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" />
+      <TextBlock Style="{StaticResource Art.Text}" x:Name="Model" Canvas.Left="4" Canvas.Top="42" Width="42" TextAlignment="Center" FontSize="6" FontWeight="SemiBold" Foreground="#FF1E1F24" Text="DHT22" />
+      <v:PinLabels x:Name="PinNames" Inset="19.5" Foreground="#FF1E1F24" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="-25" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" />
     </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding IsDht11}" Value="True">
+        <Setter TargetName="PinNames" Property="Foreground" Value="#FFE9ECF1" />
         <Setter TargetName="Body" Property="Fill" Value="#FF3F7FD0" />
         <Setter TargetName="Body" Property="Stroke" Value="#FF2B5C99" />
         <Setter TargetName="Model" Property="Text" Value="DHT11" />
@@ -809,8 +605,9 @@
       <Line X1="20" Y1="30" X2="20" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Line X1="30" Y1="30" X2="30" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Path Data="M 5,30 L 5,14 A 15,13 0 0 1 35,14 L 35,30 Z" Fill="#FF1E1F24" Stroke="#FF454B58" />
-      <TextBlock Canvas.Left="5" Canvas.Top="16" Width="30" TextAlignment="Center" FontSize="4.5" Foreground="#FF9BA3B4" Text="18B20" />
-      <TextBlock Canvas.Left="-30" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="5" Canvas.Top="9" Width="30" TextAlignment="Center" FontSize="4.5" Foreground="#FF9BA3B4" Text="18B20" />
+      <v:PinLabels Inset="21.5" Foreground="#FFC7CDD9" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="-30" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" />
     </Canvas>
   </DataTemplate>
 
@@ -822,13 +619,13 @@
       <Line X1="50" Y1="38" X2="50" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Line X1="60" Y1="38" X2="60" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Rectangle Width="90" Height="38" RadiusX="2" RadiusY="2" Fill="#FF1F4E8C" Stroke="#FF153866" />
-      <Ellipse Canvas.Left="4" Canvas.Top="2" Width="32" Height="32" Fill="#FFB4BAC4" Stroke="#FF6C7486" />
-      <Ellipse Canvas.Left="9" Canvas.Top="7" Width="22" Height="22" Fill="#FF2A2E36" />
-      <Ellipse Canvas.Left="54" Canvas.Top="2" Width="32" Height="32" Fill="#FFB4BAC4" Stroke="#FF6C7486" />
-      <Ellipse Canvas.Left="59" Canvas.Top="7" Width="22" Height="22" Fill="#FF2A2E36" />
-      <TextBlock Canvas.Left="36" Canvas.Top="4" Width="18" TextAlignment="Center" FontSize="4" Foreground="#FFE9ECF1" Text="HC-SR04" TextWrapping="Wrap" />
-      <TextBlock Canvas.Left="26" Canvas.Top="29" FontSize="4" Foreground="#FFE9ECF1" Text="Vcc Trig Echo Gnd" />
-      <TextBlock Canvas.Left="-5" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" />
+      <Ellipse Canvas.Left="3" Canvas.Top="2" Width="27" Height="27" Fill="#FFB4BAC4" Stroke="#FF6C7486" />
+      <Ellipse Canvas.Left="7.5" Canvas.Top="6.5" Width="18" Height="18" Fill="#FF2A2E36" />
+      <Ellipse Canvas.Left="60" Canvas.Top="2" Width="27" Height="27" Fill="#FFB4BAC4" Stroke="#FF6C7486" />
+      <Ellipse Canvas.Left="64.5" Canvas.Top="6.5" Width="18" Height="18" Fill="#FF2A2E36" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="30" Canvas.Top="12" Width="30" TextAlignment="Center" FontSize="4.5" Foreground="#FFE9ECF1" Text="HC-SR04" />
+      <v:PinLabels Inset="13" Foreground="#FFE9ECF1" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="-5" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" />
     </Canvas>
   </DataTemplate>
 
@@ -838,9 +635,9 @@
       <Line X1="10" Y1="30" X2="10" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Line X1="20" Y1="30" X2="20" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Line X1="30" Y1="30" X2="30" Y2="50" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-      <Rectangle Canvas.Left="6" Canvas.Top="4" Width="28" Height="27" RadiusX="2" RadiusY="2" Fill="#FF1E1F24" Stroke="#FF454B58" />
-      <Ellipse x:Name="Dome" Canvas.Left="12" Canvas.Top="8" Width="16" Height="16" Fill="#FF2A2E36" Stroke="#FF454B58" />
-      <TextBlock Canvas.Left="2" Canvas.Top="-8" FontSize="4.5" Foreground="#FF9BA3B4" Text="OUT GND VCC" />
+      <Rectangle Canvas.Left="3" Canvas.Top="2" Width="34" Height="29" RadiusX="2" RadiusY="2" Fill="#FF1E1F24" Stroke="#FF454B58" />
+      <Ellipse x:Name="Dome" Canvas.Left="12" Canvas.Top="5" Width="16" Height="16" Fill="#FF2A2E36" Stroke="#FF454B58" />
+      <v:PinLabels Inset="20.5" Foreground="#FFC7CDD9" />
     </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding Receiving}" Value="True">
@@ -854,7 +651,7 @@
     <Canvas Width="80" Height="170">
       <Rectangle Width="80" Height="170" RadiusX="10" RadiusY="10" Fill="#FF1B1C20" Stroke="#FF454B58" />
       <Ellipse Canvas.Left="34" Canvas.Top="6" Width="12" Height="8" Fill="#FF3A2A44" Stroke="#FF5C4470" />
-      <TextBlock Canvas.Top="16" Width="80" TextAlignment="Center" FontSize="4.5" Foreground="#FF6C7486" Text="NEC 0x00" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Top="16" Width="80" TextAlignment="Center" FontSize="4.5" Foreground="#FF6C7486" Text="NEC 0x00" />
       <ItemsControl Canvas.Left="8" Canvas.Top="28" Width="64" Height="133" ItemsSource="{Binding KeyCaps}" ItemTemplate="{StaticResource RemoteKeyCap}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
@@ -882,8 +679,8 @@
         <Path Data="M -4,0 L -2.5,-24 A 2.5,2.5 0 0 1 2.5,-24 L 4,0 A 4,4 0 0 1 -4,0 Z" Fill="#FFF4F5F7" Stroke="#FF9BA3B4" StrokeThickness="0.6" />
         <Ellipse Canvas.Left="-1.5" Canvas.Top="-1.5" Width="3" Height="3" Fill="#FF6C7486" />
       </Canvas>
-      <TextBlock Canvas.Left="44" Canvas.Top="38" FontSize="5" Foreground="#FFE9ECF1" Text="SG90" />
-      <TextBlock Canvas.Left="22" Canvas.Top="58" FontSize="4.5" Foreground="#FF9BA3B4" Text="GND V+ PWM" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="44" Canvas.Top="38" FontSize="5" Foreground="#FFE9ECF1" Text="SG90" />
+      <v:PinLabels Inset="19.5" Foreground="#FFE9ECF1" />
     </Canvas>
   </DataTemplate>
 
@@ -897,24 +694,25 @@
       <Line X1="80" Y1="56" X2="80" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Line X1="90" Y1="56" X2="90" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Rectangle Width="100" Height="56" RadiusX="2" RadiusY="2" Fill="#FF1F4E8C" Stroke="#FF153866" />
-      <Rectangle Canvas.Left="38" Canvas.Top="6" Width="40" Height="32" RadiusX="1.5" RadiusY="1.5" Fill="#FF2F7DD1" Stroke="#FF1F5A9E" />
-      <TextBlock Canvas.Left="40" Canvas.Top="16" FontSize="4.5" Foreground="#FFE9ECF1" Text="SRD-05VDC" />
-      <Rectangle Canvas.Left="64" Canvas.Top="40" Width="32" Height="14" RadiusX="1" RadiusY="1" Fill="#FF2F8F5B" />
-      <Canvas Canvas.Left="64" Canvas.Top="40">
-        <Line X1="16" Y1="10" X2="16" Y2="4" Stroke="#FFE9ECF1" StrokeThickness="0.8" />
-        <Line x:Name="Contact" X1="16" Y1="4" X2="6" Y2="4" Stroke="#FFE9ECF1" StrokeThickness="1" />
-        <TextBlock Canvas.Left="2" Canvas.Top="8" FontSize="3.5" Foreground="#FFE9ECF1" Text="NO COM NC" />
+      <Rectangle Canvas.Left="38" Canvas.Top="4" Width="40" Height="26" RadiusX="1.5" RadiusY="1.5" Fill="#FF2F7DD1" Stroke="#FF1F5A9E" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="40" Canvas.Top="12" FontSize="4.5" Foreground="#FFE9ECF1" Text="SRD-05VDC" />
+      <Rectangle Canvas.Left="64" Canvas.Top="32" Width="32" Height="23" RadiusX="1" RadiusY="1" Fill="#FF2F8F5B" />
+      <Canvas Canvas.Left="64" Canvas.Top="32">
+        <Line X1="6" Y1="12" X2="6" Y2="6" Stroke="#FFE9ECF1" StrokeThickness="0.8" />
+        <Line X1="16" Y1="12" X2="16" Y2="6" Stroke="#FFE9ECF1" StrokeThickness="0.8" />
+        <Line X1="26" Y1="12" X2="26" Y2="6" Stroke="#FFE9ECF1" StrokeThickness="0.8" />
+        <Line x:Name="Contact" X1="16" Y1="6" X2="26" Y2="6" Stroke="#FFE9ECF1" StrokeThickness="1" />
       </Canvas>
       <Ellipse x:Name="Led" Canvas.Left="12" Canvas.Top="12" Width="6" Height="6" Fill="#FF3A1416" Stroke="#FF15171C" StrokeThickness="0.5" />
-      <TextBlock Canvas.Left="6" Canvas.Top="44" FontSize="4.5" Foreground="#FFE9ECF1" Text="VCC GND IN" />
-      <TextBlock x:Name="Trigger" Canvas.Left="6" Canvas.Top="24" FontSize="4" Foreground="#FF9BA3B4" Text="LOW" />
+      <v:PinLabels Inset="16" Foreground="#FFE9ECF1" />
+      <TextBlock Style="{StaticResource Art.Text}" x:Name="Trigger" Canvas.Left="6" Canvas.Top="24" FontSize="4" Foreground="#FF9BA3B4" Text="LOW" />
     </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding RelayOn}" Value="True">
         <Setter TargetName="Led" Property="Fill" Value="#FFFF4D4D" />
       </DataTrigger>
       <DataTrigger Binding="{Binding RelayClosed}" Value="True">
-        <Setter TargetName="Contact" Property="X2" Value="26" />
+        <Setter TargetName="Contact" Property="X2" Value="6" />
       </DataTrigger>
       <DataTrigger Binding="{Binding LowTrigger}" Value="False">
         <Setter TargetName="Trigger" Property="Text" Value="HIGH" />
@@ -925,22 +723,23 @@
   <!-- Seven-segment digits, one or four, with the segments from the run's frames. -->
   <DataTemplate x:Key="Part.seven-segment" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="{Binding Width}" Height="{Binding Height}">
-      <Rectangle Canvas.Top="4" Width="{Binding Width}" Height="{Binding BodyHeight}" RadiusX="2" RadiusY="2" Fill="#FF15171C" Stroke="#FF454B58" />
-      <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" />
+      <Rectangle Width="{Binding Width}" Height="{Binding Height}" RadiusX="2" RadiusY="2" Fill="#FF15171C" Stroke="#FF454B58" />
+      <Image Style="{StaticResource Art.Screen}" Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" />
+      <v:PinLabels Rings="True" Foreground="#FFC7CDD9" />
     </Canvas>
   </DataTemplate>
 
   <!-- TM1637 module: four digits with a colon on a blue board, CLK DIO VCC GND below. -->
   <DataTemplate x:Key="Part.tm1637" DataType="{x:Type vm:PartViewModel}">
-    <Canvas Width="120" Height="60">
-      <Line X1="30" Y1="50" X2="30" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-      <Line X1="40" Y1="50" X2="40" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-      <Line X1="50" Y1="50" X2="50" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-      <Line X1="60" Y1="50" X2="60" Y2="60" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
-      <Rectangle Width="120" Height="50" RadiusX="2" RadiusY="2" Fill="#FF1F4E8C" Stroke="#FF153866" />
-      <Rectangle Canvas.Left="8" Canvas.Top="4" Width="104" Height="42" RadiusX="1" RadiusY="1" Fill="#FF15171C" />
-      <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" />
-      <TextBlock Canvas.Left="26" Canvas.Top="45" FontSize="4" Foreground="#FFE9ECF1" Text="CLK DIO VCC GND" />
+    <Canvas Width="120" Height="70">
+      <Line X1="30" Y1="60" X2="30" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="40" Y1="60" X2="40" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="50" Y1="60" X2="50" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Line X1="60" Y1="60" X2="60" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
+      <Rectangle Width="120" Height="60" RadiusX="2" RadiusY="2" Fill="#FF1F4E8C" Stroke="#FF153866" />
+      <Rectangle Canvas.Left="8" Canvas.Top="4" Width="104" Height="44" RadiusX="1" RadiusY="1" Fill="#FF15171C" />
+      <Image Style="{StaticResource Art.Screen}" Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" />
+      <v:PinLabels Inset="11.5" Foreground="#FFE9ECF1" />
     </Canvas>
   </DataTemplate>
 
@@ -948,8 +747,9 @@
   <DataTemplate x:Key="Part.max7219" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="{Binding Width}" Height="{Binding Height}">
       <Rectangle Width="{Binding Width}" Height="{Binding Height}" RadiusX="2" RadiusY="2" Fill="#FF1F4E8C" Stroke="#FF153866" />
-      <Rectangle Canvas.Left="4" Canvas.Top="4" Width="{Binding MatrixWidth}" Height="82" Fill="#FF0D0E11" />
-      <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" />
+      <Rectangle Canvas.Left="19" Canvas.Top="4" Width="{Binding MatrixWidth}" Height="82" Fill="#FF0D0E11" />
+      <Image Style="{StaticResource Art.Screen}" Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" />
+      <v:PinLabels Rings="True" Foreground="#FFE9ECF1" />
     </Canvas>
   </DataTemplate>
 
@@ -957,13 +757,16 @@
   <DataTemplate x:Key="Part.ws2812" DataType="{x:Type vm:PartViewModel}">
     <Canvas Width="{Binding Width}" Height="{Binding Height}">
       <Rectangle x:Name="Board" Width="{Binding Width}" Height="{Binding BoardHeight}" RadiusX="3" RadiusY="3" Fill="#FF15171C" Stroke="#FF454B58" />
+      <Rectangle x:Name="Tab" Canvas.Left="{Binding RingTabLeft}" Canvas.Top="{Binding RingTabTop}" Width="54" Height="18" RadiusX="2" RadiusY="2" Fill="#FF15171C" Stroke="#FF454B58" Visibility="Collapsed" />
       <Ellipse x:Name="Ring" Width="{Binding RingSize}" Height="{Binding RingSize}" Fill="#FF15171C" Stroke="#FF454B58" Visibility="Collapsed" />
       <Ellipse x:Name="Hole" Canvas.Left="{Binding RingHoleOffset}" Canvas.Top="{Binding RingHoleOffset}" Width="{Binding RingHole}" Height="{Binding RingHole}" Fill="{DynamicResource Brush.Canvas}" Visibility="Collapsed" />
-      <Image Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" />
+      <Image x:Name="Leds" Source="{Binding Screen}" Width="{Binding ScreenWidth}" Height="{Binding ScreenHeight}" Stretch="Fill" />
+      <v:PinLabels Rings="True" Foreground="#FFC7CDD9" />
     </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding IsRing}" Value="True">
         <Setter TargetName="Board" Property="Visibility" Value="Collapsed" />
+        <Setter TargetName="Tab" Property="Visibility" Value="Visible" />
         <Setter TargetName="Ring" Property="Visibility" Value="Visible" />
         <Setter TargetName="Hole" Property="Visibility" Value="Visible" />
       </DataTrigger>
@@ -981,11 +784,11 @@
       <Line X1="70" Y1="56" X2="70" Y2="70" Stroke="{StaticResource Lead}" StrokeThickness="1.5" />
       <Rectangle Width="90" Height="56" RadiusX="2" RadiusY="2" Fill="#FF1F4E8C" Stroke="#FF153866" />
       <Rectangle Canvas.Left="8" Canvas.Top="10" Width="28" Height="18" RadiusX="1" RadiusY="1" Fill="#FF1E1F24" />
-      <TextBlock Canvas.Left="10" Canvas.Top="16" FontSize="4.5" Foreground="#FF9BA3B4" Text="DS3231" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="10" Canvas.Top="16" FontSize="4.5" Foreground="#FF9BA3B4" Text="DS3231" />
       <Ellipse Canvas.Left="46" Canvas.Top="4" Width="38" Height="38" Fill="#FFB4BAC4" Stroke="#FF6C7486" />
-      <TextBlock Canvas.Left="54" Canvas.Top="19" FontSize="4.5" Foreground="#FF454B58" Text="CR2032" />
-      <TextBlock Canvas.Left="15" Canvas.Top="46" FontSize="3.8" Foreground="#FFE9ECF1" Text="32K SQW SCL SDA VCC GND" />
-      <TextBlock Canvas.Left="-5" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="54" Canvas.Top="19" FontSize="4.5" Foreground="#FF454B58" Text="CR2032" />
+      <v:PinLabels Inset="16" Foreground="#FFE9ECF1" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="-5" Canvas.Top="-12" Width="100" TextAlignment="Center" FontSize="7" FontWeight="SemiBold" Foreground="#FF2BC4A9" Text="{Binding Readout}" />
     </Canvas>
   </DataTemplate>
 
@@ -1001,9 +804,9 @@
       <Rectangle Width="70" Height="76" RadiusX="2" RadiusY="2" Fill="#FF1F4E8C" Stroke="#FF153866" />
       <Rectangle Canvas.Left="10" Canvas.Top="6" Width="50" Height="48" RadiusX="1.5" RadiusY="1.5" Fill="#FFB4BAC4" Stroke="#FF6C7486" />
       <Path x:Name="Card" Canvas.Left="17" Canvas.Top="2" Data="M 0,0 L 28,0 L 36,8 L 36,44 L 0,44 Z" Fill="#FF2A2E36" Stroke="#FF15171C" StrokeThickness="0.6" />
-      <TextBlock x:Name="CardLabel" Canvas.Left="22" Canvas.Top="18" FontSize="5" FontWeight="SemiBold" Foreground="#FFE9ECF1" Text="micro SD" />
-      <TextBlock Canvas.Left="20" Canvas.Top="30" FontSize="4.5" Foreground="#FF9BA3B4" Text="{Binding SdFolder, StringFormat='\{0\}/'}" />
-      <TextBlock Canvas.Left="4" Canvas.Top="66" FontSize="3.8" Foreground="#FFE9ECF1" Text="GND VCC MISO MOSI SCK CS" />
+      <TextBlock Style="{StaticResource Art.Text}" x:Name="CardLabel" Canvas.Left="22" Canvas.Top="18" FontSize="5" FontWeight="SemiBold" Foreground="#FFE9ECF1" Text="micro SD" />
+      <TextBlock Style="{StaticResource Art.Text}" Canvas.Left="20" Canvas.Top="30" FontSize="4.5" Foreground="#FF9BA3B4" Text="{Binding SdFolder, StringFormat='\{0\}/'}" />
+      <v:PinLabels Inset="16" Foreground="#FFE9ECF1" />
     </Canvas>
     <DataTemplate.Triggers>
       <DataTrigger Binding="{Binding CardInserted}" Value="False">
@@ -1014,7 +817,7 @@
   </DataTemplate>
   <DataTemplate x:Key="Part.unknown" DataType="{x:Type vm:PartViewModel}">
     <Border Width="{Binding Width}" Height="{Binding Height}" BorderBrush="#FFF0B44C" BorderThickness="1" CornerRadius="3">
-      <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="6" Foreground="#FFF0B44C" Text="{Binding Id, StringFormat='? {0}'}" />
+      <TextBlock Style="{StaticResource Art.Text}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="6" Foreground="#FFF0B44C" Text="{Binding Id, StringFormat='? {0}'}" />
     </Border>
   </DataTemplate>
 </ResourceDictionary>

@@ -90,7 +90,7 @@ public sealed class SevenSegment : SimComponent
         new PropertyDefinition("color", PropertyKind.Choice, "red", ["red", "green", "blue", "yellow", "white"]),
     ];
 
-    private int Digits => Definition.Width > 100 ? 4 : 1;
+    private int Digits => Properties.Choice("digits") == "4" ? 4 : 1;
 
     private bool CommonAnode => Properties.Choice("common") == "anode";
 
@@ -241,12 +241,12 @@ public sealed class Tm1637 : SimComponent
         "Part_Tm1637",
         "display",
         120,
-        60,
+        70,
         [
-            new PinDefinition("CLK", PinKind.Digital, 30, 60),
-            new PinDefinition("DIO", PinKind.Digital, 40, 60),
-            new PinDefinition("VCC", PinKind.Power, 50, 60),
-            new PinDefinition("GND", PinKind.Ground, 60, 60),
+            new PinDefinition("CLK", PinKind.Digital, 30, 70),
+            new PinDefinition("DIO", PinKind.Digital, 40, 70),
+            new PinDefinition("VCC", PinKind.Power, 50, 70),
+            new PinDefinition("GND", PinKind.Ground, 60, 70),
         ],
         [new PropertyDefinition("color", PropertyKind.Choice, "red", ["red", "green", "blue", "yellow", "white"])]);
 

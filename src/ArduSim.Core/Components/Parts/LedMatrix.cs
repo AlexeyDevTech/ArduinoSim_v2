@@ -20,6 +20,9 @@ public sealed class Max7219Matrix : SimComponent, ISpiDevice
 {
     private const double Pitch = 80;
 
+    // The board's ends beyond the LEDs, where the headers and their names are.
+    private const double Ends = 40;
+
     // Declared before Spec: static initializers run in textual order.
     private static readonly ComponentDefinition One = Module(1);
     private static readonly ComponentDefinition Four = Module(4);
@@ -50,7 +53,7 @@ public sealed class Max7219Matrix : SimComponent, ISpiDevice
 
     private static ComponentDefinition Module(int count)
     {
-        double width = (Pitch * count) + 10;
+        double width = (Pitch * count) + Ends;
         return new ComponentDefinition(
             "max7219",
             "Part_Max7219",
@@ -82,7 +85,7 @@ public sealed class Max7219Matrix : SimComponent, ISpiDevice
 
     protected override void OnAttach()
     {
-        _devices = [.. Enumerable.Range(0, Definition.Width > Pitch + 10 ? 4 : 1).Select(_ => new Device())];
+        _devices = [.. Enumerable.Range(0, Properties.Choice("modules") == "4" ? 4 : 1).Select(_ => new Device())];
         _dout = Circuit.AddDriver(Pin("DOUT"), Id);
         Circuit.Watch(Pin("CLK"), OnBus);
         Circuit.Watch(Pin("CS"), OnBus);

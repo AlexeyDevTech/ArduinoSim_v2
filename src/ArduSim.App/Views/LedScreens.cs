@@ -60,7 +60,7 @@ internal static class LedScreens
         return Freeze(group);
     }
 
-    /// <summary>MAX7219 modules: 8 x 8 round LEDs each at a 10-unit pitch, starting at (5, 5).</summary>
+    /// <summary>MAX7219 modules: 8 x 8 round LEDs each at a 10-unit pitch, between the headers at the board's ends.</summary>
     public static DrawingImage Matrix(DisplayData? frame, int columns, Color color, Size part)
     {
         var group = Canvas(part);
@@ -77,7 +77,7 @@ internal static class LedScreens
             {
                 int at = (row * stride) + (column / 8);
                 bool isLit = on && at < dots.Length && (dots[at] & (0x80 >> (column % 8))) != 0;
-                group.Children.Add(new GeometryDrawing(isLit ? lit : off, null, new EllipseGeometry(new Point(10 + (column * 10), 10 + (row * 10)), 3.7, 3.7)));
+                group.Children.Add(new GeometryDrawing(isLit ? lit : off, null, new EllipseGeometry(new Point(25 + (column * 10), 10 + (row * 10)), 3.7, 3.7)));
             }
         }
 
@@ -121,9 +121,9 @@ internal static class LedScreens
                     return new Point((part.Width / 2) + (radius * Math.Cos(angle)), (part.Width / 2) + (radius * Math.Sin(angle)));
                 })];
             case "matrix":
-                return [.. Enumerable.Range(0, 64).Select(i => new Point(20 + (20 * (i % 8)), 20 + (20 * (i / 8))))];
+                return [.. Enumerable.Range(0, 64).Select(i => new Point(30 + (20 * (i % 8)), 20 + (20 * (i / 8))))];
             default:
-                return [.. Enumerable.Range(0, count).Select(i => new Point(20 + (20 * i), 20))];
+                return [.. Enumerable.Range(0, count).Select(i => new Point(30 + (20 * i), 20))];
         }
     }
 

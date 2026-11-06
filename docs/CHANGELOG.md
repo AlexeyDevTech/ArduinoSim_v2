@@ -1,5 +1,18 @@
 # Changelog
 
+## Part drawings checked against their pins (2026-11-06)
+
+The owner found the keypad's pin names squeezed to one side, away from its pins. The names were one line of text spaced by hand, on about a dozen parts. All 54 layouts were rendered with their real pin positions over the art.
+
+- **Pin names come from the pins.** One element, `PinLabels`, places them for every part and board: centered on each pin in a row, beside it in a column. They cannot drift, and names too wide for the pitch are squeezed instead of running together.
+- Corrected with it: the Mega's double header and the Pro Mini's A4-A7, whose names lay on top of the pins; `GND.3`, `5V.3` and the like, now `GND`, `5V`; the relay's contact, drawn on NO at rest (COM is on NC until the coil pulls in); the IR receiver's names floating above it; the servo's written across its wires; `NodeMCU v3` running into the ESP module.
+- **Names where there were none:** DHT, DS18B20, RGB LED, potentiometer, slide switch, buzzer.
+- **Pads where wires landed on nothing:** seven-segment displays, MAX7219 and WS2812 now show rings with names. For this the MAX7219 board is 30 units wider, the WS2812 strip and matrix 20 wider, the TM1637 10 taller, and a ring has a tab for its pads. Projects open as before: wires hold to pin names.
+- **Text stays readable on a flipped or turned part:** it was mirrored and upside down, keys and readings included. Text is now never mirrored and never upside down; a display's picture is not mirrored either, and turns with its part as real glass does.
+- `PartArtTests` holds this together for every layout: names clear of each other and of the pins and inside the part, no pin names typed into the art, leads ending on pins, drawings the size of their parts, the relay's contact.
+
+How to try it: open Keypad4x4 and Mega2560Ports and look at the names under the pins; select a part on any schematic and press F, then R twice. On the Relay example, the contact sits on NC until D7 energizes the coil.
+
 ## Wires that hold on, a tree of what files contain, a constructor of screens (2026-11-06)
 
 The owner's three remarks on the last version.

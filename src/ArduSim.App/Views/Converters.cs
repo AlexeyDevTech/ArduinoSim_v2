@@ -93,6 +93,24 @@ public sealed class PartTemplateSelector : DataTemplateSelector
             : null;
 }
 
+/// <summary>From a part's flip scale and rotation, what its text applies (<see cref="PartText"/>).</summary>
+public sealed class UprightTextConverter : IMultiValueConverter
+{
+    public object Convert(object?[] values, Type targetType, object? parameter, CultureInfo culture) =>
+        values.Length == 2 && values[0] is double flip && values[1] is double rotation ? PartText.UprightFor(flip < 0, rotation) : Transform.Identity;
+
+    public object[] ConvertBack(object? value, Type[] targetTypes, object? parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
+/// <summary>From a part's flip scale, what its display's picture applies (<see cref="PartText"/>).</summary>
+public sealed class UnmirroredScreenConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        PartText.UnmirroredFor(value is double flip && flip < 0);
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
 /// <summary>Visible when both values are the same object (a tab's view and the selected tab).</summary>
 public sealed class SameToVisibilityConverter : IMultiValueConverter
 {

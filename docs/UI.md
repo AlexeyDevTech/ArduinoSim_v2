@@ -266,7 +266,9 @@ Fluent UI System Icons, Regular, 20 px in the toolbar's build-and-run group and 
 
 - Background `Canvas` with a dot every 0.1 inch (the pin pitch); dots fade out below 50 % zoom.
 - Parts are flat, slightly stylized drawings of the real part (Wokwi-like, not schematic symbols), drawn from vector art in their definitions (ADR-007), crisp at every zoom.
-- Board pins: gold rings with labels, which grow a little at far zoom; other parts' pins appear as small rings on hover and while wiring.
+- Board pins: gold rings with labels, which grow a little at far zoom; other parts' pins appear as small rings on hover and while wiring. Parts without leads (displays on a PCB, seven-segment, MAX7219, WS2812) always show their rings.
+- Pin names are placed from the pins by `PinLabels`, on every part: centered on each pin in a row, beside it in a column, squeezed to the pitch rather than touching. Part art never has pin names typed into it.
+- Text on a part is never mirrored or upside down, however the part is flipped or turned; a display's picture is not mirrored, and turns with its part.
 - While running: a dot on every driven board pin (grey LOW, green HIGH, accent PWM, amber tone), wires of a HIGH net with a bright core, of a LOW net dimmed, of a PWM or tone net with dashes; a 2 px bar in the status color above the center.
 - Currents on the schematic *(M12)*: while running, an LED shows its current above it and a resistor its voltage and current below it, upright however the part is turned, when any flows; Параметры → Токи на схеме hides them. Everything else with a current says so where the voltage is said: pin and wire tooltips and the Свойства pin rows.
 - **One line of hint** at the bottom left, chosen by the state: only the board placed, wiring, a wire selected, a part selected, running. It can be switched off in Параметры.

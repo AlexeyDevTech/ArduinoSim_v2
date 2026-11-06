@@ -1239,7 +1239,7 @@ public sealed partial class PartViewModel : ObservableObject
         }
     }
 
-    public IEnumerable<PinViewModel> Pins => Definition?.Pins.Select(p => new PinViewModel(p.Name, p.X, p.Y)) ?? [];
+    public IEnumerable<PinViewModel> Pins => Definition?.Pins.Select(p => new PinViewModel(p.Name, p.X, p.Y, p.Label)) ?? [];
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
@@ -1382,11 +1382,13 @@ public sealed partial class PartViewModel : ObservableObject
 
     public bool CardInserted => Text("inserted", "yes") == "yes";
 
-    /// <summary>The seven-segment body (it leaves the pins at the top and bottom edges free).</summary>
-    public double BodyHeight => Height - 8;
+    /// <summary>The LED area of the MAX7219 modules: 80 units per module, the board's ends left free for the headers.</summary>
+    public double MatrixWidth => Width - 38;
 
-    /// <summary>The LED area of the MAX7219 modules: 80 units per module.</summary>
-    public double MatrixWidth => Width - 8;
+    /// <summary>The tab under a ring with its four pads, centered on them.</summary>
+    public double RingTabLeft => (Width / 2) - 32;
+
+    public double RingTabTop => Width - 8;
 
     /// <summary>A strip's board; the matrix panel fills the part.</summary>
     public double BoardHeight => IsMatrixLayout ? Height : 40;
@@ -1671,7 +1673,7 @@ public sealed partial class PartViewModel : ObservableObject
             {
                 "seven-segment" => Views.LedScreens.Segments(_display, Text("digits", "1") == "4" ? 4 : 1, color, colon: false, part, Text("digits", "1") == "4" ? new Rect(12, 12, 106, 46) : new Rect(10, 14, 40, 52)),
                 "tm1637" => Views.LedScreens.Segments(_display, 4, color, colon: true, part, new Rect(12, 8, 96, 36)),
-                "max7219" => Views.LedScreens.Matrix(_display, (int)Math.Round((Width - 10) / 80) * 8, color, part),
+                "max7219" => Views.LedScreens.Matrix(_display, (int)Math.Round((Width - 40) / 80) * 8, color, part),
                 _ => Views.LedScreens.Rgb(_display, Views.LedScreens.LedCenters(Text("layout", "strip"), (int)Number("count", 8), part), 7, part),
             };
             ScreenWidth = Width;
@@ -1830,13 +1832,23 @@ public sealed partial class KeyCapViewModel(string label, bool isAccent) : Obser
     public partial bool IsDown { get; set; }
 }
 
-public sealed record PinViewModel(string Name, double X, double Y)
+/// <param name="Caption">What the part calls the pin when that is not its name (+ on an LED).</param>
+public sealed record PinViewModel(string Name, double X, double Y, string? Caption = null)
 {
-    /// <summary>Duplicate pins (GND.2, RST.2) are labelled like their twin.</summary>
-    public string Label => Name.EndsWith(".2", StringComparison.Ordinal) ? Name[..^2] : Name;
+    /// <summary>Duplicate pins (GND.2, 3V3.3) are labelled like their twin.</summary>
+    public string Label
+    {
+        get
+        {
+            if (Caption is { } caption)
+            {
+                return caption;
+            }
 
-    /// <summary>Label offset from the pin: top-row labels go below it, bottom-row labels above.</summary>
-    public double LabelOffset => Y < 35 ? 4 : -10;
+            int dot = Name.LastIndexOf('.');
+            return dot > 0 && dot < Name.Length - 1 && Name.AsSpan(dot + 1).IndexOfAnyExceptInRange('0', '9') < 0 ? Name[..dot] : Name;
+        }
+    }
 }
 
 public sealed record PinMarker(double X, double Y, bool IsHot);

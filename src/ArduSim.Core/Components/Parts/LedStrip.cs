@@ -64,8 +64,8 @@ public sealed class LedStrip : SimComponent
             (double width, double height, PinDefinition[] pins) = shape switch
             {
                 "ring" => Ring(count),
-                "matrix" => (180.0, 180.0, Side(180, 80)),
-                _ => ((count * 20.0) + 20, 40.0, Side((count * 20.0) + 20, 10)),
+                "matrix" => (200.0, 180.0, Side(200, 80)),
+                _ => ((count * 20.0) + 40, 40.0, Side((count * 20.0) + 40, 10)),
             };
             var definition = new ComponentDefinition("ws2812", "Part_Ws2812", "output", width, height, pins, PropertyList)
             {
